@@ -6,6 +6,8 @@
 #include <memory.h>
 #include <string.h>
 
+#include <util.h>
+
 #define MAX_TOKEN_STR 512
 
 typedef enum {
@@ -81,5 +83,15 @@ typedef struct _Token {
   wchar_t* str;
   TokenType type;
 } Token;
+
+typedef struct {
+  Token* token_cache; // cache token for consume, peek, pull
+  wchar_t* file; // full file contents.
+  wchar_t* cur_c; // current c
+} TokenizerContext;
+
+TokenType get_sc_tt(TokenizerContext* tc);
+short is_sc(const wchar_t wc);
+TokenizerContext* create_tc(wchar_t* file);
 
 #endif
