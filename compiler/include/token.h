@@ -99,6 +99,7 @@ typedef struct {
   TokenType type;
 } KeywordEntry;
 
+Token* peek(TokenizerContext* tc);
 Token* pull(TokenizerContext* tc);
 
 Token* gen_sc_token(TokenizerContext* tc);

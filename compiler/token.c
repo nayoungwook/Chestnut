@@ -20,9 +20,16 @@ static KeywordEntry keyword_table[] = {
   {NULL, TokEOF},
 };
 
-Token* pull(TokenizerContext* tc) {
-  tc->token_cache = NULL;
+Token* peek(TokenizerContext* tc) {
+  if(!tc->token_cache){
+    pull(tc);
+  }
 
+  return tc->token_cache;
+}
+
+Token* pull(TokenizerContext* tc) {
+  
   while (*tc->cur_ch != '\0') {
     if (iswspace(*tc->cur_ch)) { // skip white space
       tc->cur_ch++;
@@ -30,15 +37,15 @@ Token* pull(TokenizerContext* tc) {
     }
 
     if (iswalpha(*tc->cur_ch)) {
-      return gen_ident_token(tc);
+      return tc->token_cache = gen_ident_token(tc);
     }
     
     if (is_sc(*tc->cur_ch)) {
-      return gen_sc_token(tc);
+      return tc->token_cache = gen_sc_token(tc);
     }
     
     if (iswdigit(*tc->cur_ch)) {
-      return gen_num_token(tc);
+      return tc->token_cache = gen_num_token(tc);
     }
   }
 
@@ -46,7 +53,7 @@ Token* pull(TokenizerContext* tc) {
   eof_token->str = L"EOF";
   eof_token->type = TokEOF;
 
-  return eof_token;
+  return tc->token_cache = eof_token;
 }
 
 TokenizerContext* gen_tc(wchar_t* file){
