@@ -12,6 +12,10 @@ void unix_error(char *msg);
 
 #endif
 
+#define bool short
+#define true 1
+#define false 0
+
 void* S_malloc(size_t size);
 
 #endif

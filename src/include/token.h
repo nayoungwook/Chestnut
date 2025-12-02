@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <string.h>
+#include <ctype.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #include <util.h>
 
@@ -79,7 +82,7 @@ typedef enum {
   TokFalse = 53,
 } TokenType;
 
-typedef struct _Token {
+typedef struct {
   wchar_t* str;
   TokenType type;
 } Token;
@@ -87,11 +90,22 @@ typedef struct _Token {
 typedef struct {
   Token* token_cache; // cache token for consume, peek, pull
   wchar_t* file; // full file contents.
-  wchar_t* cur_c; // current c
+  wchar_t* cur_ch; // current c
+  unsigned line_num;
 } TokenizerContext;
 
-TokenType get_sc_tt(TokenizerContext* tc);
+typedef struct {
+  const wchar_t* keyword;
+  TokenType type;
+} KeywordEntry;
+
+Token* pull(TokenizerContext* tc);
+
+Token* gen_sc_token(TokenizerContext* tc);
+Token* gen_num_token(TokenizerContext* tc);
+Token* gen_ident_token(TokenizerContext* tc);
+
 short is_sc(const wchar_t wc);
-TokenizerContext* create_tc(wchar_t* file);
+TokenizerContext* gen_tc(wchar_t* file);
 
 #endif

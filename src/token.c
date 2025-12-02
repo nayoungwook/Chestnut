@@ -1,77 +1,193 @@
 #include <token.h>
+#include <error.h>
 
-TokenizerContext* create_tc(wchar_t* file){
+static KeywordEntry keyword_table[] = {
+  {L"var", TokVar},
+  {L"if", TokIf},
+  {L"for", TokFor},
+  {L"func", TokFunc},
+  {L"return", TokReturn},
+  {L"else", TokElse},
+  {L"class", TokClass},
+  {L"extends", TokExtends},
+  {L"private", TokPrivate},
+  {L"public", TokPublic},
+  {L"protected", TokProtected},
+  {L"constructor", TokConstructor},
+  {L"new", TokNew},
+  {L"true", TokTrue},
+  {L"false", TokFalse},
+  {NULL, TokEOF},
+};
+
+Token* pull(TokenizerContext* tc) {
+  tc->token_cache = NULL;
+
+  while (*tc->cur_ch != '\0') {
+    if (iswspace(*tc->cur_ch)) { // skip white space
+      tc->cur_ch++;
+      continue;
+    }
+
+    if (iswalpha(*tc->cur_ch)) {
+      return gen_ident_token(tc);
+    }
+    
+    if (is_sc(*tc->cur_ch)) {
+      return gen_sc_token(tc);
+    }
+    
+    if (iswdigit(*tc->cur_ch)) {
+      return gen_num_token(tc);
+    }
+  }
+
+  Token* eof_token = (Token*)S_malloc(sizeof(Token));
+  eof_token->str = L"EOF";
+  eof_token->type = TokEOF;
+
+  return eof_token;
+}
+
+TokenizerContext* gen_tc(wchar_t* file){
   TokenizerContext* tc = (TokenizerContext*)S_malloc(sizeof(TokenizerContext));
 
   tc->file = file;
-  tc->cur_c = file;
+  tc->cur_ch = file;
   tc->token_cache = NULL;
+  tc->line_num = 0;
   
   return tc;
 }
 
-short is_sc(const wchar_t wc) {
-  if (wc == L'_') return 0;
+bool is_sc(const wchar_t wc) {
+  if (wc == L'_') return false;
 
   if ((wc >= L'!' && wc <= L'/') ||
       (wc >= L':' && wc <= L'@') ||
       (wc >= L'[' && wc <= L'`') ||
       (wc >= L'{' && wc <= L'~')) {
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
-Token* get_sc_token(TokenizerContext* tc) {
-  TokenType type = TokEOF;
-  wchar_t str[MAX_TOKEN_STR];
+Token* gen_num_token(TokenizerContext* tc) {
+  wchar_t* str = (wchar_t*) S_malloc(MAX_TOKEN_STR * sizeof(wchar_t));
   unsigned str_len = 0;
+  unsigned dot_count = 0;
   
-  char* c = tc->cur_c;
+  while (iswdigit(*tc->cur_ch) || *tc->cur_ch == L'.') {
+    str[str_len++] = *tc->cur_ch;
+
+    if(str_len >= MAX_TOKEN_STR - 1) panic(L"token string buffer overflow", tc);
+
+    tc->cur_ch++;
+    
+    if(*tc->cur_ch == L'.') {
+      dot_count++;
+    }
+    if(dot_count >= 2){
+      panic(L"Invalid numeric type.", tc);
+    }
+  }
+  str[str_len] = L'\0';
+
+  Token* tok = (Token*)S_malloc(sizeof(Token));
+  tok->str = str;
+  tok->type = TokNumberLiteral;
   
-  str[str_len] = c;
-  str_len++;
+  return tok;
+}
+
+Token* gen_ident_token(TokenizerContext* tc) {
+  wchar_t* str = (wchar_t*) S_malloc(MAX_TOKEN_STR * sizeof(wchar_t));
+  unsigned str_len = 0;
+
+  TokenType type = TokIdent;
+
+  while (iswalnum(*tc->cur_ch) || *tc->cur_ch == L'_') {
+    str[str_len++] = *tc->cur_ch;
+
+    if(str_len >= MAX_TOKEN_STR - 1) panic(L"token string buffer overflow", tc);
+    
+    tc->cur_ch++;
+  }
+  str[str_len] = L'\0';
+
+  int i;
+  for (i = 0; keyword_table[i].keyword != NULL; i++) {
+    if (wcscmp(str, keyword_table[i].keyword) == 0) {
+      type = keyword_table[i].type;
+      break;
+    }
+  }
   
-  switch (*c) {
+  Token* tok = (Token*)S_malloc(sizeof(Token));
+  tok->str = str;
+  tok->type = type;
+
+  return tok;
+}
+
+void get_str_literal(TokenizerContext* tc, wchar_t* str, unsigned *str_len){
+  
+  while (true) {
+    wchar_t ch = *(tc->cur_ch);
+    if(ch == L'\0'){
+      panic(L"Unterminaled string literal", tc);
+    }
+    if(ch == L'\"'){
+      tc->cur_ch++;
+      break;
+    }
+    if(*str_len >= MAX_TOKEN_STR - 1) panic(L"String literal buffer overflow.", tc);
+
+    str[(*str_len)++] = ch;
+    tc->cur_ch++;
+  }
+  
+  str[(*str_len)++] = L'\"';
+  tc->cur_ch++;
+}
+
+Token* gen_sc_token(TokenizerContext* tc) {
+  wchar_t* str = (wchar_t*) S_malloc(MAX_TOKEN_STR * sizeof(wchar_t));
+  unsigned str_len = 0;
+
+  TokenType type;
+
+  wchar_t ch = *tc->cur_ch;
+  str[str_len++] = ch;
+  tc->cur_ch++;
+  
+  switch (ch) {
   case L'\"': {
     type = TokStringLiteral;
-
-    while (*(c + 1) != L'\"') {
-      c++;
-
-      str[str_len] = *c;
-      str_len++;
-    }
-
-    c++;
-
-    str[str_len] = *c;
-    str_len++;
-
-
+    get_str_literal(tc, str, &str_len);
+    
     break;
   }
 
   case L'=': {
     type = TokAssign;
-    if (*(c + 1) == L'=') {
+    
+    if (*(tc->cur_ch) == L'=') {
       type = TokEqual;
-      c++;
 
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
     break;
   }
 
   case L'!': {
     type = TokNot;
-    if (*(c + 1) == L'=') {
+    
+    if (*(tc->cur_ch) == L'=') {
       type = TokNotEqual;
-      c++;
-
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
     break;
   }
@@ -84,24 +200,23 @@ Token* get_sc_token(TokenizerContext* tc) {
   case L'<': {
     type = TokLesser;
 
-    if (*(c + 1) == L'=') {
+    if (*(tc->cur_ch) == L'=') {
       type = TokEqualLesser;
-      c++;
 
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
     break;
   }
 
   case L'>': {
     type = TokGreater;
-    if (*(c + 1) == L'=') {
+    
+    if (*(tc->cur_ch) == L'=') {
       type = TokEqualGreater;
-      c++;
 
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
     break;
   }
@@ -159,12 +274,11 @@ Token* get_sc_token(TokenizerContext* tc) {
   case L'|': {
     type = TokBitOr;
 
-    if (*(c + 1) == L'|') {
+    if (*(tc->cur_ch) == L'|') {
       type = TokOr;
-      c++;
 
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
     break;
   }
@@ -172,28 +286,29 @@ Token* get_sc_token(TokenizerContext* tc) {
   case L'&': {
     type = TokBitAnd;
 
-    if (*(c + 1) == L'&') {
+    if (*(tc->cur_ch) == L'&') {
       type = TokAnd;
-      c++;
+	    
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
     break;
   }
 
   case L'+': {
     type = TokAdd;
-    if (*(c + 1) == L'=') {
+    
+    if (*(tc->cur_ch) == L'=') {
       type = TokPlusAssign;
-      c++;
 
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
-    if (*(c + 1) == L'+') {
+    else if (*(tc->cur_ch) == L'+') {
       type = TokIncrease;
-      c++;
-
-      str[str_len] = *c;
-      str_len++;
+	    
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
 
     break;
@@ -201,19 +316,18 @@ Token* get_sc_token(TokenizerContext* tc) {
 
   case L'-': {
     type = TokSub;
-    if (*(c + 1) == L'=') {
+    
+    if (*(tc->cur_ch) == L'=') {
       type = TokMinusAssign;
-      c++;
 
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
-    if (*(c + 1) == L'-') {
+    else if (*(tc->cur_ch) == L'-') {
       type = TokDecrease;
-      c++;
 
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
 
     break;
@@ -221,19 +335,17 @@ Token* get_sc_token(TokenizerContext* tc) {
 
   case L'*': {
     type = TokMul;
-    if (*(c + 1) == L'=') {
+    if (*(tc->cur_ch) == L'=') {
       type = TokMultAssign;
-      c++;
 
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
-    if (*(c + 1) == L'*') {
+    else if (*(tc->cur_ch) == L'*') {
       type = TokPow;
-      c++;
 
-      str[str_len] = *c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
 
     break;
@@ -241,25 +353,27 @@ Token* get_sc_token(TokenizerContext* tc) {
 
   case L'/': {
     type = TokDiv;
-    if (*(c + 1) == L'=') {
+    if (*(tc->cur_ch) == L'=') {
       type = TokDivAssign;
-      c++;
 
-      str[str_len] = c;
-      str_len++;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
     }
     break;
   }
 
+  default: {
+    panic(L"Undefined special character", tc);
+    break;
+  }
   }
 
-  str[str_len] = '\0';
-  str_len++;
+  str[str_len] = L'\0';
 
-  Token* res = (Token*) S_malloc(sizeof(Token));
-  res->str = str;
-  res->type = type;
+  Token* tok = (Token*) S_malloc(sizeof(Token));
+  tok->str = str;
+  tok->type = type;
   
-  return res;
+  return tok;
 }
 
