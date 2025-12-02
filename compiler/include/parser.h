@@ -4,7 +4,7 @@
 #include <token.h>
 
 struct CNODE {
-  CNODE* next,* prev;
+  struct CNODE* next,* prev;
   void* ptr;
 };
 

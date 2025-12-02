@@ -1,13 +1,14 @@
 #include <token.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ir.h>
 
 int main(int arc, char *args[]){
 
   TokenizerContext* tc = gen_tc(L"var a: int = 2;");
-  
-  Token* tok = NULL;
 
+  Token* tok = NULL;
+  
   while(1){
     tok = pull(tc);
 
@@ -16,6 +17,6 @@ int main(int arc, char *args[]){
     if(tok->type == TokEOF)
       break;
   }
-  
+
   return 0;
 }

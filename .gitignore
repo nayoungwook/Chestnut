@@ -2,3 +2,6 @@
 # ignore build files.
 **/*.o
 main
+
+# ignore compile commands for emacs lsp.
+compile_commands.json

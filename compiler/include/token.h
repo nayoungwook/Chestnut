@@ -99,6 +99,8 @@ typedef struct {
   TokenType type;
 } KeywordEntry;
 
+TokenType check_ident_type();
+
 Token* peek(TokenizerContext* tc);
 Token* pull(TokenizerContext* tc);
 
