@@ -1,5 +1,6 @@
-
 #include <token.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 int main(int arc, char *args[]){
 
