@@ -3,10 +3,11 @@
 
 #include <token.h>
 
-struct CNODE {
-  struct CNODE* next,* prev;
+struct CNode {
+  struct CNode* next;
   void* ptr;
 };
+
 
 typedef struct {
   

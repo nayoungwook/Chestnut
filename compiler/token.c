@@ -28,13 +28,10 @@ Token* peek(TokenizerContext* tc) {
   return tc->token_cache;
 }
 
-Token* pull(TokenizerContext* tc) {
-    
-  while (*tc->cur_ch != '\0') {
-    if (iswspace(*tc->cur_ch)) { // skip white space
-      tc->cur_ch++;
-      continue;
-    }
+Token *pull(TokenizerContext *tc) {
+
+  while (iswspace(*tc->cur_ch)) {// skip white space
+    tc->cur_ch++;
   }
 
   if (iswalpha(*tc->cur_ch)) {
@@ -296,57 +293,57 @@ Token* gen_sc_token(TokenizerContext* tc) {
     type = TokAdd;
 	
     if (*(tc->cur_ch) == L'=') {
-	    type = TokPlusAssign;
+      type = TokPlusAssign;
 
-	    str[str_len++] = *tc->cur_ch;
-	    tc->cur_ch++;
-	}
-	else if (*(tc->cur_ch) == L'+') {
-	    type = TokIncrease;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
+    }
+    else if (*(tc->cur_ch) == L'+') {
+      type = TokIncrease;
 	    
-	    str[str_len++] = *tc->cur_ch;
-	    tc->cur_ch++;
-	}
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
+    }
 
-	break;
+    break;
 
-    case L'-': 
-	type = TokSub;
+  case L'-': 
+    type = TokSub;
 	
-	if (*(tc->cur_ch) == L'=') {
-	    type = TokMinusAssign;
+    if (*(tc->cur_ch) == L'=') {
+      type = TokMinusAssign;
 
-	    str[str_len++] = *tc->cur_ch;
-	    tc->cur_ch++;
-	}
-	else if (*(tc->cur_ch) == L'-') {
-	    type = TokDecrease;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
+    }
+    else if (*(tc->cur_ch) == L'-') {
+      type = TokDecrease;
 
-	    str[str_len++] = *tc->cur_ch;
-	    tc->cur_ch++;
-	}
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
+    }
 
-	break;
+    break;
 
-    case L'*': 
-	type = TokMul;
-	if (*(tc->cur_ch) == L'=') {
-	    type = TokMultAssign;
+  case L'*': 
+    type = TokMul;
+    if (*(tc->cur_ch) == L'=') {
+      type = TokMultAssign;
 
-	    str[str_len++] = *tc->cur_ch;
-	    tc->cur_ch++;
-	}
-	else if (*(tc->cur_ch) == L'*') {
-	    type = TokPow;
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
+    }
+    else if (*(tc->cur_ch) == L'*') {
+      type = TokPow;
 
-	    str[str_len++] = *tc->cur_ch;
-	    tc->cur_ch++;
-	}
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
+    }
 
-	break;
+    break;
 
-    case L'/': 
-	type = TokDiv;
+  case L'/': 
+    type = TokDiv;
 	if (*(tc->cur_ch) == L'=') {
 	    type = TokDivAssign;
 
