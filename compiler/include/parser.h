@@ -3,12 +3,6 @@
 
 #include <token.h>
 
-struct CNode {
-  struct CNode* next;
-  void* ptr;
-};
-
-
 typedef struct {
   
 } ParserContext;

@@ -99,7 +99,7 @@ typedef struct {
   TokenType type;
 } KeywordEntry;
 
-TokenType check_ident_type();
+TokenType check_ident_type(const wchar_t *str);
 
 Token* peek(TokenizerContext* tc);
 Token* pull(TokenizerContext* tc);
