@@ -30,10 +30,15 @@ Token* peek(TokenizerContext* tc) {
 
 Token *pull(TokenizerContext *tc) {
 
-  while (iswspace(*tc->cur_ch)) {// skip white space
+  while (iswspace(*tc->cur_ch) || (*tc->cur_ch == L'\n')) {// skip white space
     tc->cur_ch++;
+    
+    if (*tc->cur_ch == L'\n') {
+      tc->line_num++;
+      wprintf(L"\nline number : %d\n", tc->line_num);
+    }      
   }
-
+  
   if (iswalpha(*tc->cur_ch)) {
     return tc->token_cache = gen_ident_token(tc);
   }
@@ -59,7 +64,7 @@ TokenizerContext* gen_tc(wchar_t* file){
   tc->file = file;
   tc->cur_ch = file;
   tc->token_cache = NULL;
-  tc->line_num = 0;
+  tc->line_num = 1;
     
   return tc;
 }
