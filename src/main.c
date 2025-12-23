@@ -1,23 +1,18 @@
-#include <stdio.h>
-#include <stdlib.h>
 
 #include <token.h>
+#include <parser.h>
 #include <util.h>
 
 int main(int arc, char *args[]){
 
   TokenizerContext* tc = gen_tc(L"if ( a == 3 ) { return 0; } \n var b: int = 0;\n");
+  ParserContext* pc = gen_pc(tc);
 
-  Token* tok = NULL;
+  void *ast = NULL;
 
-  while(true){
-    tok = pull(tc);
+  while ((ast = parse(pc)) != NULL) {
 
-    wprintf(L"pull : %ls %d\n", tok->str, tok->type);
-
-    if(tok->type == TokEOF)
-      break;
-  }
+  }    
   
   return 0;
 }

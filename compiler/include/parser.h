@@ -31,40 +31,39 @@ typedef enum {
 
 typedef struct {
   ASTType TYPE;
-  Token* number_literal_token;
-  const wchar_t* numeric_type;
+  Token* num_tok;
+  short byte;
 } NumberLiteralAST;
 
 typedef struct {
   ASTType TYPE;
-  Token* string_literal_token;
+  Token* str_tok;
 } StringLiteralAST;
 
 typedef struct {
   ASTType TYPE;
-  Token* identifier;
+  Token* ident;
   void* attribute;
 } IdentifierAST;
 
 typedef struct {
   ASTType TYPE;
-  Token* bool_token;
-  char bool_type;
+  Token* bool_tok;
 } BoolLiteralAST;
 
 typedef struct {
   ASTType TYPE;
-  Token* variable_name_token;
-  Type* variable_type;
-  void* declaration;
-  int access_modifier;
-} VariableDeclarationAST;
+  Token* var_name_tok;
+  Token* var_type_tok;
+  void* decl;
+  int ac_mod;
+} VarDeclAST;
 
 typedef struct {
   ASTType TYPE;
-  VariableDeclarationAST** variable_declarations;
-  int variable_count;
-} VariableDeclarationBundleAST;
+  VarDeclAST** var_decls;
+  int var_count;
+} VarDeclBundleAST;
 
 typedef enum { OpNone, OpADD, OpSUB, OpMUL, OpDIV, OpEQUAL, OpNOTEQUAL, OpGREATER, OpLESS, OpEQUALGREATER, OpEQUALLESS, OpASSIGN, OpOR, OpAND } OperatorType;
 
@@ -79,44 +78,44 @@ typedef struct {
   void* expr;
 }UnaryExprAST;
 
-typedef enum { StmtIf, StmtElseIf, StmtElse } IfStatementType;
+typedef enum { StmtIf, StmtElseIf, StmtElse } IfStmtType;
 
 typedef struct {
   ASTType TYPE;
-  IfStatementType if_type;
-  void* condition;
-  void* next_statement;
+  IfStmtType if_type;
+  void* cond;
+  void* next_stmt;
   void** body;
   int body_count;
-} IfStatementAST;
+} IfStmtAST;
 
 typedef struct {
   ASTType TYPE;
-  Token* function_name_token;
-  Type* return_type;
-  VariableDeclarationBundleAST* parameters;
+  Token* func_name_tok;
+  Token* ret_type_tok;
+  VarDeclBundleAST* parameters;
   void** body;
   int body_count;
-  int access_modifier;
-} FunctionDeclarationAST;
+  int ac_mod;
+} FuncDeclAST;
 
 typedef struct {
   ASTType TYPE;
-  Token* function_name_token;
+  Token* func_name_tok;
   void** parameters;
   int parameter_count;
   void* attribute;
-} FunctionCallAST;
+} FuncCallAST;
 
 typedef struct {
   ASTType TYPE;
   Token* identifier;
-} IdentIncreaseAST;
+} IdentIncreAST;
 
 typedef struct {
   ASTType TYPE;
   Token* identifier;
-} IdentDecreaseAST;
+} IdentDecreAST;
 
 typedef struct {
   ASTType TYPE;
@@ -125,7 +124,7 @@ typedef struct {
   void* step;
   void** body;
   int body_count;
-} ForStatementAST;
+} ForStmtAST;
 
 typedef struct {
   ASTType TYPE;
@@ -134,10 +133,10 @@ typedef struct {
 
 typedef struct {
   ASTType TYPE;
-  VariableDeclarationBundleAST* parameters;
+  VarDeclBundleAST* parameters;
   void** body;
   int body_count;
-  int access_modifier;
+  int ac_mod;
 } ConstructorAST;
 
 typedef struct {
@@ -146,8 +145,8 @@ typedef struct {
   void* initializer;
   ConstructorAST* constructor;
 
-  VariableDeclarationBundleAST** member_variables;
-  FunctionDeclarationAST** member_functions;
+  VarDeclBundleAST** member_variables;
+  FuncDeclAST** member_functions;
 
   int member_variable_bundle_count;
   int member_function_count;
@@ -165,15 +164,15 @@ typedef struct {
 } NewAST;
 
 typedef struct {
-  ASTType	TYPE;
+  ASTType TYPE;
 }NullAST;
 
 typedef struct {
   ASTType TYPE;
   int element_count;
   void** elements;
-  Type* element_type;
-} ArrayDeclarationAST;
+  Token* ele_type_tok;
+} ArrayDeclAST;
 
 typedef struct {
   ASTType TYPE;
@@ -193,6 +192,7 @@ typedef struct {
 } ParserContext;
 ParserContext *gen_pc(TokenizerContext *tc);
 
-void* parse(ParserContext* pc);
+// parse
+void *parse(ParserContext* pc);
 
 #endif

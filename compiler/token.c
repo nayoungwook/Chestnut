@@ -20,44 +20,6 @@ static KeywordEntry keyword_table[] = {
   {NULL, TokEOF},
 };
 
-Token* peek(TokenizerContext* tc) {
-  if(!tc->token_cache){
-    pull(tc);
-  }
-
-  return tc->token_cache;
-}
-
-Token *pull(TokenizerContext *tc) {
-
-  while (iswspace(*tc->cur_ch) || (*tc->cur_ch == L'\n')) {// skip white space
-    tc->cur_ch++;
-    
-    if (*tc->cur_ch == L'\n') {
-      tc->line_num++;
-      wprintf(L"\nline number : %d\n", tc->line_num);
-    }      
-  }
-  
-  if (iswalpha(*tc->cur_ch)) {
-    return tc->token_cache = gen_ident_token(tc);
-  }
-
-  if (is_sc(*tc->cur_ch)) {
-    return tc->token_cache = gen_sc_token(tc);
-  }
-
-  if (iswdigit(*tc->cur_ch)) {
-    return tc->token_cache = gen_num_token(tc);
-  }
-
-  Token* eof_token = (Token*)S_malloc(sizeof(Token));
-  eof_token->str = L"EOF";
-  eof_token->type = TokEOF;
-
-  return tc->token_cache = eof_token;
-}
-
 TokenizerContext* gen_tc(wchar_t* file){
   TokenizerContext* tc = (TokenizerContext*)S_malloc(sizeof(TokenizerContext));
 
@@ -69,7 +31,7 @@ TokenizerContext* gen_tc(wchar_t* file){
   return tc;
 }
 
-bool is_sc(const wchar_t wc) {
+static bool is_sc(const wchar_t wc) {
   if (wc == L'_') return false;
 
   if ((wc >= L'!' && wc <= L'/') ||
@@ -81,7 +43,7 @@ bool is_sc(const wchar_t wc) {
   return false;
 }
 
-Token* gen_num_token(TokenizerContext* tc) {
+static Token* gen_num_token(TokenizerContext* tc) {
   wchar_t* str = (wchar_t*) S_malloc(MAX_TOKEN_STR * sizeof(wchar_t));
   unsigned str_len = 0;
   unsigned dot_count = 0;
@@ -109,7 +71,7 @@ Token* gen_num_token(TokenizerContext* tc) {
   return tok;
 }
 
-TokenType check_ident_type(const wchar_t* str){
+static TokenType check_ident_type(const wchar_t* str){
   TokenType type = TokIdent;
   int i;
     
@@ -123,7 +85,7 @@ TokenType check_ident_type(const wchar_t* str){
   return type;
 }
 
-Token* gen_ident_token(TokenizerContext* tc) {
+static Token* gen_ident_token(TokenizerContext* tc) {
   wchar_t* str = (wchar_t*) S_malloc(MAX_TOKEN_STR * sizeof(wchar_t));
   unsigned str_len = 0;
 
@@ -145,7 +107,7 @@ Token* gen_ident_token(TokenizerContext* tc) {
   return tok;
 }
 
-void get_str_literal(TokenizerContext* tc, wchar_t* str, unsigned *str_len){
+static void get_str_literal(TokenizerContext* tc, wchar_t* str, unsigned *str_len){
     
   while (true) {
     wchar_t ch = *(tc->cur_ch);
@@ -166,7 +128,7 @@ void get_str_literal(TokenizerContext* tc, wchar_t* str, unsigned *str_len){
   tc->cur_ch++;
 }
 
-Token* gen_sc_token(TokenizerContext* tc) {
+static Token* gen_sc_token(TokenizerContext* tc) {
   wchar_t* str = (wchar_t*) S_malloc(MAX_TOKEN_STR * sizeof(wchar_t));
   unsigned str_len = 0;
 
@@ -349,18 +311,18 @@ Token* gen_sc_token(TokenizerContext* tc) {
 
   case L'/': 
     type = TokDiv;
-	if (*(tc->cur_ch) == L'=') {
-	    type = TokDivAssign;
-
-	    str[str_len++] = *tc->cur_ch;
-	    tc->cur_ch++;
-	}
-	break;
-
-	default: {
-	    panic(L"Undefined special character", tc);
-	    break;
-	}
+    if (*(tc->cur_ch) == L'=') {
+      type = TokDivAssign;
+      
+      str[str_len++] = *tc->cur_ch;
+      tc->cur_ch++;
+    }
+    break;
+    
+    default: {
+      panic(L"Undefined special character", tc);
+      break;
+    }
     }
 
     str[str_len] = L'\0';
@@ -372,3 +334,50 @@ Token* gen_sc_token(TokenizerContext* tc) {
     return tok;
 }
 
+Token* peek(TokenizerContext* tc) {
+  if(!tc->token_cache){
+    pull(tc);
+  }
+
+  return tc->token_cache;
+}
+
+Token* pull(TokenizerContext *tc) {
+
+  while (iswspace(*tc->cur_ch) || (*tc->cur_ch == L'\n')) {// skip white space
+    tc->cur_ch++;
+    
+    if (*tc->cur_ch == L'\n') {
+      tc->line_num++;
+      wprintf(L"\nline number : %d\n", tc->line_num);
+    }      
+  }
+  
+  if (iswalpha(*tc->cur_ch)) {
+    return tc->token_cache = gen_ident_token(tc);
+  }
+
+  if (is_sc(*tc->cur_ch)) {
+    return tc->token_cache = gen_sc_token(tc);
+  }
+
+  if (iswdigit(*tc->cur_ch)) {
+    return tc->token_cache = gen_num_token(tc);
+  }
+
+  Token* eof_token = (Token*)S_malloc(sizeof(Token));
+  eof_token->str = L"EOF";
+  eof_token->type = TokEOF;
+
+  return tc->token_cache = eof_token;
+}
+
+Token* consume(TokenizerContext *tc, TokenType tt) {
+  Token *tok = pull(tc);
+
+  if (tok->type != tt) {
+    panic(L"Wrong token type consumed.\n", tc);
+  }
+
+  return tok;  
+}  

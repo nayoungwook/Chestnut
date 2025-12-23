@@ -99,16 +99,10 @@ typedef struct {
   TokenType type;
 } KeywordEntry;
 
-TokenType check_ident_type(const wchar_t *str);
-
+Token* consume(TokenizerContext *tc, TokenType tt);
 Token* peek(TokenizerContext* tc);
-Token* pull(TokenizerContext* tc);
+Token *pull(TokenizerContext *tc);
 
-Token* gen_sc_token(TokenizerContext* tc);
-Token* gen_num_token(TokenizerContext* tc);
-Token* gen_ident_token(TokenizerContext* tc);
-
-short is_sc(const wchar_t wc);
 TokenizerContext* gen_tc(wchar_t* file);
 
 #endif
