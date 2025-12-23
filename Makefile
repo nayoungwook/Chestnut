@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Og -Icompiler/include
+CFLAGS = -Wall -Og -g -Icompiler/include
 
 COMPILER_SRC = $(wildcard compiler/*.c)
 COMPILER_OBJS = $(COMPILER_SRC:.c=.o)

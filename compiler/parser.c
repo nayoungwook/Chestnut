@@ -1,6 +1,11 @@
-#include "token.h"
 #include <parser.h>
 #include <error.h>
+
+static void *parse_term(ParserContext* pc);
+static void *parse_simple_expression(ParserContext* pc);
+static void *parse_unary_expression(ParserContext *pc);
+static void *parse_compare_expression(ParserContext* pc);
+static void *parse_expression(ParserContext* pc);
 
 ParserContext *gen_pc(TokenizerContext *tc) {
   ParserContext *pc = (ParserContext *)S_malloc(sizeof(ParserContext));
@@ -108,9 +113,64 @@ static FuncDeclAST* gen_func_ast(Token *first, ParserContext *pc) {
   return func_decl;
 }  
 
+static VarDeclBundleAST* gen_var_decl_ast(Token* first, ParserContext* pc){
+  TokenizerContext *tc = pc->tc;
+  VarDeclBundleAST* result = (VarDeclBundleAST*) S_malloc(sizeof(VarDeclBundleAST));
+  result->var_decls = (VarDeclAST**) S_malloc(sizeof(VarDeclAST*));
+  result->TYPE = AST_VariableDeclarationBundle;
+  
+  // var a: int = 0, b : float;
+
+  bool comp = false;
+  unsigned var_count = 0, capacity = 1;
+  
+  while(!comp){
+    Token* var_name_tok = pull(tc);
+
+    consume(tc, TokColon);
+
+    Token* var_type_tok = pull(tc);
+
+    Token* cont_tok = pull(tc);
+
+    void* decl = NULL;
+
+    if(cont_tok->type == TokAssign){
+      decl = parse_expression(pc);
+      cont_tok = pull(tc);
+    }
+    
+    switch(cont_tok->type){
+    case TokComma:
+      break;
+    case TokSemiColon:
+      comp = true;
+      break;
+    default:
+      panic(L"Unexpected token in variable declaration.", tc);
+    }
+    
+    VarDeclAST* var_decl = (VarDeclAST*) S_malloc(sizeof(VarDeclAST));
+    var_decl->TYPE = AST_VariableDeclaration;
+    var_decl->var_name_tok = var_name_tok;
+    var_decl->var_type_tok = var_type_tok;
+    var_decl->decl = decl;
+    var_decl->ac_mod = ACMOD_DEFAULT;
+
+    if(var_count + 1 >= capacity){
+      capacity *= 2;
+      result->var_decls = (VarDeclAST**) S_realloc(result->var_decls, sizeof(VarDeclAST*) * capacity);
+    }
+
+    result->var_decls[var_count++] = var_decl;
+  }
+
+  return result;
+}
+
 void *parse(ParserContext *pc) {
   TokenizerContext *tc = pc->tc;
-  Token *first = peek(tc);
+  Token *first = pull(tc);
   
   switch (first->type) {
 
@@ -125,6 +185,10 @@ void *parse(ParserContext *pc) {
   case TokFunc: {
     return gen_func_ast(first, pc);
   }    
+
+  case TokVar: {
+    return gen_var_decl_ast(first, pc);
+  }
     
   case TokIdent: {
     return gen_ident_ast(first, pc);

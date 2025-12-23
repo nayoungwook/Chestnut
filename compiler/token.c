@@ -335,15 +335,20 @@ static Token* gen_sc_token(TokenizerContext* tc) {
 }
 
 Token* peek(TokenizerContext* tc) {
-  if(!tc->token_cache){
-    pull(tc);
-  }
-
-  return tc->token_cache;
+  if(tc->token_cache)
+    return tc->token_cache;
+  
+  return tc->token_cache = pull(tc);
 }
 
 Token* pull(TokenizerContext *tc) {
-
+  Token* tok_cache_backup = tc->token_cache;
+  tc->token_cache = NULL;
+  
+  if(tok_cache_backup){
+    return tok_cache_backup;
+  }
+  
   while (iswspace(*tc->cur_ch) || (*tc->cur_ch == L'\n')) {// skip white space
     tc->cur_ch++;
     
@@ -354,22 +359,22 @@ Token* pull(TokenizerContext *tc) {
   }
   
   if (iswalpha(*tc->cur_ch)) {
-    return tc->token_cache = gen_ident_token(tc);
+    return gen_ident_token(tc);
   }
 
   if (is_sc(*tc->cur_ch)) {
-    return tc->token_cache = gen_sc_token(tc);
+    return gen_sc_token(tc);
   }
 
   if (iswdigit(*tc->cur_ch)) {
-    return tc->token_cache = gen_num_token(tc);
+    return gen_num_token(tc);
   }
 
   Token* eof_token = (Token*)S_malloc(sizeof(Token));
   eof_token->str = L"EOF";
   eof_token->type = TokEOF;
 
-  return tc->token_cache = eof_token;
+  return eof_token;
 }
 
 Token* consume(TokenizerContext *tc, TokenType tt) {

@@ -4,6 +4,11 @@
 #include <token.h>
 #include <type.h>
 
+#define ACMOD_PUBLIC 1
+#define ACMOD_PRIVATE 2
+#define ACMOD_PROTECTED 3
+#define ACMOD_DEFAULT 4
+
 typedef enum {
   AST_NumberLiteral = 0,
   AST_Identifier = 1,
