@@ -58,7 +58,7 @@ static VarDeclBundleAST *gen_func_params(ParserContext *pc) {
   
   result->var_count = param_size;
 
-  consume(tc, TokLParen);
+  consume(tc, TokRParen);
 
   return result;
 }
@@ -66,12 +66,12 @@ static VarDeclBundleAST *gen_func_params(ParserContext *pc) {
 static void **gen_body(ParserContext *pc, unsigned *body_size) {
   TokenizerContext *tc = pc->tc;
 
-  consume(tc, TokLSquareBracket);
+  consume(tc, TokLBracket);
 
   void **result = (void **)S_malloc(sizeof(void *));
   unsigned size = 0, capacity = 1;
   
-  while (peek(tc)->type != TokRSquareBracket) {
+  while (peek(tc)->type != TokRBracket) {
     void *element = parse(pc);
 
     if (size + 1 >= capacity) {
@@ -82,12 +82,14 @@ static void **gen_body(ParserContext *pc, unsigned *body_size) {
     result[size++] = element;    
   }
 
+  consume(tc, TokRBracket);
+  
   *body_size = size;
-
+  
   return result;  
 }  
 
-static FuncDeclAST* gen_func_ast(Token *first, ParserContext *pc) {
+static FuncDeclAST* gen_func_decl_ast(Token *first, ParserContext *pc) {
   FuncDeclAST *func_decl = (FuncDeclAST *)S_malloc(sizeof(FuncDeclAST));
   func_decl->TYPE = AST_FunctionDeclaration;
 
@@ -183,7 +185,7 @@ void *parse(ParserContext *pc) {
   }
 
   case TokFunc: {
-    return gen_func_ast(first, pc);
+    return gen_func_decl_ast(first, pc);
   }    
 
   case TokVar: {
@@ -193,9 +195,14 @@ void *parse(ParserContext *pc) {
   case TokIdent: {
     return gen_ident_ast(first, pc);
   }    
+
+  case TokEOF:{
+    return NULL;
+  }
     
   default:
-    panic(L"Unexpected Token type\n", tc);    
+    panic(L"Unexpected Token type\n", tc);
+    
   }    
 
   return NULL;
