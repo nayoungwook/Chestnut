@@ -34,124 +34,110 @@ typedef enum {
   AST_Negative = 21,
 }ASTType;
 
+typedef struct _Node {
+  ASTType type;
+  void* ast;
+  struct _Node* attribute;
+} Node;
+
 typedef struct {
-  ASTType TYPE;
   Token* num_tok;
   short byte;
 } NumberLiteralAST;
 
 typedef struct {
-  ASTType TYPE;
   Token* str_tok;
 } StringLiteralAST;
 
 typedef struct {
-  ASTType TYPE;
   Token* ident;
-  void* attribute;
 } IdentifierAST;
 
 typedef struct {
-  ASTType TYPE;
   Token* bool_tok;
 } BoolLiteralAST;
 
 typedef struct {
-  ASTType TYPE;
   Token* var_name_tok;
   Token* var_type_tok;
-  void* decl;
+  Node* decl;
   int ac_mod;
 } VarDeclAST;
 
 typedef struct {
-  ASTType TYPE;
-  VarDeclAST** var_decls;
+  Node** var_decls;
   int var_count;
 } VarDeclBundleAST;
 
 typedef enum { OpNone, OpADD, OpSUB, OpMUL, OpDIV, OpEQUAL, OpNOTEQUAL, OpGREATER, OpLESS, OpEQUALGREATER, OpEQUALLESS, OpASSIGN, OpOR, OpAND } OperatorType;
 
 typedef struct {
-  ASTType TYPE;
-  void* left, * right;
+  Node* left, * right;
   OperatorType opType;
 }BinExprAST;
 
 typedef struct {
-  ASTType TYPE;
-  void* expr;
+  Node* expr;
 }UnaryExprAST;
 
 typedef enum { StmtNone, StmtIf, StmtElseIf, StmtElse } IfStmtType;
 
 typedef struct {
-  ASTType TYPE;
   IfStmtType stmt_type;
-  void* cond;
-  void* next_stmt;
-  void** body;
+  Node* cond;
+  Node* next_stmt;
+  Node** body;
   unsigned body_size;
 } IfStmtAST;
 
 typedef struct {
-  ASTType TYPE;
   Token* func_name_tok;
   Token* ret_type_tok;
-  VarDeclBundleAST* parameters;
-  void** body;
+  Node* parameters;
+  Node** body;
   unsigned body_size;
   int ac_mod;
 } FuncDeclAST;
 
 typedef struct {
-  ASTType TYPE;
   Token* func_name_tok;
-  void** parameters;
+  Node** parameters;
   int parameter_count;
-  void* attribute;
 } FuncCallAST;
 
 typedef struct {
-  ASTType TYPE;
   Token* identifier;
 } IdentIncreAST;
 
 typedef struct {
-  ASTType TYPE;
   Token* identifier;
 } IdentDecreAST;
 
 typedef struct {
-  ASTType TYPE;
-  void* init;
-  void* condition;
-  void* step;
-  void** body;
+  Node* init;
+  Node* condition;
+  Node* step;
+  Node** body;
   unsigned body_size;
 } ForStmtAST;
 
 typedef struct {
-  ASTType TYPE;
-  void* expression;
+  Node* expr;
 } ReturnAST;
 
 typedef struct {
-  ASTType TYPE;
-  VarDeclBundleAST* parameters;
-  void** body;
+  Node* parameters;
+  Node** body;
   unsigned body_size;
   int ac_mod;
 } ConstructorAST;
 
 typedef struct {
-  ASTType TYPE;
+  Node* initializer;
+  Node* constructor;
 
-  void* initializer;
-  ConstructorAST* constructor;
-
-  VarDeclBundleAST** member_variables;
-  FuncDeclAST** member_functions;
+  Node** member_variables;
+  Node** member_functions;
 
   int member_variable_bundle_count;
   int member_function_count;
@@ -162,34 +148,29 @@ typedef struct {
 } ClassAST;
 
 typedef struct {
-  ASTType TYPE;
   Token* class_name_token;
-  void** parameters;
+  Node** parameters;
   int parameter_count;
 } NewAST;
 
 typedef struct {
-  ASTType TYPE;
+
 }NullAST;
 
 typedef struct {
-  ASTType TYPE;
   int element_count;
-  void** elements;
+  Node** elements;
   Token* ele_type_tok;
 } ArrayDeclAST;
 
 typedef struct {
-  ASTType TYPE;
-  void** indexes;
+  Node** indexes;
   int access_count;
-  IdentifierAST* target_array;
-  void* attribute;
+  Node* target_array;
 }ArrayAccessAST;
 
 typedef struct {
-  ASTType TYPE;
-  void* ast;
+  Node* ast;
 }NegAST;
 
 typedef struct {
@@ -198,6 +179,6 @@ typedef struct {
 ParserContext *gen_pc(TokenizerContext *tc);
 
 // parse
-void *parse(ParserContext* pc);
+Node *parse(ParserContext* pc);
 
 #endif
