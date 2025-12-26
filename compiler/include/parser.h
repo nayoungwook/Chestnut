@@ -83,15 +83,15 @@ typedef struct {
   void* expr;
 }UnaryExprAST;
 
-typedef enum { StmtIf, StmtElseIf, StmtElse } IfStmtType;
+typedef enum { StmtNone, StmtIf, StmtElseIf, StmtElse } IfStmtType;
 
 typedef struct {
   ASTType TYPE;
-  IfStmtType if_type;
+  IfStmtType stmt_type;
   void* cond;
   void* next_stmt;
   void** body;
-  int body_count;
+  unsigned body_size;
 } IfStmtAST;
 
 typedef struct {
@@ -100,7 +100,7 @@ typedef struct {
   Token* ret_type_tok;
   VarDeclBundleAST* parameters;
   void** body;
-  int body_count;
+  unsigned body_size;
   int ac_mod;
 } FuncDeclAST;
 
@@ -128,7 +128,7 @@ typedef struct {
   void* condition;
   void* step;
   void** body;
-  int body_count;
+  unsigned body_size;
 } ForStmtAST;
 
 typedef struct {
@@ -140,7 +140,7 @@ typedef struct {
   ASTType TYPE;
   VarDeclBundleAST* parameters;
   void** body;
-  int body_count;
+  unsigned body_size;
   int ac_mod;
 } ConstructorAST;
 

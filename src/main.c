@@ -5,7 +5,7 @@
 
 int main(int arc, char *args[]){
 
-  TokenizerContext* tc = gen_tc(L"func main(): void {  }");
+  TokenizerContext* tc = gen_tc(L"");
   ParserContext* pc = gen_pc(tc);
 
   void *ast = NULL;

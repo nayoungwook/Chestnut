@@ -30,6 +30,7 @@ static VarDeclBundleAST *gen_func_params(ParserContext *pc) {
   VarDeclBundleAST *result = (VarDeclBundleAST*) S_malloc(sizeof(VarDeclBundleAST));
   result->TYPE = AST_VariableDeclarationBundle;
   result->var_count = 0;
+  result->var_decls = (VarDeclAST**) S_malloc(sizeof(VarDeclAST*));
   
   unsigned param_size = 0, capacity = 1;
   
@@ -50,10 +51,14 @@ static VarDeclBundleAST *gen_func_params(ParserContext *pc) {
     
     if (param_size + 1 >= capacity) {
       capacity *= 2;
-      result->var_decls = S_realloc(result->var_decls, sizeof(VarDeclBundleAST) * capacity);
+      result->var_decls = S_realloc(result->var_decls, sizeof(VarDeclBundleAST*) * capacity);
     }
 
     result->var_decls[param_size++] = var_decl;
+
+    Token* nt = peek(tc);
+    if(nt->type == TokRParen) break;
+    if(nt->type == TokComma) pull(tc);
   }
   
   result->var_count = param_size;
@@ -68,8 +73,8 @@ static void **gen_body(ParserContext *pc, unsigned *body_size) {
 
   consume(tc, TokLBracket);
 
-  void **result = (void **)S_malloc(sizeof(void *));
   unsigned size = 0, capacity = 1;
+  void **result = (void **)S_malloc(sizeof(void *) * capacity);
   
   while (peek(tc)->type != TokRBracket) {
     void *element = parse(pc);
@@ -170,6 +175,82 @@ static VarDeclBundleAST* gen_var_decl_ast(Token* first, ParserContext* pc){
   return result;
 }
 
+static IfStmtAST *gen_if_stmt_ast(Token* first, ParserContext* pc);
+static IfStmtType get_if_stmt_type(Token* first, ParserContext* pc);
+static void* gen_next_if_stmt_ast(IfStmtType stmt_type, ParserContext* pc);
+
+static IfStmtType get_if_stmt_type(Token* first, ParserContext* pc){
+  TokenizerContext* tc = pc->tc;
+  Token* nt = peek(tc);
+  IfStmtType stmt_type = StmtNone;
+    
+  if(first->type == TokIf){
+    stmt_type = StmtIf;
+  }
+
+  if(first->type == TokElse){
+    stmt_type = StmtElse;
+
+    if(nt->type == TokIf){
+      stmt_type = StmtElseIf;
+    }
+  }
+  
+  return stmt_type;
+}
+
+static void* gen_next_if_stmt_ast(IfStmtType stmt_type, ParserContext* pc){
+  TokenizerContext* tc = pc->tc;
+  Token* nt = peek(tc);
+  void* next_stmt = NULL;
+  
+  if(nt->type == TokElse){
+    consume(tc, TokElse);
+    next_stmt = gen_if_stmt_ast(nt, pc);
+  }
+
+  if(stmt_type == StmtElse && next_stmt != NULL){
+    panic(L"Wrong statement. statement after else statement.", tc);
+  }
+
+  return next_stmt;
+}
+
+static IfStmtAST *gen_if_stmt_ast(Token* first, ParserContext* pc){
+  IfStmtAST* result = (IfStmtAST*) S_malloc(sizeof(IfStmtAST));
+  result->TYPE = AST_IfStatement;
+
+  TokenizerContext* tc = pc->tc;
+  IfStmtType stmt_type = get_if_stmt_type(first, pc);
+
+  if(stmt_type == StmtElseIf){
+    consume(tc, TokIf);
+  }
+  if(stmt_type == StmtNone){
+    panic(L"Wrong Statement type", tc);
+  }
+  
+  void* cond = NULL;
+  if(stmt_type == StmtElseIf || stmt_type == StmtIf){
+    consume(tc, TokLParen);
+    cond = parse_expression(pc);
+    consume(tc, TokRParen);
+  }
+
+  unsigned body_size = 0;
+  void** body = gen_body(pc, &body_size);
+
+  result->cond = cond;
+  result->body = body;
+  result->body_size = body_size;
+  result->stmt_type = stmt_type;
+
+  // gen next if stmt
+  result->next_stmt = gen_next_if_stmt_ast(stmt_type, pc);
+  
+  return result;
+}
+
 void *parse(ParserContext *pc) {
   TokenizerContext *tc = pc->tc;
   Token *first = pull(tc);
@@ -184,6 +265,10 @@ void *parse(ParserContext *pc) {
     return num;
   }
 
+  case TokIf: {
+    return gen_if_stmt_ast(first, pc);
+  }
+    
   case TokFunc: {
     return gen_func_decl_ast(first, pc);
   }    
@@ -194,7 +279,15 @@ void *parse(ParserContext *pc) {
     
   case TokIdent: {
     return gen_ident_ast(first, pc);
-  }    
+  }
+
+  case TokLParen: {
+    void* expr = parse_expression(pc);
+
+    consume(tc, TokRParen);
+
+    return expr;
+  }
 
   case TokEOF:{
     return NULL;
