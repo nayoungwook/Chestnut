@@ -11,7 +11,8 @@ ParserContext *gen_pc(TokenizerContext *tc) {
   ParserContext *pc = (ParserContext *)S_malloc(sizeof(ParserContext));
 
   pc->tc = tc;
-  pc->glob_func_symbol = gen_htable();
+  pc->glob_func_smtb = gen_htable();
+  pc->class_smtb = gen_htable();
   
   return pc;
 }
@@ -145,6 +146,20 @@ static Node **gen_body(ParserContext *pc, unsigned *body_size) {
   return result;  
 }  
 
+static void register_func_data(Node* node, ParserContext* pc){
+  FuncDeclAST* func_decl = node->ast;
+
+  if(pc->current_class){
+    
+  } else { // register in global.
+    FuncData* data = (FuncData*) S_malloc(sizeof(FuncData));
+    data->id = pc->glob_func_smtb->size + 1;
+    data->node = node;
+      
+    HT_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, node);
+  }
+}
+
 static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
   FuncDeclAST *func_decl = (FuncDeclAST *)S_malloc(sizeof(FuncDeclAST));
 
@@ -166,9 +181,36 @@ static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
   func_decl->body = gen_body(pc, &body_size);
   
   // func name(): void {
+
+  Node* result =  pack(AST_FunctionDeclaration, func_decl);
   
-  return pack(AST_FunctionDeclaration, func_decl);
+  register_func_data(result, pc);
+  
+  return result;
 }  
+
+static void register_var_data(Node* node, ParserContext* pc){
+  VarDeclAST* var_decl = node->ast;
+
+  bool in_class = pc->current_class != NULL;
+  bool in_func = pc->current_class != NULL;
+  
+  bool member = !in_func && in_class;
+  bool glob = !in_func && !in_class;
+  
+  VarData* data = (VarData*) S_malloc(sizeof(VarData));
+  data->node = node;
+
+  if(member){
+    data->id = pc->glob_var_smtb->size;
+    HT_insert(pc->current_class->member_vars, var_decl->var_name_tok->str, data);
+  }
+
+  if(glob){
+    data->id = pc->glob_var_smtb->size;
+    HT_insert(pc->glob_var_smtb, var_decl->var_name_tok->str, data);
+  }
+}
 
 static Node* gen_var_decl_node(Token* first, ParserContext* pc){
   TokenizerContext *tc = pc->tc;
@@ -217,7 +259,10 @@ static Node* gen_var_decl_node(Token* first, ParserContext* pc){
       result->var_decls = (Node**) S_realloc(result->var_decls, sizeof(Node*) * capacity);
     }
 
-    result->var_decls[var_count++] = pack(AST_VariableDeclaration, var_decl);
+    Node* node = pack(AST_VariableDeclaration, var_decl);
+    result->var_decls[var_count++] = node;
+
+    register_var_data(node, pc);
   }
 
   return pack(AST_VariableDeclarationBundle, result);

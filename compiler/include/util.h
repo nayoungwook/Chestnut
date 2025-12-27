@@ -33,6 +33,6 @@ typedef struct {
 
 HTable *gen_htable();
 void HT_insert(HTable* target_table, const wchar_t* key, void* ptr);
-HNode* HT_find(HTable* target_table, const wchar_t* key);
+void* HT_find(HTable* target_table, const wchar_t* key);
 
 #endif

@@ -5,7 +5,7 @@
 
 int main(int arc, char *args[]){
 
-  TokenizerContext* tc = gen_tc(L"var a: int =0; var b: float = 3 + 5 * 2, c: int;");
+  TokenizerContext* tc = gen_tc(L"func main(): void {}");
   ParserContext* pc = gen_pc(tc);
 
   void *ast = NULL;

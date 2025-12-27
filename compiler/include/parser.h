@@ -174,9 +174,33 @@ typedef struct {
   Node* ast;
 }NegAST;
 
+typedef struct _FuncData{
+  unsigned id;
+  Node* node;
+} FuncData;
+
+typedef struct _VarData {
+  unsigned id;
+  Node* node;
+}VarData;
+
+typedef struct _ClassData {
+  unsigned id;
+  Node* node;
+  HTable* member_vars;
+  HTable* member_funcs;
+  struct _ClassData* paren_class;
+} ClassData;
+
 typedef struct {
   TokenizerContext* tc;
-  HTable* glob_func_symbol;
+
+  HTable* glob_var_smtb;
+  HTable* glob_func_smtb;
+  HTable* class_smtb;
+
+  ClassData* current_class; // current parsing class.
+  FuncData* current_func; // current parsing func.
 } ParserContext;
 
 ParserContext *gen_pc(TokenizerContext *tc);

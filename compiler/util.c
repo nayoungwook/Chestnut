@@ -46,7 +46,7 @@ void HT_insert(HTable *target_table, const wchar_t* key, void *ptr) {
   target_table->size++;
 }
 
-HNode *HT_find(HTable *target_table, const wchar_t *key) {
+void *HT_find(HTable *target_table, const wchar_t *key) {
   unsigned hash = get_hash(key);
   HNode *tnode = target_table->bucket[hash];
 
@@ -57,7 +57,7 @@ HNode *HT_find(HTable *target_table, const wchar_t *key) {
     tnode = tnode->next;
   }
   
-  return tnode;  
+  return tnode->ptr;
 }  
 
 void* S_malloc(size_t size){
