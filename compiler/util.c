@@ -7,7 +7,7 @@ void unix_error(char *msg){
 }
 #endif
 
-unsigned get_hash(const wchar_t *key) {
+static unsigned get_hash(const wchar_t *key) {
   unsigned hash = 5381;
   wchar_t ch;
 
@@ -19,8 +19,8 @@ unsigned get_hash(const wchar_t *key) {
   return hash;
 }
 
-struct HTable *gen_htable() {
-  struct HTable *res = (struct HTable *)S_malloc(sizeof(struct HTable));
+HTable *gen_htable() {
+  HTable *res = (HTable *)S_malloc(sizeof(HTable));
 
   res->size = 0;
   res->capacity = HTABLE_BUFF;
@@ -28,14 +28,14 @@ struct HTable *gen_htable() {
   return res;      
 }
 
-void HT_insert(struct HTable *target_table, const wchar_t* key, void *ptr) {
-  struct Node *node = (struct Node *)S_malloc(sizeof(struct Node));
+void HT_insert(HTable *target_table, const wchar_t* key, void *ptr) {
+  HNode *node = (HNode *)S_malloc(sizeof(HNode));
   unsigned hash = get_hash(key);
   
   node->ptr = ptr;
   node->key = key;
 
-  struct Node *tnode = target_table->bucket[hash];
+  HNode *tnode = target_table->bucket[hash];
 
   if (!tnode) {
     target_table->bucket[hash] = node;
@@ -46,9 +46,9 @@ void HT_insert(struct HTable *target_table, const wchar_t* key, void *ptr) {
   target_table->size++;
 }
 
-struct Node *HT_find(struct HTable *target_table, const wchar_t *key) {
+HNode *HT_find(HTable *target_table, const wchar_t *key) {
   unsigned hash = get_hash(key);
-  struct Node *tnode = target_table->bucket[hash];
+  HNode *tnode = target_table->bucket[hash];
 
   while (tnode) {
     if (wcscmp(tnode->key, key) == 0) {

@@ -10,20 +10,52 @@ static Node *parse_expression(ParserContext* pc);
 ParserContext *gen_pc(TokenizerContext *tc) {
   ParserContext *pc = (ParserContext *)S_malloc(sizeof(ParserContext));
 
-  pc->tc = tc;  
+  pc->tc = tc;
+  pc->glob_func_symbol = gen_htable();
   
   return pc;
 }
 
 static Node* pack(ASTType type, void* ptr){
   Node* result = (Node*) S_malloc(sizeof(Node));
+  
   result->ast = ptr;
   result->type = type;
+  
   return result;
 }
 
 static Node* gen_func_call_node(Token* first, ParserContext* pc){
   FuncCallAST* func_call = (FuncCallAST*) S_malloc(sizeof(FuncCallAST));
+  TokenizerContext* tc = pc->tc;
+
+  unsigned capacity = 1, size = 0;
+  Node** params = (Node**) S_malloc(sizeof(Node*) * capacity);
+  
+  consume(tc, TokLParen);
+
+  while(peek(tc)->type != TokRParen){
+    Node* expr = parse_expression(pc);
+
+    if(size + 1 >= capacity) {
+      capacity *= 2;
+      params = (Node**) S_realloc(params, sizeof(Node*) * capacity);
+    }
+
+    params[size++] = expr;
+    
+    if(peek(tc)->type == TokComma){
+      consume(tc, TokComma);
+    }    
+    else if(peek(tc)->type == TokRParen){
+      consume(tc, TokRParen);
+      break;
+    }
+  }
+
+  func_call->func_name_tok = first;
+  func_call->params = params;
+  func_call->param_size = size;
   
   return pack(AST_FunctionCall, func_call);
 }
@@ -128,7 +160,7 @@ static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
 
   func_decl->func_name_tok = func_name_tok;
   func_decl->ret_type_tok = ret_type_tok;
-  func_decl->parameters = params;
+  func_decl->params = params;
 
   unsigned body_size = 0;
   func_decl->body = gen_body(pc, &body_size);

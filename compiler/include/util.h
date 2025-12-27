@@ -9,7 +9,7 @@
 #define true 1
 #define false 0
 
-#define HTABLE_BUFF 512
+#define HTABLE_BUFF 509
 
 #ifdef __linux__
 #include <errno.h>
@@ -19,22 +19,20 @@ void unix_error(char *msg);
 void *S_malloc(size_t size);
 void *S_realloc(void *ptr, size_t size);
 
-struct Node {
-  struct Node *next;
+typedef struct _HNode {
+  struct _HNode *next;
   const wchar_t* key;  
   void* ptr;
-};
+} HNode;
 
-unsigned get_hash(const wchar_t *key);
-
-struct HTable {
-  struct Node *bucket[HTABLE_BUFF];
+typedef struct {
+  HNode *bucket[HTABLE_BUFF];
   unsigned size;
   unsigned capacity;
-};
+} HTable;
 
-struct HTable *gen_htable();
-void HT_insert(struct HTable* target_table, const wchar_t* key, void* ptr);
-struct Node* HT_find(struct HTable* target_table, const wchar_t* key);
+HTable *gen_htable();
+void HT_insert(HTable* target_table, const wchar_t* key, void* ptr);
+HNode* HT_find(HTable* target_table, const wchar_t* key);
 
 #endif

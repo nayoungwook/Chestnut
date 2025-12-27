@@ -3,6 +3,7 @@
 
 #include <token.h>
 #include <type.h>
+#include <util.h>
 
 #define ACMOD_PUBLIC 1
 #define ACMOD_PRIVATE 2
@@ -93,7 +94,7 @@ typedef struct {
 typedef struct {
   Token* func_name_tok;
   Token* ret_type_tok;
-  Node* parameters;
+  Node* params; // variable declaration bundle.
   Node** body;
   unsigned body_size;
   int ac_mod;
@@ -101,8 +102,8 @@ typedef struct {
 
 typedef struct {
   Token* func_name_tok;
-  Node** parameters;
-  int parameter_count;
+  Node** params;
+  int param_size;
 } FuncCallAST;
 
 typedef struct {
@@ -175,7 +176,9 @@ typedef struct {
 
 typedef struct {
   TokenizerContext* tc;
+  HTable* glob_func_symbol;
 } ParserContext;
+
 ParserContext *gen_pc(TokenizerContext *tc);
 
 // parse
