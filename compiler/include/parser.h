@@ -116,7 +116,7 @@ typedef struct {
 
 typedef struct {
   Node* init;
-  Node* condition;
+  Node* cond;
   Node* step;
   Node** body;
   unsigned body_size;
@@ -206,6 +206,6 @@ typedef struct {
 ParserContext *gen_pc(TokenizerContext *tc);
 
 // parse
-Node *parse(ParserContext* pc);
+Node *parse(ParserContext* pc, bool is_expr);
 
 #endif

@@ -12,6 +12,7 @@ ParserContext *gen_pc(TokenizerContext *tc) {
 
   pc->tc = tc;
   pc->glob_func_smtb = gen_htable();
+  pc->glob_var_smtb = gen_htable();
   pc->class_smtb = gen_htable();
   
   return pc;
@@ -26,7 +27,7 @@ static Node* pack(ASTType type, void* ptr){
   return result;
 }
 
-static Node* gen_func_call_node(Token* first, ParserContext* pc){
+static Node* gen_func_call_node(Token* first, ParserContext* pc, bool is_expr){
   FuncCallAST* func_call = (FuncCallAST*) S_malloc(sizeof(FuncCallAST));
   TokenizerContext* tc = pc->tc;
 
@@ -57,17 +58,21 @@ static Node* gen_func_call_node(Token* first, ParserContext* pc){
   func_call->func_name_tok = first;
   func_call->params = params;
   func_call->param_size = size;
+
+  if(!is_expr){
+    consume(tc, TokSemiColon);
+  }
   
   return pack(AST_FunctionCall, func_call);
 }
 
-static Node *gen_ident_node(Token* first, ParserContext *pc) {
+static Node *gen_ident_node(Token* first, ParserContext *pc, bool is_expr) {
   TokenizerContext* tc = pc->tc;
   Token* nt = peek(tc);
 
   switch(nt->type){
   case TokLParen:{
-    return gen_func_call_node(first, pc);
+    return gen_func_call_node(first, pc, is_expr);
   }
     
   default:{
@@ -129,7 +134,7 @@ static Node **gen_body(ParserContext *pc, unsigned *body_size) {
   Node **result = (Node **)S_malloc(sizeof(Node *) * capacity);
   
   while (peek(tc)->type != TokRBracket) {
-    void *element = parse(pc);
+    void *element = parse(pc, false);
 
     if (size + 1 >= capacity) {
       capacity *= 2;
@@ -146,10 +151,10 @@ static Node **gen_body(ParserContext *pc, unsigned *body_size) {
   return result;  
 }  
 
-static void register_func_data(Node* node, ParserContext* pc){
+static FuncData* register_func_data(Node* node, ParserContext* pc){
   FuncDeclAST* func_decl = node->ast;
 
-  if(pc->current_class){
+  if(pc->current_class){ // register in class member.
     
   } else { // register in global.
     FuncData* data = (FuncData*) S_malloc(sizeof(FuncData));
@@ -157,12 +162,16 @@ static void register_func_data(Node* node, ParserContext* pc){
     data->node = node;
       
     HT_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, node);
+
+    return data;
   }
+
+  return NULL;
 }
 
 static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
   FuncDeclAST *func_decl = (FuncDeclAST *)S_malloc(sizeof(FuncDeclAST));
-
+  
   TokenizerContext *tc = pc->tc;
 
   Token *func_name_tok = pull(tc);
@@ -177,23 +186,24 @@ static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
   func_decl->ret_type_tok = ret_type_tok;
   func_decl->params = params;
 
+  // first register function data.
+  Node* result =  pack(AST_FunctionDeclaration, func_decl);
+  FuncData* fd = register_func_data(result, pc);
+  if(!fd) panic(L"Failed to register function data.", tc);
+  pc->current_func = fd;
+
+  // and parse body.
   unsigned body_size = 0;
   func_decl->body = gen_body(pc, &body_size);
-  
-  // func name(): void {
-
-  Node* result =  pack(AST_FunctionDeclaration, func_decl);
-  
-  register_func_data(result, pc);
-  
+    
   return result;
 }  
 
-static void register_var_data(Node* node, ParserContext* pc){
+static VarData* register_var_data(Node* node, ParserContext* pc){
   VarDeclAST* var_decl = node->ast;
 
   bool in_class = pc->current_class != NULL;
-  bool in_func = pc->current_class != NULL;
+  bool in_func = pc->current_func != NULL;
   
   bool member = !in_func && in_class;
   bool glob = !in_func && !in_class;
@@ -210,9 +220,11 @@ static void register_var_data(Node* node, ParserContext* pc){
     data->id = pc->glob_var_smtb->size;
     HT_insert(pc->glob_var_smtb, var_decl->var_name_tok->str, data);
   }
+
+  return data;
 }
 
-static Node* gen_var_decl_node(Token* first, ParserContext* pc){
+static Node* gen_var_decl_node(Token* first, ParserContext* pc, bool is_expr){
   TokenizerContext *tc = pc->tc;
   VarDeclBundleAST* result = (VarDeclBundleAST*) S_malloc(sizeof(VarDeclBundleAST));
   result->var_decls = (Node**) S_malloc(sizeof(Node*));
@@ -229,20 +241,24 @@ static Node* gen_var_decl_node(Token* first, ParserContext* pc){
 
     Token* var_type_tok = pull(tc);
 
-    Token* cont_tok = pull(tc);
+    Token* cont_tok = peek(tc);
 
     void* decl = NULL;
 
     if(cont_tok->type == TokAssign){
+      consume(tc, TokAssign);
       decl = parse_expression(pc);
-      cont_tok = pull(tc);
+      cont_tok = peek(tc);
     }
     
     switch(cont_tok->type){
     case TokComma:
+      consume(tc, TokComma);
       break;
     case TokSemiColon:
       comp = true;
+      if(!is_expr) // if it is statement, consume semicolon
+	consume(tc, TokSemiColon);
       break;
     default:
       panic(L"Unexpected token in variable declaration.", tc);
@@ -343,7 +359,36 @@ static Node *gen_if_stmt_node(Token* first, ParserContext* pc){
   return pack(AST_IfStatement, result);
 }
 
-Node *parse(ParserContext *pc) {
+static Node* gen_for_stmt_node(Token* first, ParserContext* pc){
+  ForStmtAST* result = (ForStmtAST*) S_malloc(sizeof(ForStmtAST));
+
+  TokenizerContext* tc = pc->tc;
+
+  consume(tc, TokLParen);
+  
+  Node* init = parse_expression(pc);
+  consume(tc, TokSemiColon);
+  
+  Node* cond = parse_expression(pc);
+  consume(tc, TokSemiColon);
+
+  Node* step = parse_expression(pc);
+
+  consume(tc, TokRParen);
+
+  unsigned body_size = 0;
+  Node** body = gen_body(pc, &body_size);
+
+  result->init = init;
+  result->cond = cond;
+  result->step = step;
+  result->body = body;
+  result->body_size = body_size;
+
+  return pack(AST_ForStatement, result);
+}
+
+Node *parse(ParserContext *pc, bool is_expr) {
   TokenizerContext *tc = pc->tc;
   Token *first = pull(tc);
   
@@ -359,17 +404,21 @@ Node *parse(ParserContext *pc) {
   case TokIf: {
     return gen_if_stmt_node(first, pc);
   }
+
+  case TokFor: {
+    return gen_for_stmt_node(first, pc);
+  }
     
   case TokFunc: {
     return gen_func_decl_node(first, pc);
   }    
 
   case TokVar: {
-    return gen_var_decl_node(first, pc);
+    return gen_var_decl_node(first, pc, is_expr);
   }
     
   case TokIdent: {
-    return gen_ident_node(first, pc);
+    return gen_ident_node(first, pc, is_expr);
   }
 
   case TokLParen: {
@@ -393,12 +442,12 @@ Node *parse(ParserContext *pc) {
 }  
 
 static Node *parse_term(ParserContext* pc) {
-  Node* node = parse(pc);
+  Node* node = parse(pc, true);
   TokenizerContext* tc = pc->tc;
   
   while (peek(tc) && (peek(tc)->type == TokMul || peek(tc)->type == TokDiv)) {
     TokenType op = pull(tc)->type;
-    void* right = parse(pc);
+    void* right = parse(pc, true);
 
     OperatorType op_type = (op == TokMul) ? OpMUL : OpDIV;
 
