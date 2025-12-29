@@ -16,7 +16,7 @@ static unsigned get_hash(const wchar_t *key) {
     key++;    
   }
 
-  return hash;
+  return hash % HTABLE_BUFF;
 }
 
 HTable *gen_htable() {
@@ -28,7 +28,7 @@ HTable *gen_htable() {
   return res;      
 }
 
-void HT_insert(HTable *target_table, const wchar_t* key, void *ptr) {
+void ht_insert(HTable *target_table, const wchar_t* key, void *ptr) {
   HNode *node = (HNode *)S_malloc(sizeof(HNode));
   unsigned hash = get_hash(key);
   
@@ -46,7 +46,7 @@ void HT_insert(HTable *target_table, const wchar_t* key, void *ptr) {
   target_table->size++;
 }
 
-void *HT_find(HTable *target_table, const wchar_t *key) {
+void *ht_find(HTable *target_table, const wchar_t *key) {
   unsigned hash = get_hash(key);
   HNode *tnode = target_table->bucket[hash];
 

@@ -161,7 +161,7 @@ static FuncData* register_func_data(Node* node, ParserContext* pc){
     data->id = pc->glob_func_smtb->size + 1;
     data->node = node;
       
-    HT_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, node);
+    ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, node);
 
     return data;
   }
@@ -213,12 +213,12 @@ static VarData* register_var_data(Node* node, ParserContext* pc){
 
   if(member){
     data->id = pc->glob_var_smtb->size;
-    HT_insert(pc->current_class->member_vars, var_decl->var_name_tok->str, data);
+    ht_insert(pc->current_class->member_vars, var_decl->var_name_tok->str, data);
   }
 
   if(glob){
     data->id = pc->glob_var_smtb->size;
-    HT_insert(pc->glob_var_smtb, var_decl->var_name_tok->str, data);
+    ht_insert(pc->glob_var_smtb, var_decl->var_name_tok->str, data);
   }
 
   return data;

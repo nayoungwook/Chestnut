@@ -32,7 +32,7 @@ typedef struct {
 } HTable;
 
 HTable *gen_htable();
-void HT_insert(HTable* target_table, const wchar_t* key, void* ptr);
-void* HT_find(HTable* target_table, const wchar_t* key);
+void ht_insert(HTable* target_table, const wchar_t* key, void* ptr);
+void* ht_find(HTable* target_table, const wchar_t* key);
 
 #endif
