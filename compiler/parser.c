@@ -14,7 +14,7 @@ ParserContext *gen_pc(TokenizerContext *tc) {
   pc->glob_func_smtb = gen_htable();
   pc->glob_var_smtb = gen_htable();
   pc->class_smtb = gen_htable();
-  
+
   return pc;
 }
 
@@ -154,18 +154,23 @@ static Node **gen_body(ParserContext *pc, unsigned *body_size) {
 static FuncData* register_func_data(Node* node, ParserContext* pc){
   FuncDeclAST* func_decl = node->ast;
 
+  FuncData* data = (FuncData*) S_malloc(sizeof(FuncData));
+  
   if(pc->current_class){ // register in class member.
-    
+    ClassData* current_class = pc->current_class;
+    data->id = current_class->member_funcs->size + 1;
+
+    ht_insert(current_class->member_funcs, func_decl->func_name_tok->str, node);
+    return data;
   } else { // register in global.
-    FuncData* data = (FuncData*) S_malloc(sizeof(FuncData));
     data->id = pc->glob_func_smtb->size + 1;
     data->node = node;
       
     ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, node);
-
     return data;
   }
-
+  
+  free(data);
   return NULL;
 }
 
@@ -195,7 +200,7 @@ static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
   // and parse body.
   unsigned body_size = 0;
   func_decl->body = gen_body(pc, &body_size);
-    
+  
   return result;
 }  
 
@@ -388,6 +393,59 @@ static Node* gen_for_stmt_node(Token* first, ParserContext* pc){
   return pack(AST_ForStatement, result);
 }
 
+static Node* gen_ret_node(Token* first, ParserContext* pc){
+  Node* expr = parse_expression(pc);
+  ReturnAST* ret_ast = (ReturnAST*) S_malloc(sizeof(ReturnAST));
+
+  ret_ast->expr = expr;
+
+  return pack(AST_Return, ret_ast);
+}
+
+static ClassData* register_class_data(Node* node, ParserContext* pc){
+  ClassAST* class_ast = node->ast;
+
+  ClassData* data = (ClassData*) S_malloc(sizeof(ClassData));
+  data->id = pc->class_smtb->size + 1;
+  data->node = node;
+
+  data->member_funcs = gen_htable();
+  data->member_vars = gen_htable();
+  
+  ht_insert(pc->class_smtb, class_ast->name_tok->str, node);
+
+  return data;
+
+}
+
+static Node* gen_class_decl_node(Token* first, ParserContext* pc){
+  TokenizerContext* tc = pc->tc;
+  ClassAST* class_ast = (ClassAST*) S_malloc(sizeof(ClassAST));
+
+  Token* name_tok = pull(tc);
+  class_ast->name_tok = name_tok;
+  class_ast->parent_name_tok = NULL;
+  
+  if(peek(tc)->type == TokExtends){
+    consume(tc, TokExtends);
+
+    Token* parent_name_tok = pull(tc);
+    class_ast->parent_name_tok = parent_name_tok;
+  }
+  
+  // first register class data.
+  Node* result = pack(AST_Class, class_ast);
+  ClassData* cd = register_class_data(result, pc);
+  if(!cd) panic(L"Failed to register class data.", tc);
+  pc->current_class = cd;
+
+  // and parse body
+  unsigned body_size;
+  class_ast->body = gen_body(pc, &body_size);
+  
+  return result;
+}
+
 Node *parse(ParserContext *pc, bool is_expr) {
   TokenizerContext *tc = pc->tc;
   Token *first = pull(tc);
@@ -416,9 +474,17 @@ Node *parse(ParserContext *pc, bool is_expr) {
   case TokVar: {
     return gen_var_decl_node(first, pc, is_expr);
   }
+
+  case TokClass: {
+    return gen_class_decl_node(first, pc);
+  }
     
   case TokIdent: {
     return gen_ident_node(first, pc, is_expr);
+  }
+
+  case TokReturn : {
+    return gen_ret_node(first, pc);
   }
 
   case TokLParen: {

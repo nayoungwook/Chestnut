@@ -25,10 +25,17 @@ TokenizerContext* gen_tc(wchar_t* file){
 
   tc->file = file;
   tc->cur_ch = file;
+  tc->begin_ch = file;
   tc->token_cache = NULL;
   tc->line_num = 1;
     
   return tc;
+}
+
+void init_tc(TokenizerContext* tc){
+  tc->cur_ch = (wchar_t*) tc->begin_ch;
+  tc->token_cache = NULL;
+  tc->line_num = 1;
 }
 
 static bool is_sc(const wchar_t wc) {

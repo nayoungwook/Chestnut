@@ -137,19 +137,16 @@ typedef struct {
   Node* initializer;
   Node* constructor;
 
-  Node** member_variables;
-  Node** member_functions;
+  Node** body;
+  unsigned body_size;
 
-  int member_variable_bundle_count;
-  int member_function_count;
-
-  Token* class_name_token;
-  Token* parent_class_name_token;
+  Token* name_tok;
+  Token* parent_name_tok;
 
 } ClassAST;
 
 typedef struct {
-  Token* class_name_token;
+  Token* name_tok;
   Node** parameters;
   int parameter_count;
 } NewAST;

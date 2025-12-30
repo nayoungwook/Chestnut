@@ -90,7 +90,8 @@ typedef struct {
 typedef struct {
   Token* token_cache; // cache token for consume, peek, pull
   wchar_t* file; // full file contents.
-  wchar_t* cur_ch; // current c
+  wchar_t* cur_ch; // current ch
+  const wchar_t* begin_ch; // begin ch (*initial position of file.)
   unsigned line_num;
 } TokenizerContext;
 
@@ -103,6 +104,7 @@ Token* consume(TokenizerContext *tc, TokenType tt);
 Token* peek(TokenizerContext* tc);
 Token *pull(TokenizerContext *tc);
 
+void init_tc(TokenizerContext* tc);
 TokenizerContext* gen_tc(wchar_t* file);
 
 #endif

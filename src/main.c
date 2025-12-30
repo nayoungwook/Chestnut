@@ -5,11 +5,11 @@
 
 int main(int arc, char *args[]){
 
-  TokenizerContext* tc = gen_tc(L"func main(): void { for(var i:int =0; i<10; i+1){} }");
+  TokenizerContext* tc = gen_tc(L"class Foo { func foo(): void {} var a: int = 0; }");
   ParserContext* pc = gen_pc(tc);
 
   void *ast = NULL;
-  
+
   while ((ast = parse(pc, false)) != NULL) {
 
   }    
