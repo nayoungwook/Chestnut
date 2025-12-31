@@ -4,10 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-
-#define bool short
-#define true 1
-#define false 0
+#include <stdbool.h>
 
 #define HTABLE_BUFF 509
 
