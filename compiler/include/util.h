@@ -16,14 +16,15 @@ void unix_error(char *msg);
 void *S_malloc(size_t size);
 void *S_realloc(void *ptr, size_t size);
 
-typedef struct _HNode {
-  struct _HNode *next;
-  const wchar_t* key;  
+// node for data structure.
+typedef struct _DNode {
+  struct _DNode *next;
   void* ptr;
-} HNode;
+  const wchar_t* key;  
+} DataNode;
 
 typedef struct {
-  HNode *bucket[HTABLE_BUFF];
+  DataNode *bucket[HTABLE_BUFF];
   unsigned size;
   unsigned capacity;
 } HTable;
@@ -31,5 +32,14 @@ typedef struct {
 HTable *gen_htable();
 void ht_insert(HTable* target_table, const wchar_t* key, void* ptr);
 void* ht_find(HTable* target_table, const wchar_t* key);
+
+typedef struct {
+  DataNode *tail;
+  unsigned size;
+} Queue;
+
+Queue *gen_queue();
+void q_push(Queue *target_queue, void* ptr);
+void* q_pop(Queue *target_queue);
 
 #endif
