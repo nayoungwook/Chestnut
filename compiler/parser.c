@@ -1,3 +1,4 @@
+#include "token.h"
 #include <parser.h>
 #include <error.h>
 
@@ -81,18 +82,25 @@ static Node *gen_ident_node(Token* first, ParserContext *pc, bool is_expr) {
   TokenizerContext* tc = pc->tc;
   Token* nt = peek(tc);
 
-  switch(nt->type){
-  case TokLParen:{
+  if (nt->type == TokLParen) {
     return gen_func_call_node(first, pc, is_expr);
-  }
-    
-  default:{
-    IdentifierAST *ident = (IdentifierAST *)S_malloc(sizeof(IdentifierAST));
-    ident->ident = first;
-    
-    return pack(AST_Identifier, ident);
-  }
-  }
+  }    
+  
+  IdentifierAST *ident = (IdentifierAST *)S_malloc(sizeof(IdentifierAST));
+  ident->ident = first;
+
+  Node *result = pack(AST_Identifier, ident);
+
+  if ((nt = peek(tc))->type == TokDot) {
+    consume(tc, TokDot);
+
+    Node *attr = gen_ident_node(pull(tc), pc, is_expr);
+
+    result->attribute = attr;
+    // TODO : type check for attribute    
+  }    
+  
+  return result;  
 }
 
 static Node *gen_func_param_node(ParserContext *pc) {
@@ -146,6 +154,7 @@ static Node **gen_body(ParserContext *pc, unsigned *body_size) {
   
   while (peek(tc)->type != TokRBracket) {
     void *element = parse(pc, false);
+    assert(element != NULL);
 
     if (size + 1 >= capacity) {
       capacity *= 2;
@@ -223,18 +232,24 @@ static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
 static VarData* register_var_data(Node* node, ParserContext* pc){
   VarDeclAST* var_decl = node->ast;
 
+  assert(var_decl != NULL);  
+  
   bool in_class = pc->current_class != NULL;
   bool in_func = pc->current_func != NULL;
-  
+
+  // register in member variables.
   bool member = !in_func && in_class;
+
+  // register in global.  
   bool glob = !in_func && !in_class;
   
   VarData* data = (VarData*) S_malloc(sizeof(VarData));
   data->node = node;
 
   if(member){
-    data->id = pc->glob_var_smtb->size + 1;
-    ht_insert(pc->current_class->member_vars, var_decl->var_name_tok->str, data);
+    data->id = pc->current_class->member_vars->size + 1;
+    ht_insert(pc->current_class->member_vars, var_decl->var_name_tok->str,
+              data);
   }
 
   if(glob){

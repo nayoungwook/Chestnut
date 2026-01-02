@@ -88,11 +88,17 @@ static void print_metadata(ParserContext* pc, int indent) {
 
 int main(int arc, char *args[]){
 
-  ParserContext* pc = gen_pc();
+  ParserContext *pc = gen_pc();
+
+  compile_file(pc, gen_tc(L"class Foo {\n"
+                          "func foo(): void {}\n"
+                          "var a: int = 0, b: float = 3;\n"
+                          "func foo2(): void {}\n"
+                          "}\n\n"
+                          "func main(): void {}\n"
+                          ));
   compile_file(pc,
-               gen_tc(L"class Foo { func foo(): void {} var a: int = 0; } func main(): void {}"));
-  compile_file(pc,
-               gen_tc(L"class Bar { func bar(): void {var foo: Foo;} var b: int = 0; }"));
+               gen_tc(L"class Bar { func bar(): void {var foo: Foo; foo.a } var b: int = 0; }"));
 
 #ifdef DEBUG
   print_metadata(pc, 0);
