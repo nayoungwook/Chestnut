@@ -4,6 +4,7 @@
 #include <token.h>
 #include <type.h>
 #include <util.h>
+#include <assert.h>
 
 #define ACMOD_PUBLIC 1
 #define ACMOD_PRIVATE 2
@@ -209,7 +210,8 @@ typedef struct {
   FuncData* current_func; // current parsing func.
 } ParserContext;
 
-ParserContext *gen_pc(TokenizerContext *tc);
+ParserContext *gen_pc();
+void compile_file(ParserContext *pc, TokenizerContext* tc);
 
 // parse
 Node *parse(ParserContext* pc, bool is_expr);

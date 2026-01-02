@@ -7,16 +7,27 @@ static Node *parse_unary_expression(ParserContext *pc);
 static Node *parse_compare_expression(ParserContext* pc);
 static Node *parse_expression(ParserContext* pc);
 
-ParserContext *gen_pc(TokenizerContext *tc) {
+ParserContext *gen_pc() {
   ParserContext *pc = (ParserContext *)S_malloc(sizeof(ParserContext));
 
-  pc->tc = tc;
+  pc->tc = NULL;  
   pc->glob_func_smtb = gen_htable();
   pc->glob_var_smtb = gen_htable();
   pc->class_smtb = gen_htable();
 
   return pc;
 }
+
+void compile_file(ParserContext* pc, TokenizerContext *tc) {
+  void *ast = NULL;
+  pc->tc = tc;  
+
+  while ((ast = parse(pc, false)) != NULL) {
+  }
+
+  pc->tc = NULL;  
+  free(tc);  
+}  
 
 static Node* pack(ASTType type, void* ptr){
   Node* result = (Node*) S_malloc(sizeof(Node));
@@ -155,19 +166,20 @@ static FuncData* register_func_data(Node* node, ParserContext* pc){
   FuncDeclAST* func_decl = node->ast;
 
   FuncData* data = (FuncData*) S_malloc(sizeof(FuncData));
+  data->node = node;    
   
   if(pc->current_class){ // register in class member.
-    ClassData* current_class = pc->current_class;
-    data->id = current_class->member_funcs->size + 1;
-
-    ht_insert(current_class->member_funcs, func_decl->func_name_tok->str, node);
+    ClassData *current_class = pc->current_class;
     
+    data->id = current_class->member_funcs->size + 1;
+    
+    ht_insert(current_class->member_funcs, func_decl->func_name_tok->str, data);
+
     return data;
   } else { // register in global.
     data->id = pc->glob_func_smtb->size + 1;
-    data->node = node;
       
-    ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, node);
+    ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, data);
     pc->func_data[pc->func_data_cnt++] = data;
     
     return data;
@@ -197,12 +209,13 @@ static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
   // first register function data.
   Node* result =  pack(AST_FunctionDeclaration, func_decl);
   FuncData* fd = register_func_data(result, pc);
-  if(!fd) panic(L"Failed to register function data.", tc);
-  pc->current_func = fd;
+  assert(fd != NULL);
 
   // and parse body.
+  pc->current_func = fd;
   unsigned body_size = 0;
   func_decl->body = gen_body(pc, &body_size);
+  pc->current_func = NULL;
   
   return result;
 }  
@@ -220,12 +233,12 @@ static VarData* register_var_data(Node* node, ParserContext* pc){
   data->node = node;
 
   if(member){
-    data->id = pc->glob_var_smtb->size;
+    data->id = pc->glob_var_smtb->size + 1;
     ht_insert(pc->current_class->member_vars, var_decl->var_name_tok->str, data);
   }
 
   if(glob){
-    data->id = pc->glob_var_smtb->size;
+    data->id = pc->glob_var_smtb->size + 1;
     ht_insert(pc->glob_var_smtb, var_decl->var_name_tok->str, data);
   }
 
@@ -415,7 +428,7 @@ static ClassData* register_class_data(Node* node, ParserContext* pc){
   data->member_funcs = gen_htable();
   data->member_vars = gen_htable();
   
-  ht_insert(pc->class_smtb, class_ast->name_tok->str, node);
+  ht_insert(pc->class_smtb, class_ast->name_tok->str, data);
   pc->class_data[pc->class_data_cnt++]= data;
   
   return data;
@@ -439,18 +452,21 @@ static Node* gen_class_decl_node(Token* first, ParserContext* pc){
   // first register class data.
   Node* result = pack(AST_Class, class_ast);
   ClassData* cd = register_class_data(result, pc);
-  if(!cd) panic(L"Failed to register class data.", tc);
+  assert(cd != NULL);
+  
   pc->current_class = cd;
-
   // and parse body
   unsigned body_size;
   class_ast->body = gen_body(pc, &body_size);
+  pc->current_class = NULL;
   
   return result;
 }
 
 Node *parse(ParserContext *pc, bool is_expr) {
   TokenizerContext *tc = pc->tc;
+  assert(tc != NULL);
+  
   Token *first = pull(tc);
   
   switch (first->type) {
