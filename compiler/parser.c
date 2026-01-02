@@ -161,15 +161,18 @@ static FuncData* register_func_data(Node* node, ParserContext* pc){
     data->id = current_class->member_funcs->size + 1;
 
     ht_insert(current_class->member_funcs, func_decl->func_name_tok->str, node);
+    
     return data;
   } else { // register in global.
     data->id = pc->glob_func_smtb->size + 1;
     data->node = node;
       
     ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, node);
+    pc->func_data[pc->func_data_cnt++] = data;
+    
     return data;
   }
-  
+
   free(data);
   return NULL;
 }
@@ -413,9 +416,9 @@ static ClassData* register_class_data(Node* node, ParserContext* pc){
   data->member_vars = gen_htable();
   
   ht_insert(pc->class_smtb, class_ast->name_tok->str, node);
-
+  pc->class_data[pc->class_data_cnt++]= data;
+  
   return data;
-
 }
 
 static Node* gen_class_decl_node(Token* first, ParserContext* pc){

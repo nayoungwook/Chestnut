@@ -10,6 +10,9 @@
 #define ACMOD_PROTECTED 3
 #define ACMOD_DEFAULT 4
 
+#define MAX_CLASS_COUNT 512
+#define MAX_FUNC_COUNT 512
+
 typedef enum {
   AST_NumberLiteral = 0,
   AST_Identifier = 1,
@@ -196,6 +199,12 @@ typedef struct {
   HTable* glob_func_smtb;
   HTable* class_smtb;
 
+  unsigned class_data_cnt;
+  ClassData* class_data[MAX_CLASS_COUNT];
+
+  unsigned func_data_cnt;
+  FuncData* func_data[MAX_FUNC_COUNT];
+  
   ClassData* current_class; // current parsing class.
   FuncData* current_func; // current parsing func.
 } ParserContext;
