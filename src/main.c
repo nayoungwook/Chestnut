@@ -1,4 +1,3 @@
-
 #include <token.h>
 #include <parser.h>
 #include <util.h>
@@ -91,9 +90,9 @@ int main(int arc, char *args[]){
   ParserContext *pc = gen_pc();
 
   compile_file(pc, gen_tc(L"class Foo {\n"
-                          L"func foo(): void {}\n"
-                          L"var a: int = 0, b: float = 3;\n"
-                          L"func foo2(): void {}\n"
+                          L"    func foo(): void {}\n"
+                          L"    var a: int = 0, b: float = 3;\n"
+                          L"    func foo2(): void {}\n"
                           L"}\n\n"
                           L"func main(): void {  }\n"
                           ));
@@ -102,9 +101,8 @@ int main(int arc, char *args[]){
                           L"    var b: int = 0;\n"
                           L"    func bar(): void {\n"
                           L"        var foo: Foo;\n"
-                          L"        foo.a\n"
+                          L"        foo.a = 3 + foo.b * foo.asdf();\n"
                           L"        foo.asdf();\n"
-			  L"        asdf\n"
                           L"    }\n"
                           L"}\n"
                           ));

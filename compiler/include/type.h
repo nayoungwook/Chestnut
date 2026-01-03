@@ -19,14 +19,15 @@ typedef struct {
 } IdentData;
 
 // [ First Node ( type name ) ] -> [ Attr (attribute name) ] -> [Attr (attribute name) ] -> ....
-typedef struct _IdentNode {
+typedef struct _IdentDataNode {
   IdentData* ident_data;
-  struct _IdentNode* attr;
-} IdentNode;
+  struct _IdentDataNode* attr;
+} IdentDataNode;
 
 // for type checker.
 typedef enum {
   TCK_CheckTypeExist,
+  TCK_CheckAssignable,  
 } TypeCheckKind;  
 
 typedef struct {

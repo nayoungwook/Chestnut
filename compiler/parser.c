@@ -98,8 +98,8 @@ static IdentData *gen_ident_data(const wchar_t *ident, IdentType attr_type) {
   return ident_data;  
 }
 
-static IdentNode *gen_attrib_node(const wchar_t* ident, IdentType ident_type, IdentNode* attr_of) {
-  IdentNode *ident_node = (IdentNode *)S_malloc(sizeof(IdentNode));
+static IdentDataNode *gen_ident_data_node(const wchar_t* ident, IdentType ident_type, IdentDataNode* attr_of) {
+  IdentDataNode *ident_node = (IdentDataNode *)S_malloc(sizeof(IdentDataNode));
   ident_node->ident_data = gen_ident_data(ident, ident_type);
 
   if (attr_of != NULL) {
@@ -110,7 +110,7 @@ static IdentNode *gen_attrib_node(const wchar_t* ident, IdentType ident_type, Id
   return ident_node;
 }
 
-void free_ident_node(IdentNode* ident_node) {
+void free_ident_node(IdentDataNode* ident_node) {
   free(ident_node->ident_data);
   free(ident_node);
 }
@@ -192,22 +192,85 @@ static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
   }
 
   return result;
-}  
+}
 
-static Node *gen_ident_node(Token* first, ParserContext *pc, IdentNode* attr_of, bool is_expr) {
+static void resolve_type_check(ParserContext *pc, wchar_t *ident_node_str,
+                               IdentType ident_type, IdentDataNode *ident_node,
+                               IdentDataNode *attr_of) {
+  assert(ident_node != NULL);
+  
+  // If it is first node, we have to check type of identifier.
+  if (attr_of == NULL) {
+    ident_node_str = get_type_of_identifier(pc, ident_type, ident_node_str);    
+  }
+  
+  // This is first identifier we put typechek on queue.
+  if (attr_of == NULL) {
+    q_push(pc->typecheck_queue, gen_tcqnode(TCK_CheckTypeExist, ident_node));
+  }
+}
+
+static Node *gen_ident_node(Token *first, ParserContext *pc, IdentDataNode *attr_of,
+                            bool is_expr);
+
+static void parse_attribute(ParserContext *pc, Node* result, IdentDataNode* ident_node, bool is_expr) {
+  TokenizerContext* tc = pc->tc;
+  Token *nt = NULL;
+  
+  if ((nt = peek(tc))->type == TokDot) {
+    consume(tc, TokDot);
+
+    Node *attr = gen_ident_node(pull(tc), pc, ident_node, is_expr);
+    result->attribute = attr;
+  }
+}
+
+// return binary expr ast node if it is assign expression.
+static Node *check_assign(ParserContext *pc, IdentDataNode *ident_node,
+                          IdentDataNode *attr_of, Node *result) {
+  // if it is not first node, return
+  if (attr_of != NULL) {
+    return result;
+  }
+  
   TokenizerContext* tc = pc->tc;
   Token *nt = peek(tc);
 
-  IdentNode *ident_node = NULL;
-  IdentType attr_type = IT_None;
+  if (nt->type != TokAssign) {
+    return result;
+  }
+  
+  consume(tc, TokAssign);
+
+  Node* expr = parse_expression(pc);
+  consume(tc, TokSemiColon);
+
+  BinExprAST *bin_expr_ast = (BinExprAST *)S_malloc(sizeof(BinExprAST));
+
+  bin_expr_ast->left = result;
+  bin_expr_ast->opType = OpASSIGN;
+  bin_expr_ast->right = expr;
+
+  //  q_push(pc->typecheck_queue, gen_tcqnode(TCK_CheckAssignable, ident_node));
+  
+  return pack(AST_BinExpr, bin_expr_ast);
+}
+
+static Node *gen_ident_node(Token* first, ParserContext *pc, IdentDataNode* attr_of, bool is_expr) {
+  TokenizerContext* tc = pc->tc;
+  Token *nt = peek(tc);
+
+  wchar_t *ident_node_str = wcsdup(first->str);
+  IdentDataNode *ident_node = NULL;
+  IdentType ident_type = IT_None;
   
   Node *result = NULL;
 
   if (nt->type == TokLParen) {
-    attr_type = IT_Func;    
+    ident_type = IT_Func;    
     result = gen_func_call_node(first, pc, is_expr);
   }else{
-    attr_type = IT_Var;
+    ident_type = IT_Var;
     
     IdentifierAST *ident_ast = (IdentifierAST *)S_malloc(sizeof(IdentifierAST));
     ident_ast->ident = first;
@@ -216,29 +279,16 @@ static Node *gen_ident_node(Token* first, ParserContext *pc, IdentNode* attr_of,
   }
 
   assert(result != NULL);
-  assert(attr_type != IT_None);
+  assert(ident_type != IT_None);
 
-  wchar_t *attr_node_str = wcsdup(first->str);
+  ident_node = gen_ident_data_node(ident_node_str, ident_type, attr_of);
 
-  ident_node = gen_attrib_node(attr_node_str, attr_type, attr_of);
+  parse_attribute(pc, result, ident_node, is_expr);
   
-  if ((nt = peek(tc))->type == TokDot) {
-    consume(tc, TokDot);
+  resolve_type_check(pc, ident_node_str, ident_type, ident_node, attr_of);
 
-    Node *attr = gen_ident_node(pull(tc), pc, ident_node, is_expr);
-    result->attribute = attr;
-  }
+  result = check_assign(pc, ident_node, attr_of, result);
   
-  // If it is first node, we have to check type of identifier.
-  if (attr_of == NULL && ident_node != NULL) {
-    attr_node_str = get_type_of_identifier(pc, attr_type, attr_node_str);    
-  }
-  
-  // This is first identifier we put typechek on queue.
-  if (attr_of == NULL && ident_node != NULL) {
-    q_push(pc->typecheck_queue, gen_tcqnode(TCK_CheckTypeExist, ident_node));
-  }
-    
   return result;  
 }
 
