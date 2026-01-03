@@ -361,7 +361,6 @@ Token* pull(TokenizerContext *tc) {
     
     if (*tc->cur_ch == L'\n') {
       tc->line_num++;
-      wprintf(L"\nline number : %d\n", tc->line_num);
     }      
   }
   

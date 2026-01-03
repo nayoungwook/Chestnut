@@ -91,14 +91,22 @@ int main(int arc, char *args[]){
   ParserContext *pc = gen_pc();
 
   compile_file(pc, gen_tc(L"class Foo {\n"
-                          "func foo(): void {}\n"
-                          "var a: int = 0, b: float = 3;\n"
-                          "func foo2(): void {}\n"
-                          "}\n\n"
-                          "func main(): void {}\n"
+                          L"func foo(): void {}\n"
+                          L"var a: int = 0, b: float = 3;\n"
+                          L"func foo2(): void {}\n"
+                          L"}\n\n"
+                          L"func main(): void {  }\n"
                           ));
-  compile_file(pc,
-               gen_tc(L"class Bar { func bar(): void {var foo: Foo; foo.a } var b: int = 0; }"));
+
+  compile_file(pc, gen_tc(L"class Bar {\n"
+                          L"    var b: int = 0;\n"
+                          L"    func bar(): void {\n"
+                          L"        var foo: Foo;\n"
+                          L"        foo.a\n"
+			  L"        foo.asdf();"                          
+                          L"    }\n"
+                          L"}\n"
+                          ));
 
 #ifdef DEBUG
   print_metadata(pc, 0);

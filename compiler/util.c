@@ -28,6 +28,18 @@ HTable *gen_htable() {
   return res;      
 }
 
+void free_htable(HTable *target_table) {
+  int i;
+  for (i = 0; i < HTABLE_BUFF; i++) {
+    DataNode* node = target_table->bucket[i];
+    while (node != NULL) {
+      DataNode* next_node = node->next;      
+      free(node);
+      node = next_node;      
+    }      
+  }    
+}  
+
 void ht_insert(HTable *target_table, const wchar_t* key, void *ptr) {
   DataNode *node = (DataNode *)S_malloc(sizeof(DataNode));
   unsigned hash = get_hash(key);
@@ -56,6 +68,10 @@ void *ht_find(HTable *target_table, const wchar_t *key) {
     }
     tnode = tnode->next;
   }
+
+  if (tnode == NULL) {
+    return NULL;
+  }    
   
   return tnode->ptr;
 }  

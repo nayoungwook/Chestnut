@@ -1,6 +1,7 @@
 #include "token.h"
-#include <parser.h>
-#include <error.h>
+#include "type.h"
+#include "parser.h"
+#include "error.h"
 
 static Node *parse_term(ParserContext* pc);
 static Node *parse_simple_expression(ParserContext* pc);
@@ -11,10 +12,16 @@ static Node *parse_expression(ParserContext* pc);
 ParserContext *gen_pc() {
   ParserContext *pc = (ParserContext *)S_malloc(sizeof(ParserContext));
 
-  pc->tc = NULL;  
+  pc->tc = NULL;
+
+  pc->current_scope = NULL;
+  pc->current_class = NULL;
+  pc->current_func = NULL;
+  
   pc->glob_func_smtb = gen_htable();
   pc->glob_var_smtb = gen_htable();
   pc->class_smtb = gen_htable();
+  pc->typecheck_queue = gen_queue();
 
   return pc;
 }
@@ -61,11 +68,9 @@ static Node* gen_func_call_node(Token* first, ParserContext* pc, bool is_expr){
     if(peek(tc)->type == TokComma){
       consume(tc, TokComma);
     }    
-    else if(peek(tc)->type == TokRParen){
-      consume(tc, TokRParen);
-      break;
-    }
   }
+
+  consume(tc, TokRParen);
 
   func_call->func_name_tok = first;
   func_call->params = params;
@@ -78,28 +83,154 @@ static Node* gen_func_call_node(Token* first, ParserContext* pc, bool is_expr){
   return pack(AST_FunctionCall, func_call);
 }
 
-static Node *gen_ident_node(Token* first, ParserContext *pc, bool is_expr) {
-  TokenizerContext* tc = pc->tc;
-  Token* nt = peek(tc);
+/*
+  @AttribNode -> this identifier node will be attribute of "attr_of" node.
+  [first identifier] ... [attr_of] -> [attr_of] -> [gen_ident_node]
+  We have to check attribute and type validation after the parsing.
+*/
 
-  if (nt->type == TokLParen) {
-    return gen_func_call_node(first, pc, is_expr);
+static IdentData *gen_ident_data(const wchar_t *ident, IdentType attr_type) {
+  IdentData *ident_data = (IdentData *)S_malloc(sizeof(IdentData));
+
+  ident_data->attr_type = attr_type;
+  ident_data->str = ident;
+
+  return ident_data;  
+}
+
+static IdentNode *gen_attrib_node(const wchar_t* ident, IdentType ident_type, IdentNode* attr_of) {
+  IdentNode *ident_node = (IdentNode *)S_malloc(sizeof(IdentNode));
+  ident_node->ident_data = gen_ident_data(ident, ident_type);
+
+  if (attr_of != NULL) {
+    // This identifier will be "attr_node" of "attr_of"      
+    attr_of->attr = ident_node;
+  }
+
+  return ident_node;
+}
+
+void free_ident_node(IdentNode* ident_node) {
+  free(ident_node->ident_data);
+  free(ident_node);
+}
+
+static VarData *find_var_data(ParserContext *pc, const wchar_t *var_name) {
+  VarData *result = NULL;
+  
+  if (pc->current_scope != NULL) { // first find in local
+    result = (VarData*) ht_find(pc->current_scope->local_var_smtb, var_name);
+  }
+
+  if (result == NULL && pc->current_class != NULL) { // and find in class
+    result = (VarData*) ht_find(pc->current_class->member_vars, var_name);
+  }
+
+  if (result == NULL) {
+    result = ht_find(pc->glob_var_smtb, var_name);    
   }    
   
-  IdentifierAST *ident = (IdentifierAST *)S_malloc(sizeof(IdentifierAST));
-  ident->ident = first;
+  return result;
+}
 
-  Node *result = pack(AST_Identifier, ident);
+static FuncData *find_func_data(ParserContext* pc, const wchar_t *func_name) {
+  ClassData *current_class = pc->current_class;
+  FuncData *result = NULL;
+  
+  if (current_class != NULL) { // find in class.
+    result = ht_find(current_class->member_funcs, func_name);
+  }
 
+  if (result == NULL) { // find in glob
+    result = ht_find(pc->glob_func_smtb, func_name);
+  }
+
+  return result;  
+}
+
+static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
+                                       const wchar_t *str) {
+  wchar_t* result = L"";
+  switch (ident_type) {
+  case IT_Var: {
+    VarData *var = find_var_data(pc, str);
+    if (var == NULL) {
+      panic(L"Failed to find variable.", pc->tc);
+    }
+    assert(var->node->type == AST_VariableDeclaration);
+      
+    VarDeclAST* var_decl_ast = (VarDeclAST*) var->node;
+    result = wcsdup(var_decl_ast->var_type_tok->str);
+      
+    break;
+  }
+
+  case IT_Func: {
+    FuncData* func = find_func_data(pc, str);
+    if (func == NULL) {
+      panic(L"Failed to find function.", pc->tc);
+    }
+
+    assert(func->node->type == AST_FunctionDeclaration);
+
+    FuncDeclAST* func_decl_ast = (FuncDeclAST*) func->node;
+    result = wcsdup(func_decl_ast->ret_type_tok->str);
+      
+    break;
+  }
+      
+  default:
+    break;
+  }
+
+  return result;
+}  
+
+static Node *gen_ident_node(Token* first, ParserContext *pc, IdentNode* attr_of, bool is_expr) {
+  TokenizerContext* tc = pc->tc;
+  Token *nt = peek(tc);
+
+  IdentNode *ident_node = NULL;
+  IdentType attr_type = IT_None;
+  
+  Node *result = NULL;
+
+  if (nt->type == TokLParen) {
+    attr_type = IT_Func;    
+    result = gen_func_call_node(first, pc, is_expr);
+  }else{
+    attr_type = IT_Var;
+    
+    IdentifierAST *ident_ast = (IdentifierAST *)S_malloc(sizeof(IdentifierAST));
+    ident_ast->ident = first;
+    
+    result = pack(AST_Identifier, ident_ast);
+  }
+
+  assert(result != NULL);
+  assert(attr_type != IT_None);
+
+  wchar_t *attr_node_str = wcsdup(first->str);
+
+  ident_node = gen_attrib_node(attr_node_str, attr_type, attr_of);
+  
   if ((nt = peek(tc))->type == TokDot) {
     consume(tc, TokDot);
 
-    Node *attr = gen_ident_node(pull(tc), pc, is_expr);
-
+    Node *attr = gen_ident_node(pull(tc), pc, ident_node, is_expr);
     result->attribute = attr;
-    // TODO : type check for attribute    
-  }    
+  }
   
+  // If it is first node, we have to check type of identifier.
+  if (attr_of == NULL && ident_node != NULL) {
+    attr_node_str = get_type_of_identifier(pc, attr_type, attr_node_str);    
+  }
+  
+  // This is first identifier we put typechek on queue.
+  if (attr_of == NULL && ident_node != NULL) {
+    q_push(pc->typecheck_queue, gen_tcqnode(TCK_CheckTypeExist, ident_node));
+  }
+    
   return result;  
 }
 
@@ -144,11 +275,38 @@ static Node *gen_func_param_node(ParserContext *pc) {
   return pack(AST_VariableDeclarationBundle, result);
 }
 
+static Scope *gen_scope(Scope* prev_scope) {
+  Scope *result = (Scope *)S_malloc(sizeof(Scope));
+
+  result->local_var_smtb = gen_htable();
+  result->prev_scope = prev_scope;
+  
+  return result;
+}
+
+static void open_scope(ParserContext *pc) {
+  Scope *scope = gen_scope(pc->current_scope);
+
+  pc->current_scope = scope;
+}
+
+static void close_scope(ParserContext *pc) {
+  assert(pc->current_scope != NULL);
+
+  Scope *prev_scope = pc->current_scope->prev_scope;
+  
+  free_htable(pc->current_scope->local_var_smtb);
+  free(pc->current_scope);
+  
+  pc->current_scope = prev_scope;
+}  
+
 static Node **gen_body(ParserContext *pc, unsigned *body_size) {
   TokenizerContext *tc = pc->tc;
 
   consume(tc, TokLBracket);
-
+  open_scope(pc);
+  
   unsigned size = 0, capacity = 1;
   Node **result = (Node **)S_malloc(sizeof(Node *) * capacity);
   
@@ -165,6 +323,7 @@ static Node **gen_body(ParserContext *pc, unsigned *body_size) {
   }
 
   consume(tc, TokRBracket);
+  close_scope(pc);
   
   *body_size = size;
   
@@ -242,20 +401,31 @@ static VarData* register_var_data(Node* node, ParserContext* pc){
 
   // register in global.  
   bool glob = !in_func && !in_class;
+
+  // register in local.
+  bool local = in_func;
   
   VarData* data = (VarData*) S_malloc(sizeof(VarData));
   data->node = node;
 
-  if(member){
-    data->id = pc->current_class->member_vars->size + 1;
-    ht_insert(pc->current_class->member_vars, var_decl->var_name_tok->str,
-              data);
+  HTable* target_smtb = NULL;
+
+  if (member) {
+    target_smtb = pc->current_class->member_vars;
   }
 
-  if(glob){
-    data->id = pc->glob_var_smtb->size + 1;
-    ht_insert(pc->glob_var_smtb, var_decl->var_name_tok->str, data);
+  if (glob) {
+    target_smtb = pc->glob_var_smtb;    
   }
+
+  if (local) {
+    target_smtb = pc->current_scope->local_var_smtb;
+  }
+
+  assert(target_smtb != NULL);  
+
+  data->id = target_smtb->size + 1;
+  ht_insert(target_smtb, var_decl->var_name_tok->str, data);
 
   return data;
 }
@@ -481,7 +651,7 @@ static Node* gen_class_decl_node(Token* first, ParserContext* pc){
 Node *parse(ParserContext *pc, bool is_expr) {
   TokenizerContext *tc = pc->tc;
   assert(tc != NULL);
-  
+
   Token *first = pull(tc);
   
   switch (first->type) {
@@ -514,7 +684,7 @@ Node *parse(ParserContext *pc, bool is_expr) {
   }
     
   case TokIdent: {
-    return gen_ident_node(first, pc, is_expr);
+    return gen_ident_node(first, pc, false, is_expr);
   }
 
   case TokReturn : {

@@ -30,6 +30,8 @@ typedef struct {
 } HTable;
 
 HTable *gen_htable();
+void free_htable(HTable *target_table);
+
 void ht_insert(HTable* target_table, const wchar_t* key, void* ptr);
 void* ht_find(HTable* target_table, const wchar_t* key);
 

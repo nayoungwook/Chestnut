@@ -1,9 +1,9 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include <token.h>
-#include <type.h>
-#include <util.h>
+#include "token.h"
+#include "util.h"
+
 #include <assert.h>
 
 #define ACMOD_PUBLIC 1
@@ -193,6 +193,11 @@ typedef struct _ClassData {
   struct _ClassData* paren_class;
 } ClassData;
 
+typedef struct _Scope {
+  HTable *local_var_smtb;
+  struct _Scope *prev_scope;
+} Scope;  
+
 typedef struct {
   TokenizerContext* tc;
 
@@ -200,11 +205,15 @@ typedef struct {
   HTable* glob_func_smtb;
   HTable* class_smtb;
 
+  Queue* typecheck_queue; // queue for type checking.
+  
   unsigned class_data_cnt;
   ClassData* class_data[MAX_CLASS_COUNT];
 
   unsigned func_data_cnt;
   FuncData* func_data[MAX_FUNC_COUNT];
+
+  Scope* current_scope;
   
   ClassData* current_class; // current parsing class.
   FuncData* current_func; // current parsing func.
