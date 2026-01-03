@@ -355,13 +355,13 @@ Token* pull(TokenizerContext *tc) {
   if(tok_cache_backup){
     return tok_cache_backup;
   }
-  
-  while (iswspace(*tc->cur_ch) || (*tc->cur_ch == L'\n')) {// skip white space
-    tc->cur_ch++;
-    
+
+  while (iswspace(*tc->cur_ch)) { // skip white space 
     if (*tc->cur_ch == L'\n') {
       tc->line_num++;
     }      
+   
+    tc->cur_ch++;
   }
   
   if (iswalpha(*tc->cur_ch)) {

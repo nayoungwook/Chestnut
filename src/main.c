@@ -103,7 +103,8 @@ int main(int arc, char *args[]){
                           L"    func bar(): void {\n"
                           L"        var foo: Foo;\n"
                           L"        foo.a\n"
-			  L"        foo.asdf();"                          
+                          L"        foo.asdf();\n"
+			  L"        asdf\n"
                           L"    }\n"
                           L"}\n"
                           ));

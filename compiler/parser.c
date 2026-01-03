@@ -117,9 +117,17 @@ void free_ident_node(IdentNode* ident_node) {
 
 static VarData *find_var_data(ParserContext *pc, const wchar_t *var_name) {
   VarData *result = NULL;
-  
+
   if (pc->current_scope != NULL) { // first find in local
-    result = (VarData*) ht_find(pc->current_scope->local_var_smtb, var_name);
+    Scope *scope_searcher = pc->current_scope;
+    while (scope_searcher != NULL) {
+      result = (VarData *)ht_find(scope_searcher->local_var_smtb, var_name);
+
+      if (result != NULL)
+        break;
+
+      scope_searcher = scope_searcher->prev_scope;
+    }      
   }
 
   if (result == NULL && pc->current_class != NULL) { // and find in class
