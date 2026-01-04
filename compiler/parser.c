@@ -9,6 +9,15 @@ static Node *parse_unary_expression(ParserContext *pc);
 static Node *parse_compare_expression(ParserContext* pc);
 static Node *parse_expression(ParserContext* pc);
 
+static void init_primitive(ParserContext *pc) {
+  ht_insert(pc->primitive_type_smtb, L"int", gen_type(L"int", NULL));
+  ht_insert(pc->primitive_type_smtb, L"char", gen_type(L"char", NULL));
+  ht_insert(pc->primitive_type_smtb, L"float", gen_type(L"float", NULL));
+  ht_insert(pc->primitive_type_smtb, L"double", gen_type(L"double", NULL));
+  ht_insert(pc->primitive_type_smtb, L"bool", gen_type(L"bool", NULL));
+  ht_insert(pc->primitive_type_smtb, L"string", gen_type(L"string", NULL));  
+}  
+
 ParserContext *gen_pc() {
   ParserContext *pc = (ParserContext *)S_malloc(sizeof(ParserContext));
 
@@ -20,9 +29,17 @@ ParserContext *gen_pc() {
   
   pc->glob_func_smtb = gen_htable();
   pc->glob_var_smtb = gen_htable();
-  pc->class_smtb = gen_htable();
+  
+  pc->class_type_smtb = gen_htable();
+  pc->primitive_type_smtb = gen_htable();
+  
   pc->typecheck_queue = gen_queue();
 
+  pc->class_data_cnt = 0;
+  pc->func_data_cnt = 0;  
+
+  init_primitive(pc);  
+  
   return pc;
 }
 
@@ -92,6 +109,8 @@ static Node* gen_func_call_node(Token* first, ParserContext* pc, bool is_expr){
 static IdentData *gen_ident_data(const wchar_t *ident, IdentType attr_type) {
   IdentData *ident_data = (IdentData *)S_malloc(sizeof(IdentData));
 
+  ident_data->type_str = L"";
+  ident_data->type = NULL;
   ident_data->attr_type = attr_type;
   ident_data->str = ident;
 
@@ -99,20 +118,20 @@ static IdentData *gen_ident_data(const wchar_t *ident, IdentType attr_type) {
 }
 
 static IdentDataNode *gen_ident_data_node(const wchar_t* ident, IdentType ident_type, IdentDataNode* attr_of) {
-  IdentDataNode *ident_node = (IdentDataNode *)S_malloc(sizeof(IdentDataNode));
-  ident_node->ident_data = gen_ident_data(ident, ident_type);
+  IdentDataNode *ident_data_node = (IdentDataNode *)S_malloc(sizeof(IdentDataNode));
+  ident_data_node->ident_data = gen_ident_data(ident, ident_type);
 
   if (attr_of != NULL) {
     // This identifier will be "attr_node" of "attr_of"      
-    attr_of->attr = ident_node;
+    attr_of->attr = ident_data_node;
   }
 
-  return ident_node;
+  return ident_data_node;
 }
 
-void free_ident_node(IdentDataNode* ident_node) {
-  free(ident_node->ident_data);
-  free(ident_node);
+void free_ident_node(IdentDataNode* ident_data_node) {
+  free(ident_data_node->ident_data);
+  free(ident_data_node);
 }
 
 static VarData *find_var_data(ParserContext *pc, const wchar_t *var_name) {
@@ -157,8 +176,9 @@ static FuncData *find_func_data(ParserContext* pc, const wchar_t *func_name) {
 }
 
 static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
-                                       const wchar_t *str) {
-  wchar_t* result = L"";
+                                    const wchar_t *str) {
+  wchar_t *result = NULL;
+  
   switch (ident_type) {
   case IT_Var: {
     VarData *var = find_var_data(pc, str);
@@ -166,10 +186,10 @@ static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
       panic(L"Failed to find variable.", pc->tc);
     }
     assert(var->node->type == AST_VariableDeclaration);
-      
-    VarDeclAST* var_decl_ast = (VarDeclAST*) var->node;
+
+    VarDeclAST *var_decl_ast = (VarDeclAST *)var->node;
+
     result = wcsdup(var_decl_ast->var_type_tok->str);
-      
     break;
   }
 
@@ -183,7 +203,6 @@ static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
 
     FuncDeclAST* func_decl_ast = (FuncDeclAST*) func->node;
     result = wcsdup(func_decl_ast->ret_type_tok->str);
-      
     break;
   }
       
@@ -194,19 +213,18 @@ static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
   return result;
 }
 
-static void resolve_type_check(ParserContext *pc, wchar_t *ident_node_str,
-                               IdentType ident_type, IdentDataNode *ident_node,
+static void resolve_type_check(ParserContext *pc, wchar_t *ident_str,
+                               IdentType ident_type, IdentDataNode *ident_data_node,
                                IdentDataNode *attr_of) {
-  assert(ident_node != NULL);
+  assert(ident_data_node != NULL);
   
   // If it is first node, we have to check type of identifier.
-  if (attr_of == NULL) {
-    ident_node_str = get_type_of_identifier(pc, ident_type, ident_node_str);    
-  }
-  
   // This is first identifier we put typechek on queue.
   if (attr_of == NULL) {
-    q_push(pc->typecheck_queue, gen_tcqnode(TCK_CheckTypeExist, ident_node));
+    wchar_t* type_str = get_type_of_identifier(pc, ident_type, ident_str);
+    ident_data_node->ident_data->type_str = type_str;
+    
+    q_push(pc->typecheck_queue, gen_tcqnode(pc, TCK_CheckTypeExist, ident_data_node));
   }
 }
 
@@ -260,8 +278,8 @@ static Node *gen_ident_node(Token* first, ParserContext *pc, IdentDataNode* attr
   TokenizerContext* tc = pc->tc;
   Token *nt = peek(tc);
 
-  wchar_t *ident_node_str = wcsdup(first->str);
-  IdentDataNode *ident_node = NULL;
+  wchar_t *ident_str = wcsdup(first->str);
+  IdentDataNode *ident_data_node = NULL;
   IdentType ident_type = IT_None;
   
   Node *result = NULL;
@@ -281,13 +299,13 @@ static Node *gen_ident_node(Token* first, ParserContext *pc, IdentDataNode* attr
   assert(result != NULL);
   assert(ident_type != IT_None);
 
-  ident_node = gen_ident_data_node(ident_node_str, ident_type, attr_of);
+  ident_data_node = gen_ident_data_node(ident_str, ident_type, attr_of);
 
-  parse_attribute(pc, result, ident_node, is_expr);
+  parse_attribute(pc, result, ident_data_node, is_expr);
   
-  resolve_type_check(pc, ident_node_str, ident_type, ident_node, attr_of);
+  resolve_type_check(pc, ident_str, ident_type, ident_data_node, attr_of);
 
-  result = check_assign(pc, ident_node, attr_of, result);
+  result = check_assign(pc, ident_data_node, attr_of, result);
   
   return result;  
 }
@@ -660,22 +678,24 @@ static Node* gen_ret_node(Token* first, ParserContext* pc){
 }
 
 static ClassData* register_class_data(Node* node, ParserContext* pc){
-  ClassAST* class_ast = node->ast;
-
+  ClassAST *class_ast = node->ast;
+  
   ClassData* data = (ClassData*) S_malloc(sizeof(ClassData));
-  data->id = pc->class_smtb->size + 1;
+  data->id = pc->class_type_smtb->size + 1;
   data->node = node;
 
   data->member_funcs = gen_htable();
   data->member_vars = gen_htable();
-  
-  ht_insert(pc->class_smtb, class_ast->name_tok->str, data);
-  pc->class_data[pc->class_data_cnt++]= data;
-  
+
+  ht_insert(pc->class_type_smtb, class_ast->name_tok->str,
+            gen_type(class_ast->name_tok->str, data));
+
+  pc->class_data[pc->class_data_cnt++] = data;  
+
   return data;
 }
 
-static Node* gen_class_decl_node(Token* first, ParserContext* pc){
+static Node *gen_class_decl_node(Token *first, ParserContext *pc) {
   TokenizerContext* tc = pc->tc;
   ClassAST* class_ast = (ClassAST*) S_malloc(sizeof(ClassAST));
 

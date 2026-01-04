@@ -199,24 +199,26 @@ typedef struct _Scope {
 } Scope;  
 
 typedef struct {
-  TokenizerContext* tc;
+  TokenizerContext *tc;
 
-  HTable* glob_var_smtb;
-  HTable* glob_func_smtb;
-  HTable* class_smtb;
+  HTable *glob_var_smtb; // VarData will be stored.
+  HTable *glob_func_smtb; // FuncData will be stored.
 
-  Queue* typecheck_queue; // queue for type checking.
+  HTable *class_type_smtb; // Type will be stored.
+  HTable *primitive_type_smtb;  // Type will be stored.
+  
+  Queue *typecheck_queue; // queue for type checking.
   
   unsigned class_data_cnt;
-  ClassData* class_data[MAX_CLASS_COUNT];
-
-  unsigned func_data_cnt;
-  FuncData* func_data[MAX_FUNC_COUNT];
-
-  Scope* current_scope;
+  ClassData *class_data[MAX_CLASS_COUNT];
   
-  ClassData* current_class; // current parsing class.
-  FuncData* current_func; // current parsing func.
+  unsigned func_data_cnt;
+  FuncData *func_data[MAX_FUNC_COUNT];
+
+  Scope *current_scope;
+
+  ClassData *current_class; // current parsing class.
+  FuncData *current_func;   // current parsing func.
 } ParserContext;
 
 ParserContext *gen_pc();

@@ -102,11 +102,11 @@ int main(int arc, char *args[]){
                           L"    func bar(): void {\n"
                           L"        var foo: Foo;\n"
                           L"        foo.a = 3 + foo.b * foo.asdf();\n"
-                          L"        foo.asdf();\n"
+                          L"        foo\n"
                           L"    }\n"
                           L"}\n"
                           ));
-
+  
 #ifdef DEBUG
   print_metadata(pc, 0);
 #endif
