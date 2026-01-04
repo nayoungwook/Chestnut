@@ -402,17 +402,15 @@ static FuncData* register_func_data(Node* node, ParserContext* pc){
     ht_insert(current_class->member_funcs, func_decl->func_name_tok->str, data);
 
     return data;
-  } else { // register in global.
-    data->id = pc->glob_func_smtb->size + 1;
-      
-    ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, data);
-    pc->func_data[pc->func_data_cnt++] = data;
-    
-    return data;
   }
 
-  free(data);
-  return NULL;
+  // register in global.
+  data->id = pc->glob_func_smtb->size + 1;
+      
+  ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, data);
+  pc->func_data[pc->func_data_cnt++] = data;
+    
+  return data;
 }
 
 static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
