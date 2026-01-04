@@ -10,22 +10,30 @@ Type *gen_type(const wchar_t *type_str, void *data) {
   return type;
 }
 
-Type *find_type(ParserContext* pc, const wchar_t *str) {
-  Type *result = ht_find(pc->primitive_type_smtb, str);
+IdentifierTCQN *gen_ident_tcqn(ParserContext *pc,
+                               IdentDataNode *ident_data_node) {
+  IdentifierTCQN *result = (IdentifierTCQN *)S_malloc(sizeof(IdentifierTCQN));
 
-  if (result == NULL) {
-    result = ht_find(pc->class_type_smtb, str);
-  }
+  result->ident_data_node = ident_data_node;
+  result->tok = peek(pc->tc);
+  
+  return result;  
+}
+
+RawTypeTCQN *gen_rawtype_tcqn(ParserContext *pc, wchar_t *type_str) {
+  RawTypeTCQN *result = (RawTypeTCQN *)S_malloc(sizeof(RawTypeTCQN));
+
+  result->type_str = type_str;
+  result->tok = peek(pc->tc);
 
   return result;  
-}  
+}
 
-TypeCheckQueueNode *gen_tcqnode(ParserContext* pc, TypeCheckKind kind, void *node) {
-  TypeCheckQueueNode *result =
-      (TypeCheckQueueNode *)S_malloc(sizeof(TypeCheckQueueNode));
-
-  result->kind = kind;
-  result->node = node;
+AssignTCQN *gen_assign_tcqn(ParserContext *pc, Node *left_node,
+                            Node *right_node) {
+  AssignTCQN *result = (AssignTCQN*) S_malloc(sizeof(AssignTCQN));
+  result->right_node = right_node;
+  result->left_node = left_node;
   result->tok = peek(pc->tc);
 
   return result;  

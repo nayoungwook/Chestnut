@@ -32,8 +32,10 @@ ParserContext *gen_pc() {
   
   pc->class_type_smtb = gen_htable();
   pc->primitive_type_smtb = gen_htable();
-  
-  pc->typecheck_queue = gen_queue();
+
+  pc->tc_type_queue = gen_queue();
+  pc->tc_ident_queue = gen_queue();  
+  pc->tc_assign_queue = gen_queue();  
 
   pc->class_data_cnt = 0;
   pc->func_data_cnt = 0;  
@@ -63,9 +65,8 @@ static Node* pack(ASTType type, void* ptr){
   return result;
 }
 
-static Node* gen_func_call_node(Token* first, ParserContext* pc, bool is_expr){
-  FuncCallAST* func_call = (FuncCallAST*) S_malloc(sizeof(FuncCallAST));
-  TokenizerContext* tc = pc->tc;
+static void parse_func_call_params(ParserContext *pc, FuncCallAST* func_call) {
+  TokenizerContext *tc = pc->tc;
 
   unsigned capacity = 1, size = 0;
   Node** params = (Node**) S_malloc(sizeof(Node*) * capacity);
@@ -84,14 +85,22 @@ static Node* gen_func_call_node(Token* first, ParserContext* pc, bool is_expr){
     
     if(peek(tc)->type == TokComma){
       consume(tc, TokComma);
-    }    
+    }
   }
-
-  consume(tc, TokRParen);
-
-  func_call->func_name_tok = first;
+  
   func_call->params = params;
   func_call->param_size = size;
+
+  consume(tc, TokRParen);
+}  
+
+static Node* gen_func_call_node(Token* first, ParserContext* pc, bool is_expr){
+  FuncCallAST* func_call = (FuncCallAST*) S_malloc(sizeof(FuncCallAST));
+  TokenizerContext* tc = pc->tc;
+
+  parse_func_call_params(pc, func_call);  
+  
+  func_call->func_name_tok = first;
 
   if(!is_expr){
     consume(tc, TokSemiColon);
@@ -175,6 +184,16 @@ static FuncData *find_func_data(ParserContext* pc, const wchar_t *func_name) {
   return result;  
 }
 
+Type *find_type(ParserContext* pc, const wchar_t *str) {
+  Type *result = ht_find(pc->primitive_type_smtb, str);
+
+  if (result == NULL) {
+    result = ht_find(pc->class_type_smtb, str);
+  }
+
+  return result;  
+}  
+
 static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
                                     const wchar_t *str) {
   wchar_t *result = NULL;
@@ -213,7 +232,7 @@ static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
   return result;
 }
 
-static void resolve_type_check(ParserContext *pc, wchar_t *ident_str,
+static void get_first_node_type(ParserContext *pc, wchar_t *ident_str,
                                IdentType ident_type, IdentDataNode *ident_data_node,
                                IdentDataNode *attr_of) {
   assert(ident_data_node != NULL);
@@ -224,7 +243,7 @@ static void resolve_type_check(ParserContext *pc, wchar_t *ident_str,
     wchar_t* type_str = get_type_of_identifier(pc, ident_type, ident_str);
     ident_data_node->ident_data->type_str = type_str;
     
-    q_push(pc->typecheck_queue, gen_tcqnode(pc, TCK_CheckTypeExist, ident_data_node));
+    q_push(pc->tc_ident_queue, gen_ident_tcqn(pc, ident_data_node));
   }
 }
 
@@ -269,7 +288,7 @@ static Node *check_assign(ParserContext *pc, IdentDataNode *ident_node,
   bin_expr_ast->opType = OpASSIGN;
   bin_expr_ast->right = expr;
 
-  //  q_push(pc->typecheck_queue, gen_tcqnode(TCK_CheckAssignable, ident_node));
+  q_push(pc->tc_assign_queue, gen_assign_tcqn(pc, bin_expr_ast->left, bin_expr_ast->right));  
   
   return pack(AST_BinExpr, bin_expr_ast);
 }
@@ -303,7 +322,7 @@ static Node *gen_ident_node(Token* first, ParserContext *pc, IdentDataNode* attr
 
   parse_attribute(pc, result, ident_data_node, is_expr);
   
-  resolve_type_check(pc, ident_str, ident_type, ident_data_node, attr_of);
+  get_first_node_type(pc, ident_str, ident_type, ident_data_node, attr_of);
 
   result = check_assign(pc, ident_data_node, attr_of, result);
   
@@ -331,6 +350,8 @@ static Node *gen_func_param_node(ParserContext *pc) {
     var_decl->decl = NULL;
     var_decl->var_name_tok = name_tok;
     var_decl->var_type_tok = type_tok;
+
+    q_push(pc->tc_type_queue, gen_rawtype_tcqn(pc, type_tok->str));    
     
     if (param_size + 1 >= capacity) {
       capacity *= 2;
@@ -444,6 +465,8 @@ static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
 
   Token* ret_type_tok = pull(tc);
 
+  q_push(pc->tc_type_queue, gen_rawtype_tcqn(pc, ret_type_tok->str));    
+  
   func_decl->func_name_tok = func_name_tok;
   func_decl->ret_type_tok = ret_type_tok;
   func_decl->params = params;
@@ -519,7 +542,8 @@ static Node* gen_var_decl_node(Token* first, ParserContext* pc, bool is_expr){
 
     consume(tc, TokColon);
 
-    Token* var_type_tok = pull(tc);
+    Token *var_type_tok = pull(tc);
+    q_push(pc->tc_type_queue, gen_rawtype_tcqn(pc, var_type_tok->str));    
 
     Token* cont_tok = peek(tc);
 

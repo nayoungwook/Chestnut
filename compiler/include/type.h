@@ -34,19 +34,34 @@ typedef struct _IdentDataNode {
   struct _IdentDataNode *attr;
 } IdentDataNode;
 
-// for type checker.
-typedef enum {
-  TCK_CheckTypeExist,
-  TCK_CheckAssignable,  
-} TypeCheckKind;  
 
+//================= for type checker. =================
+
+// identifier type check node
 typedef struct {
-  TypeCheckKind kind;
-  void *node;
+  IdentDataNode *ident_data_node;
   Token* tok;
-} TypeCheckQueueNode;
+} IdentifierTCQN;
 
-TypeCheckQueueNode* gen_tcqnode(ParserContext* pc, TypeCheckKind kind, void* node);
+// raw type existance check node
+typedef struct {
+  wchar_t *type_str;
+  Token* tok;  
+} RawTypeTCQN;
+
+// assign type check node
+typedef struct {
+  Node *left_node;
+  Node *right_node;
+  Token *tok;
+} AssignTCQN;
+
+IdentifierTCQN *gen_ident_tcqn(ParserContext *pc,
+                               IdentDataNode *ident_data_node);
+RawTypeTCQN *gen_rawtype_tcqn(ParserContext *pc,
+			     wchar_t* type);
+AssignTCQN *gen_assign_tcqn(ParserContext *pc, Node *left_node,
+                           Node* right_node);
 
 bool check_attribute(ParserContext* pc, const wchar_t *target, IdentData* attr);
 bool check_type_exists(ParserContext* pc, const wchar_t* type);

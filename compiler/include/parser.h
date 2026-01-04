@@ -206,8 +206,14 @@ typedef struct {
 
   HTable *class_type_smtb; // Type will be stored.
   HTable *primitive_type_smtb;  // Type will be stored.
-  
-  Queue *typecheck_queue; // queue for type checking.
+
+  Queue *tc_ident_queue; // queue for type checking of identifier.
+                         // stores IdentDataNode (like a, b, foo, bar ..)
+
+  Queue *tc_type_queue; // queue for type checking of raw Type.
+                        // stores wstring (like class, int, float ..).
+
+  Queue *tc_assign_queue; // queue for type checking of assign.
   
   unsigned class_data_cnt;
   ClassData *class_data[MAX_CLASS_COUNT];
