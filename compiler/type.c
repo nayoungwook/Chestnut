@@ -2,6 +2,16 @@
 #include "error.h"
 #include "parser.h"
 
+Type *infer_type(Node *node) {
+  Type* result = NULL;
+
+  switch(node->type) {
+    
+  }    
+  
+  return result;  
+}  
+
 Type *gen_type(const wchar_t *type_str, void *data) {
   Type *type = (Type *)S_malloc(sizeof(Type));
 

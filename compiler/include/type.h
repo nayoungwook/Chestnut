@@ -11,6 +11,7 @@ typedef struct {
   void* data;  
 } Type;
 
+Type *infer_type(Node *node);
 Type *gen_type(const wchar_t *type_str, void *data);
 Type *find_type(ParserContext *pc, const wchar_t *str);
 
