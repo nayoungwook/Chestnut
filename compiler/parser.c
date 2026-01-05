@@ -15,7 +15,8 @@ static void init_primitive(ParserContext *pc) {
   ht_insert(pc->primitive_type_smtb, L"float", gen_type(L"float", NULL));
   ht_insert(pc->primitive_type_smtb, L"double", gen_type(L"double", NULL));
   ht_insert(pc->primitive_type_smtb, L"bool", gen_type(L"bool", NULL));
-  ht_insert(pc->primitive_type_smtb, L"string", gen_type(L"string", NULL));  
+  ht_insert(pc->primitive_type_smtb, L"string", gen_type(L"string", NULL));
+  ht_insert(pc->primitive_type_smtb, L"void", gen_type(L"void", NULL));    
 }  
 
 ParserContext *gen_pc() {
@@ -110,11 +111,10 @@ static Node* gen_func_call_node(Token* first, ParserContext* pc, bool is_expr){
 }
 
 /*
-  @AttribNode -> this identifier node will be attribute of "attr_of" node.
+  AttribNode -> this identifier node will be attribute of "attr_of" node.
   [first identifier] ... [attr_of] -> [attr_of] -> [gen_ident_node]
   We have to check attribute and type validation after the parsing.
 */
-
 static IdentData *gen_ident_data(const wchar_t *ident, IdentType attr_type) {
   IdentData *ident_data = (IdentData *)S_malloc(sizeof(IdentData));
 
@@ -206,21 +206,22 @@ static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
     }
     assert(var->node->type == AST_VariableDeclaration);
 
-    VarDeclAST *var_decl_ast = (VarDeclAST *)var->node;
+    VarDeclAST *var_decl_ast = (VarDeclAST *)var->node->ast;
 
     result = wcsdup(var_decl_ast->var_type_tok->str);
     break;
   }
 
   case IT_Func: {
-    FuncData* func = find_func_data(pc, str);
+    FuncData *func = find_func_data(pc, str);
+    
     if (func == NULL) {
       panic(L"Failed to find function.", pc->tc);
     }
 
     assert(func->node->type == AST_FunctionDeclaration);
 
-    FuncDeclAST* func_decl_ast = (FuncDeclAST*) func->node;
+    FuncDeclAST* func_decl_ast = (FuncDeclAST*) func->node->ast;
     result = wcsdup(func_decl_ast->ret_type_tok->str);
     break;
   }

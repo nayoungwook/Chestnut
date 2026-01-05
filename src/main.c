@@ -1,6 +1,8 @@
 #include <token.h>
 #include <parser.h>
 #include <util.h>
+#include <type.h>
+
 #include <assert.h>
 
 #define DEBUG
@@ -101,11 +103,14 @@ int main(int arc, char *args[]){
                           L"    var b: int = 0;\n"
                           L"    func bar(): void {\n"
                           L"        var foo: Foo;\n"
-                          L"        foo.a = 3 + foo.b * foo.asdf();\n"
-                          L"        foo\n"
+                          L"        foo.a = 3 + foo.b * foo.foo();\n"
+                          L"        var bar: Bar;\n"
+			  L"        bar.b\n"
                           L"    }\n"
                           L"}\n"
                           ));
+
+  resolve_tcq(pc);
   
 #ifdef DEBUG
   print_metadata(pc, 0);

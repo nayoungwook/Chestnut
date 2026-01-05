@@ -61,9 +61,11 @@ IdentifierTCQN *gen_ident_tcqn(ParserContext *pc,
 RawTypeTCQN *gen_rawtype_tcqn(ParserContext *pc,
 			     wchar_t* type);
 AssignTCQN *gen_assign_tcqn(ParserContext *pc, Node *left_node,
-                           Node* right_node);
+                            Node *right_node);
 
-bool check_attribute(ParserContext* pc, const wchar_t *target, IdentData* attr);
-bool check_type_exists(ParserContext* pc, const wchar_t* type);
+void resolve_tcq(ParserContext *pc);
+
+Type *get_type_of_attr(ParserContext *pc, Type *target, IdentData *attr);
+bool check_type_exist(ParserContext* pc, const wchar_t* type);
 
 #endif

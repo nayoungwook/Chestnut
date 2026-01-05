@@ -1,4 +1,6 @@
-#include <util.h>
+#include "util.h"
+
+#include <assert.h>
 #include <token.h>
 
 #ifdef __linux__
@@ -88,6 +90,8 @@ Queue *gen_queue(){
 void q_push(Queue *target_queue, void* ptr){
   DataNode *node = (DataNode*) S_malloc(sizeof(DataNode));
   node->ptr = ptr;
+
+  assert(target_queue != NULL);
   
   if(target_queue->tail == NULL){
     target_queue->tail = node;
@@ -104,6 +108,8 @@ void q_push(Queue *target_queue, void* ptr){
 void* q_pop(Queue *target_queue){
   if(target_queue->size == 0)
     return NULL;
+
+  assert(target_queue->tail != NULL);  
   
   DataNode* result = target_queue->tail->next;
 
