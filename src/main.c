@@ -90,27 +90,31 @@ static void print_metadata(ParserContext* pc, int indent) {
 int main(int arc, char *args[]){
 
   ParserContext *pc = gen_pc();
+  TypeCheckContext *tcc = gen_tcc();
 
   compile_file(pc, gen_tc(L"class Foo {\n"
                           L"    func foo(): void {}\n"
                           L"    var a: int = 0, b: float = 3;\n"
+			  L"    var bar: Bar;\n"
                           L"    func foo2(): void {}\n"
                           L"}\n\n"
                           L"func main(): void {  }\n"
-                          ));
+                          ), tcc);
 
   compile_file(pc, gen_tc(L"class Bar {\n"
                           L"    var b: int = 0;\n"
+                          L"    var foo: Foo;\n"
                           L"    func bar(): void {\n"
                           L"        var foo: Foo;\n"
-                          L"        foo.a = 3 + foo.b * foo.foo();\n"
+                          L"        foo.a = 3 + foo.bar.foo.bar * foo.foo();\n"
+                          L"        foo.a = 3 + foo.bar.foo.asdf * foo.foo();\n" 
                           L"        var bar: Bar;\n"
 			  L"        bar.b\n"
                           L"    }\n"
                           L"}\n"
-                          ));
+                          ), tcc);
 
-  resolve_tcq(pc);
+  resolve_tcq(pc, tcc);
   
 #ifdef DEBUG
   print_metadata(pc, 0);

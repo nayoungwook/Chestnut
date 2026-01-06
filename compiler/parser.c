@@ -1,7 +1,7 @@
-#include "token.h"
-#include "type.h"
 #include "parser.h"
+#include "token.h"
 #include "error.h"
+#include "type.h"
 
 static Node *parse_term(ParserContext* pc);
 static Node *parse_simple_expression(ParserContext* pc);
@@ -34,10 +34,6 @@ ParserContext *gen_pc() {
   pc->class_type_smtb = gen_htable();
   pc->primitive_type_smtb = gen_htable();
 
-  pc->tc_type_queue = gen_queue();
-  pc->tc_ident_queue = gen_queue();  
-  pc->tc_assign_queue = gen_queue();  
-
   pc->class_data_cnt = 0;
   pc->func_data_cnt = 0;  
 
@@ -46,9 +42,22 @@ ParserContext *gen_pc() {
   return pc;
 }
 
-void compile_file(ParserContext* pc, TokenizerContext *tc) {
+TypeCheckContext *gen_tcc() {
+  TypeCheckContext *tcc =
+      (TypeCheckContext *)S_malloc(sizeof(TypeCheckContext));
+
+  tcc->tc_type_queue = gen_queue();
+  tcc->tc_ident_queue = gen_queue();  
+  tcc->tc_assign_queue = gen_queue();  
+  
+  return tcc;
+}  
+
+void compile_file(ParserContext* pc, TokenizerContext *tc, TypeCheckContext* tcc) {
   void *ast = NULL;
-  pc->tc = tc;  
+
+  pc->tc = tc;
+  pc->tcc = tcc;  
 
   while ((ast = parse(pc, false)) != NULL) {
   }
@@ -234,17 +243,22 @@ static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
 }
 
 static void get_first_node_type(ParserContext *pc, wchar_t *ident_str,
-                               IdentType ident_type, IdentDataNode *ident_data_node,
-                               IdentDataNode *attr_of) {
+                                IdentType ident_type,
+                                IdentDataNode *ident_data_node,
+                                IdentDataNode *attr_of) {
   assert(ident_data_node != NULL);
   
   // If it is first node, we have to check type of identifier.
   // This is first identifier we put typechek on queue.
   if (attr_of == NULL) {
     wchar_t* type_str = get_type_of_identifier(pc, ident_type, ident_str);
+    TypeCheckContext *tcc = pc->tcc;
+
+    assert(tcc != NULL);    
+    
     ident_data_node->ident_data->type_str = type_str;
     
-    q_push(pc->tc_ident_queue, gen_ident_tcqn(pc, ident_data_node));
+    q_push(tcc->tc_ident_queue, gen_ident_tcqn(pc, ident_data_node));
   }
 }
 
@@ -283,13 +297,17 @@ static Node *check_assign(ParserContext *pc, IdentDataNode *ident_node,
   Node* expr = parse_expression(pc);
   consume(tc, TokSemiColon);
 
+  TypeCheckContext *tcc = pc->tcc;
+
+  assert(tcc != NULL);  
+  
   BinExprAST *bin_expr_ast = (BinExprAST *)S_malloc(sizeof(BinExprAST));
 
   bin_expr_ast->left = result;
   bin_expr_ast->opType = OpASSIGN;
   bin_expr_ast->right = expr;
 
-  q_push(pc->tc_assign_queue, gen_assign_tcqn(pc, bin_expr_ast->left, bin_expr_ast->right));  
+  q_push(tcc->tc_assign_queue, gen_assign_tcqn(pc, bin_expr_ast->left, bin_expr_ast->right));  
   
   return pack(AST_BinExpr, bin_expr_ast);
 }
@@ -333,6 +351,10 @@ static Node *gen_ident_node(Token* first, ParserContext *pc, IdentDataNode* attr
 static Node *gen_func_param_node(ParserContext *pc) {
   TokenizerContext *tc = pc->tc;
   VarDeclBundleAST *result = (VarDeclBundleAST*) S_malloc(sizeof(VarDeclBundleAST));
+  TypeCheckContext *tcc = pc->tcc;
+  
+  assert(tcc != NULL);
+  
   result->var_count = 0;
   result->var_decls = (Node**) S_malloc(sizeof(Node*));
   
@@ -345,6 +367,7 @@ static Node *gen_func_param_node(ParserContext *pc) {
     Token *name_tok = pull(tc);
 
     consume(tc, TokColon); // :
+
     
     Token *type_tok = pull(tc);
     VarDeclAST* var_decl = (VarDeclAST*)S_malloc(sizeof(VarDeclAST));
@@ -352,7 +375,7 @@ static Node *gen_func_param_node(ParserContext *pc) {
     var_decl->var_name_tok = name_tok;
     var_decl->var_type_tok = type_tok;
 
-    q_push(pc->tc_type_queue, gen_rawtype_tcqn(pc, type_tok->str));    
+    q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, type_tok->str));    
     
     if (param_size + 1 >= capacity) {
       capacity *= 2;
@@ -465,8 +488,9 @@ static Node* gen_func_decl_node(Token *first, ParserContext *pc) {
   consume(tc, TokColon);
 
   Token* ret_type_tok = pull(tc);
-
-  q_push(pc->tc_type_queue, gen_rawtype_tcqn(pc, ret_type_tok->str));    
+  TypeCheckContext *tcc = pc->tcc;
+  
+  q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, ret_type_tok->str));    
   
   func_decl->func_name_tok = func_name_tok;
   func_decl->ret_type_tok = ret_type_tok;
@@ -530,7 +554,10 @@ static VarData* register_var_data(Node* node, ParserContext* pc){
 
 static Node* gen_var_decl_node(Token* first, ParserContext* pc, bool is_expr){
   TokenizerContext *tc = pc->tc;
-  VarDeclBundleAST* result = (VarDeclBundleAST*) S_malloc(sizeof(VarDeclBundleAST));
+  VarDeclBundleAST *result =
+      (VarDeclBundleAST *)S_malloc(sizeof(VarDeclBundleAST));
+  TypeCheckContext *tcc = pc->tcc;
+  
   result->var_decls = (Node**) S_malloc(sizeof(Node*));
   
   // var a: int = 0, b : float;
@@ -544,7 +571,7 @@ static Node* gen_var_decl_node(Token* first, ParserContext* pc, bool is_expr){
     consume(tc, TokColon);
 
     Token *var_type_tok = pull(tc);
-    q_push(pc->tc_type_queue, gen_rawtype_tcqn(pc, var_type_tok->str));    
+    q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, var_type_tok->str));    
 
     Token* cont_tok = peek(tc);
 

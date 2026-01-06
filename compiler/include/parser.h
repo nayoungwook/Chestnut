@@ -196,17 +196,10 @@ typedef struct _ClassData {
 typedef struct _Scope {
   HTable *local_var_smtb;
   struct _Scope *prev_scope;
-} Scope;  
+} Scope;
 
 typedef struct {
-  TokenizerContext *tc;
-
-  HTable *glob_var_smtb; // VarData will be stored.
-  HTable *glob_func_smtb; // FuncData will be stored.
-
-  HTable *class_type_smtb; // Type will be stored.
-  HTable *primitive_type_smtb;  // Type will be stored.
-
+  
   Queue *tc_ident_queue; // queue for type checking of identifier.
                          // stores IdentDataNode (like a, b, foo, bar ..)
 
@@ -214,6 +207,20 @@ typedef struct {
                         // stores wstring (like class, int, float ..).
 
   Queue *tc_assign_queue; // queue for type checking of assign.
+
+} TypeCheckContext;
+
+TypeCheckContext *gen_tcc();
+
+typedef struct {
+  TokenizerContext *tc;
+  TypeCheckContext *tcc;  
+
+  HTable *glob_var_smtb; // VarData will be stored.
+  HTable *glob_func_smtb; // FuncData will be stored.
+
+  HTable *class_type_smtb; // Type will be stored.
+  HTable *primitive_type_smtb;  // Type will be stored.
   
   unsigned class_data_cnt;
   ClassData *class_data[MAX_CLASS_COUNT];
@@ -225,10 +232,11 @@ typedef struct {
 
   ClassData *current_class; // current parsing class.
   FuncData *current_func;   // current parsing func.
+
 } ParserContext;
 
 ParserContext *gen_pc();
-void compile_file(ParserContext *pc, TokenizerContext* tc);
+void compile_file(ParserContext *pc, TokenizerContext* tc, TypeCheckContext* tcc);
 
 // parse
 Node *parse(ParserContext* pc, bool is_expr);

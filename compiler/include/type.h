@@ -1,6 +1,7 @@
 #ifndef TYPE_H
 #define TYPE_H
 
+#include "token.h"
 #include "parser.h"
 
 #include <stdbool.h>
@@ -57,6 +58,8 @@ typedef struct {
   Token *tok;
 } AssignTCQN;
 
+TypeCheckContext *gen_tcc();
+
 IdentifierTCQN *gen_ident_tcqn(ParserContext *pc,
                                IdentDataNode *ident_data_node);
 RawTypeTCQN *gen_rawtype_tcqn(ParserContext *pc,
@@ -64,7 +67,7 @@ RawTypeTCQN *gen_rawtype_tcqn(ParserContext *pc,
 AssignTCQN *gen_assign_tcqn(ParserContext *pc, Node *left_node,
                             Node *right_node);
 
-void resolve_tcq(ParserContext *pc);
+void resolve_tcq(ParserContext *pc, TypeCheckContext *tcc);
 
 Type *get_type_of_attr(ParserContext *pc, Type *target, IdentData *attr);
 bool check_type_exist(ParserContext* pc, const wchar_t* type);

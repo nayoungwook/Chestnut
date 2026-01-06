@@ -1,12 +1,11 @@
 #include "type.h"
-#include "error.h"
-#include "parser.h"
 
 Type *infer_type(Node *node) {
   Type* result = NULL;
 
   switch(node->type) {
-    
+  default:
+    return NULL;    
   }    
   
   return result;  
@@ -50,25 +49,27 @@ AssignTCQN *gen_assign_tcqn(ParserContext *pc, Node *left_node,
   return result;  
 }
 
-void resolve_tcq(ParserContext *pc) {
+void resolve_tcq(ParserContext *pc, TypeCheckContext *tcc) {
   //  pc->tc_assign_queue;
   //  pc->tc_ident_queue;
   //  pc->tc_type_queue;
 
   unsigned err_cnt = 0;  
   
-  while (pc->tc_type_queue->size != 0) {
-    RawTypeTCQN *raw_type_tcqn = q_pop(pc->tc_type_queue);
-    
+  while (tcc->tc_type_queue->size != 0) {
+    RawTypeTCQN *raw_type_tcqn = q_pop(tcc->tc_type_queue);
+
+#ifdef DEBUG    
     wprintf(L"Check type existance : %S\n", raw_type_tcqn->type_str);
+#endif
     
     if (!check_type_exist(pc, raw_type_tcqn->type_str)) {
       err_cnt++;      
     }
   }
 
-  while (pc->tc_ident_queue->size != 0) {
-    IdentifierTCQN *ident_tcqn = q_pop(pc->tc_ident_queue);
+  while (tcc->tc_ident_queue->size != 0) {
+    IdentifierTCQN *ident_tcqn = q_pop(tcc->tc_ident_queue);
     assert(ident_tcqn != NULL && ident_tcqn->ident_data_node != NULL);
 
     IdentDataNode *ident_data_node = ident_tcqn->ident_data_node;    
