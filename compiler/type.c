@@ -20,6 +20,17 @@ Type *gen_type(const wchar_t *type_str, void *data) {
   return type;
 }
 
+TypeCheckContext *gen_tcc() {
+  TypeCheckContext *tcc =
+      (TypeCheckContext *)S_malloc(sizeof(TypeCheckContext));
+
+  tcc->tc_type_queue = gen_queue();
+  tcc->tc_ident_queue = gen_queue();  
+  tcc->tc_assign_queue = gen_queue();  
+  
+  return tcc;
+}  
+
 IdentifierTCQN *gen_ident_tcqn(ParserContext *pc,
                                IdentDataNode *ident_data_node) {
   IdentifierTCQN *result = (IdentifierTCQN *)S_malloc(sizeof(IdentifierTCQN));
@@ -49,12 +60,8 @@ AssignTCQN *gen_assign_tcqn(ParserContext *pc, Node *left_node,
   return result;  
 }
 
-void resolve_tcq(ParserContext *pc, TypeCheckContext *tcc) {
-  //  pc->tc_assign_queue;
-  //  pc->tc_ident_queue;
-  //  pc->tc_type_queue;
-
-  unsigned err_cnt = 0;  
+static unsigned resolve_raw_type_tcq(ParserContext *pc, TypeCheckContext *tcc) {
+  unsigned err_cnt = 0;
   
   while (tcc->tc_type_queue->size != 0) {
     RawTypeTCQN *raw_type_tcqn = q_pop(tcc->tc_type_queue);
@@ -68,12 +75,42 @@ void resolve_tcq(ParserContext *pc, TypeCheckContext *tcc) {
     }
   }
 
+  return err_cnt;  
+}
+
+static unsigned resolve_attr_tcq(ParserContext *pc, Type *type, IdentDataNode *ident_data_node) {
+  unsigned err_cnt = 0;
+  IdentData *ident_data = ident_data_node->ident_data;
+  
+  while (true) {
+    ident_data_node = ident_data_node->attr;
+
+    if (ident_data_node == NULL) { // attr search done.
+      break;
+    }
+    
+    wprintf(L"Check attr of %S -> %S\n", type->type_str, ident_data_node->ident_data->str); 
+      
+    ident_data = ident_data_node->ident_data;
+      
+    if ((type = get_type_of_attr(pc, type, ident_data)) == NULL) { // attr type not exist.
+      err_cnt++;        
+      break;
+    }
+  }
+
+  return err_cnt;    
+}
+
+static unsigned resolve_identifier_tcq(ParserContext *pc, TypeCheckContext *tcc) {
+  unsigned err_cnt = 0;
+  
   while (tcc->tc_ident_queue->size != 0) {
     IdentifierTCQN *ident_tcqn = q_pop(tcc->tc_ident_queue);
     assert(ident_tcqn != NULL && ident_tcqn->ident_data_node != NULL);
 
     IdentDataNode *ident_data_node = ident_tcqn->ident_data_node;    
-    IdentData *ident_data = ident_tcqn->ident_data_node->ident_data;
+    IdentData *ident_data = ident_data_node->ident_data;
 
     assert(ident_data->type_str != NULL);
 
@@ -87,21 +124,41 @@ void resolve_tcq(ParserContext *pc, TypeCheckContext *tcc) {
       continue;
     }
 
-    while (true) {
-      ident_data_node = ident_data_node->attr;
-
-      if (ident_data_node == NULL) { // attr search done.
-	break;        
-      }        
-      
-      ident_data = ident_data_node->ident_data;
-      
-      if ((type = get_type_of_attr(pc, type, ident_data)) == NULL) { // attr type not exist.
-	err_cnt++;        
-        break;
-      }
-    }    
+    err_cnt += resolve_attr_tcq(pc, type, ident_data_node);
   }
+  
+  return err_cnt;
+}
+
+static unsigned resolve_assign_tcq(ParserContext *pc, TypeCheckContext *tcc) {
+  unsigned err_cnt = 0;
+
+  while (tcc->tc_assign_queue->size != 0) {
+    AssignTCQN *assign_tcqn = q_pop(tcc->tc_assign_queue);
+
+    assert(assign_tcqn != NULL);
+    assert(assign_tcqn->left_node != NULL && assign_tcqn->right_node != NULL);
+    assert(assign_tcqn->tok != NULL);
+
+    Type *left_type = infer_type(assign_tcqn->left_node);
+    Type *right_type = infer_type(assign_tcqn->right_node);
+    
+    // TODO : check assignable
+  }    
+
+  return err_cnt;  
+}  
+
+void resolve_tcq(ParserContext *pc, TypeCheckContext *tcc) {
+  //  pc->tc_assign_queue;
+  //  pc->tc_ident_queue;
+  //  pc->tc_type_queue;
+
+  unsigned err_cnt = 0;
+
+  err_cnt += resolve_raw_type_tcq(pc, tcc);
+  err_cnt += resolve_identifier_tcq(pc, tcc);
+  err_cnt += resolve_assign_tcq(pc, tcc);
   
   if (err_cnt > 0){
     wprintf(L"Type error occured! : %d\n", err_cnt);

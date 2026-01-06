@@ -107,7 +107,6 @@ int main(int arc, char *args[]){
                           L"    func bar(): void {\n"
                           L"        var foo: Foo;\n"
                           L"        foo.a = 3 + foo.bar.foo.bar * foo.foo();\n"
-                          L"        foo.a = 3 + foo.bar.foo.asdf * foo.foo();\n" 
                           L"        var bar: Bar;\n"
 			  L"        bar.b\n"
                           L"    }\n"

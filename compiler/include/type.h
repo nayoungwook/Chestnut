@@ -5,12 +5,22 @@
 #include "parser.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <wchar.h>
 
 typedef struct {
   const wchar_t *type_str;
   void* data;  
 } Type;
+
+typedef struct {
+  const wchar_t *type_str;
+  uint32_t nbyte;
+  unsigned rank;
+  bool is_signed;
+} PrimitiveType;
+
+PrimitiveType *gen_primitive_type();
 
 Type *infer_type(Node *node);
 Type *gen_type(const wchar_t *type_str, void *data);
@@ -57,6 +67,20 @@ typedef struct {
   Node *right_node;
   Token *tok;
 } AssignTCQN;
+
+typedef struct _TypeCheckContext {
+  
+  Queue *tc_ident_queue; // queue for type checking of identifier.
+                         // stores IdentDataNode (like a, b, foo, bar ..)
+
+  Queue *tc_type_queue; // queue for type checking of raw Type.
+                        // stores wstring (like class, int, float ..).
+
+  Queue *tc_assign_queue; // queue for type checking of assign.
+
+} TypeCheckContext;
+
+TypeCheckContext *gen_tcc();
 
 IdentifierTCQN *gen_ident_tcqn(ParserContext *pc,
                                IdentDataNode *ident_data_node);

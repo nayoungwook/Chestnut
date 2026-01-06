@@ -42,17 +42,6 @@ ParserContext *gen_pc() {
   return pc;
 }
 
-TypeCheckContext *gen_tcc() {
-  TypeCheckContext *tcc =
-      (TypeCheckContext *)S_malloc(sizeof(TypeCheckContext));
-
-  tcc->tc_type_queue = gen_queue();
-  tcc->tc_ident_queue = gen_queue();  
-  tcc->tc_assign_queue = gen_queue();  
-  
-  return tcc;
-}  
-
 void compile_file(ParserContext* pc, TokenizerContext *tc, TypeCheckContext* tcc) {
   void *ast = NULL;
 

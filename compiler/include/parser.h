@@ -198,23 +198,11 @@ typedef struct _Scope {
   struct _Scope *prev_scope;
 } Scope;
 
-typedef struct {
-  
-  Queue *tc_ident_queue; // queue for type checking of identifier.
-                         // stores IdentDataNode (like a, b, foo, bar ..)
-
-  Queue *tc_type_queue; // queue for type checking of raw Type.
-                        // stores wstring (like class, int, float ..).
-
-  Queue *tc_assign_queue; // queue for type checking of assign.
-
-} TypeCheckContext;
-
-TypeCheckContext *gen_tcc();
+struct _TypeCheckContex;
 
 typedef struct {
   TokenizerContext *tc;
-  TypeCheckContext *tcc;  
+  struct _TypeCheckContext *tcc;  
 
   HTable *glob_var_smtb; // VarData will be stored.
   HTable *glob_func_smtb; // FuncData will be stored.
@@ -236,7 +224,7 @@ typedef struct {
 } ParserContext;
 
 ParserContext *gen_pc();
-void compile_file(ParserContext *pc, TokenizerContext* tc, TypeCheckContext* tcc);
+void compile_file(ParserContext *pc, TokenizerContext* tc, struct _TypeCheckContext* tcc);
 
 // parse
 Node *parse(ParserContext* pc, bool is_expr);
