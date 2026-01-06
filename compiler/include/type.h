@@ -58,8 +58,6 @@ typedef struct {
   Token *tok;
 } AssignTCQN;
 
-TypeCheckContext *gen_tcc();
-
 IdentifierTCQN *gen_ident_tcqn(ParserContext *pc,
                                IdentDataNode *ident_data_node);
 RawTypeTCQN *gen_rawtype_tcqn(ParserContext *pc,
