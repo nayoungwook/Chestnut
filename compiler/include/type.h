@@ -20,7 +20,8 @@ typedef struct {
   bool is_signed;
 } PrimitiveType;
 
-PrimitiveType *gen_primitive_type();
+PrimitiveType *gen_primitive_type(const wchar_t *type_str, unsigned nbyte,
+                                  unsigned rank, bool is_signed);
 
 Type *infer_type(Node *node);
 Type *gen_type(const wchar_t *type_str, void *data);

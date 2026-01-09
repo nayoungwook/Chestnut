@@ -1,5 +1,7 @@
 #include "type.h"
 
+//#define DEBUG
+
 Type *infer_type(Node *node) {
   Type* result = NULL;
 
@@ -8,6 +10,18 @@ Type *infer_type(Node *node) {
     return NULL;    
   }    
   
+  return result;  
+}
+
+PrimitiveType *gen_primitive_type(const wchar_t *type_str, unsigned nbyte,
+                                  unsigned rank, bool is_signed) {
+  PrimitiveType *result = (PrimitiveType *)S_malloc(sizeof(PrimitiveType));
+
+  result->type_str = type_str;
+  result->nbyte = nbyte;
+  result->rank = rank;
+  result->is_signed = is_signed;
+
   return result;  
 }  
 
@@ -66,6 +80,8 @@ static unsigned resolve_raw_type_tcq(ParserContext *pc, TypeCheckContext *tcc) {
   while (tcc->tc_type_queue->size != 0) {
     RawTypeTCQN *raw_type_tcqn = q_pop(tcc->tc_type_queue);
 
+    if(wcscmp(raw_type_tcqn->type_str, L"void")) continue; // pass 'void' type.
+    
 #ifdef DEBUG    
     wprintf(L"Check type existance : %S\n", raw_type_tcqn->type_str);
 #endif
@@ -88,12 +104,25 @@ static unsigned resolve_attr_tcq(ParserContext *pc, Type *type, IdentDataNode *i
     if (ident_data_node == NULL) { // attr search done.
       break;
     }
-    
-    wprintf(L"Check attr of %S -> %S\n", type->type_str, ident_data_node->ident_data->str); 
+
+#ifdef DEBUG
+    wprintf(L"Check attr of %S -> %S\n", type->type_str,
+            ident_data_node->ident_data->str);
+#endif    
       
     ident_data = ident_data_node->ident_data;
+
+#ifdef DEBUG
+    Type *type_cache = type;
+#endif    
+    
+    if ((type = get_type_of_attr(pc, type, ident_data)) ==
+        NULL) { // attr type not exist.
+
+#ifdef DEBUG      
+      wprintf(L"Type %S does not contains %S\n", type_cache->type_str, ident_data->str);
+#endif
       
-    if ((type = get_type_of_attr(pc, type, ident_data)) == NULL) { // attr type not exist.
       err_cnt++;        
       break;
     }
@@ -116,8 +145,10 @@ static unsigned resolve_identifier_tcq(ParserContext *pc, TypeCheckContext *tcc)
 
     Type *type = find_type(pc, ident_data->type_str);
 
+#ifdef DEBUG
     wprintf(L"Check type of identifier : %S | type : %S\n", ident_data->str,
             type->type_str);
+#endif    
     
     if (type == NULL) {
       err_cnt++;

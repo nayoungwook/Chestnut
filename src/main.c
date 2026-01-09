@@ -2,10 +2,11 @@
 #include <parser.h>
 #include <util.h>
 #include <type.h>
+#include <ir.h>
+
+//#define DEBUG
 
 #include <assert.h>
-
-#define DEBUG
 
 #ifdef DEBUG
 static void print_var_metadata(VarData *vd, int indent);
@@ -89,6 +90,8 @@ static void print_metadata(ParserContext* pc, int indent) {
 
 int main(int arc, char *args[]){
 
+  // front end  
+  
   ParserContext *pc = gen_pc();
   TypeCheckContext *tcc = gen_tcc();
 
@@ -106,7 +109,7 @@ int main(int arc, char *args[]){
                           L"    var foo: Foo;\n"
                           L"    func bar(): void {\n"
                           L"        var foo: Foo;\n"
-                          L"        foo.a = 3 + foo.bar.foo.bar * foo.foo();\n"
+                          L"        foo.a = foo.foo();\n"
                           L"        var bar: Bar;\n"
 			  L"        bar.b\n"
                           L"    }\n"
@@ -118,6 +121,21 @@ int main(int arc, char *args[]){
 #ifdef DEBUG
   print_metadata(pc, 0);
 #endif
+
+  // back end
+
+  IRContext *irc = gen_irc();
+
+  init_irc(irc, NULL);
+
+  emit_byte(irc, 0x01);
+  emit_byte(irc, 0x02);
+  emit_byte(irc, 0x04);
+  emit_byte(irc, 0x08);
+  emit_byte(irc, 0x16);
+  emit_byte(irc, 0xd8);
+
+  print_bytes(irc);
   
   return 0;
 }

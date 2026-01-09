@@ -10,13 +10,29 @@ static Node *parse_compare_expression(ParserContext* pc);
 static Node *parse_expression(ParserContext* pc);
 
 static void init_primitive(ParserContext *pc) {
-  ht_insert(pc->primitive_type_smtb, L"int", gen_type(L"int", NULL));
-  ht_insert(pc->primitive_type_smtb, L"char", gen_type(L"char", NULL));
-  ht_insert(pc->primitive_type_smtb, L"float", gen_type(L"float", NULL));
-  ht_insert(pc->primitive_type_smtb, L"double", gen_type(L"double", NULL));
-  ht_insert(pc->primitive_type_smtb, L"bool", gen_type(L"bool", NULL));
-  ht_insert(pc->primitive_type_smtb, L"string", gen_type(L"string", NULL));
-  ht_insert(pc->primitive_type_smtb, L"void", gen_type(L"void", NULL));    
+
+  // char < int < uint < float < double
+  ht_insert(pc->primitive_type_smtb, L"int",
+            gen_primitive_type(L"int", 4, 2, true));
+  
+  ht_insert(pc->primitive_type_smtb, L"uint",
+            gen_primitive_type(L"uint", 4, 3, true));
+
+  ht_insert(pc->primitive_type_smtb, L"char",
+            gen_primitive_type(L"char", 1, 1, 0));
+
+  ht_insert(pc->primitive_type_smtb, L"float",
+            gen_primitive_type(L"float", 4, 4, true));
+
+  ht_insert(pc->primitive_type_smtb, L"double",
+            gen_primitive_type(L"double", 8, 5, true));
+
+  ht_insert(pc->primitive_type_smtb, L"bool",
+            gen_primitive_type(L"bool", 1, -1, 0));
+
+  ht_insert(pc->primitive_type_smtb, L"void",
+            gen_primitive_type(L"void", 0, -1, 0));
+  
 }  
 
 ParserContext *gen_pc() {
@@ -364,7 +380,7 @@ static Node *gen_func_param_node(ParserContext *pc) {
     var_decl->var_name_tok = name_tok;
     var_decl->var_type_tok = type_tok;
 
-    q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, type_tok->str));    
+    q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, type_tok->str));
     
     if (param_size + 1 >= capacity) {
       capacity *= 2;
