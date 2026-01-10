@@ -1,24 +1,7 @@
 #include <token.h>
 #include <error.h>
 
-static KeywordEntry keyword_table[] = {
-  {L"var", TokVar},
-  {L"if", TokIf},
-  {L"for", TokFor},
-  {L"func", TokFunc},
-  {L"return", TokReturn},
-  {L"else", TokElse},
-  {L"class", TokClass},
-  {L"extends", TokExtends},
-  {L"private", TokPrivate},
-  {L"public", TokPublic},
-  {L"protected", TokProtected},
-  {L"constructor", TokConstructor},
-  {L"new", TokNew},
-  {L"true", TokTrue},
-  {L"false", TokFalse},
-  {NULL, TokEOF},
-};
+static void init_keyword();
 
 TokenizerContext* gen_tc(wchar_t* file){
   TokenizerContext* tc = (TokenizerContext*)S_malloc(sizeof(TokenizerContext));
@@ -28,9 +11,46 @@ TokenizerContext* gen_tc(wchar_t* file){
   tc->begin_ch = file;
   tc->token_cache = NULL;
   tc->line_num = 1;
-    
+
+  init_keyword();  
+  
   return tc;
 }
+
+static HTable *keyword_table;
+
+static KeywordEntry *gen_keyword(const wchar_t *keyword, TokenType tok_type) {
+  KeywordEntry *result = (KeywordEntry *)S_malloc(sizeof(KeywordEntry));
+
+  result->keyword = keyword;
+  result->type = tok_type;
+
+  return result;  
+}
+
+static void init_keyword() {
+  if (keyword_table != NULL) {
+    return;
+  }    
+  
+  keyword_table = gen_htable();  
+  
+  ht_insert(keyword_table, L"var", gen_keyword(L"var", TokVar));
+  ht_insert(keyword_table, L"if", gen_keyword(L"if", TokIf));
+  ht_insert(keyword_table, L"for", gen_keyword(L"for", TokFor));
+  ht_insert(keyword_table, L"func", gen_keyword(L"func", TokFunc));
+  ht_insert(keyword_table, L"return", gen_keyword(L"return", TokReturn));
+  ht_insert(keyword_table, L"else", gen_keyword(L"else", TokElse));
+  ht_insert(keyword_table, L"class", gen_keyword(L"class", TokClass));
+  ht_insert(keyword_table, L"extends", gen_keyword(L"extends", TokExtends));
+  ht_insert(keyword_table, L"private", gen_keyword(L"private", TokPrivate));
+  ht_insert(keyword_table, L"public", gen_keyword(L"public", TokPublic));
+  ht_insert(keyword_table, L"protected", gen_keyword(L"protected", TokProtected));
+  ht_insert(keyword_table, L"constructor", gen_keyword(L"constructor", TokConstructor));
+  ht_insert(keyword_table, L"new", gen_keyword(L"new", TokNew));
+  ht_insert(keyword_table, L"true", gen_keyword(L"true", TokTrue));
+  ht_insert(keyword_table, L"false", gen_keyword(L"false", TokFalse));
+}  
 
 void init_tc(TokenizerContext* tc){
   tc->cur_ch = (wchar_t*) tc->begin_ch;
@@ -79,17 +99,13 @@ static Token* gen_num_token(TokenizerContext* tc) {
 }
 
 static TokenType check_ident_type(const wchar_t* str){
-  TokenType type = TokIdent;
-  int i;
-    
-  for (i = 0; keyword_table[i].keyword != NULL; i++) {
-    if (wcscmp(str, keyword_table[i].keyword) == 0) {
-      type = keyword_table[i].type;
-      break;
-    }
-  }
+  KeywordEntry *ke = ht_find(keyword_table, str);
 
-  return type;
+  if (ke == NULL) {
+    return TokIdent;    
+  }    
+
+  return ke->type;
 }
 
 static Token* gen_ident_token(TokenizerContext* tc) {

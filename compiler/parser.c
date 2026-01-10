@@ -62,8 +62,8 @@ void compile_file(ParserContext* pc, TokenizerContext *tc, TypeCheckContext* tcc
   void *ast = NULL;
 
   pc->tc = tc;
-  pc->tcc = tcc;  
-
+  pc->tcc = tcc;
+  
   while ((ast = parse(pc, false)) != NULL) {
   }
 
@@ -792,7 +792,7 @@ Node *parse(ParserContext *pc, bool is_expr) {
   assert(tc != NULL);
 
   Token *first = pull(tc);
-  
+
   switch (first->type) {
 
   case TokNumberLiteral:{
