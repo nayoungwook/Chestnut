@@ -23,9 +23,8 @@ typedef struct {
 PrimitiveType *gen_primitive_type(const wchar_t *type_str, unsigned nbyte,
                                   unsigned rank, bool is_signed);
 
-Type *infer_type(Node *node);
+Type *infer_type(ParserContext *pc, Node *node);
 Type *gen_type(const wchar_t *type_str, void *data);
-Type *find_type(ParserContext *pc, const wchar_t *str);
 
 // for @TypeCheckAttrib
 typedef enum {
@@ -45,8 +44,8 @@ typedef struct {
 typedef struct _IdentDataNode {
   IdentData* ident_data;
   struct _IdentDataNode *attr;
+  bool type_checked;
 } IdentDataNode;
-
 
 //================= for type checker. =================
 
@@ -93,6 +92,10 @@ AssignTCQN *gen_assign_tcqn(ParserContext *pc, Node *left_node,
 void resolve_tcq(ParserContext *pc, TypeCheckContext *tcc);
 
 Type *get_type_of_attr(ParserContext *pc, Type *target, IdentData *attr);
-bool check_type_exist(ParserContext* pc, const wchar_t* type);
+bool check_type_exist(ParserContext *pc, const wchar_t *type);
+
+Type *get_type_of_ident_data_node(ParserContext *pc,
+				  IdentDataNode *ident_data_node);
+Type *find_type(ParserContext *pc, const wchar_t *type_str);
 
 #endif

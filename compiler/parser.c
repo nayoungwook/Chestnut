@@ -143,7 +143,9 @@ static IdentData *gen_ident_data(const wchar_t *ident, IdentType attr_type) {
 static IdentDataNode *gen_ident_data_node(const wchar_t* ident, IdentType ident_type, IdentDataNode* attr_of) {
   IdentDataNode *ident_data_node = (IdentDataNode *)S_malloc(sizeof(IdentDataNode));
   ident_data_node->ident_data = gen_ident_data(ident, ident_type);
-
+  ident_data_node->attr = NULL;
+  ident_data_node->type_checked = false;  
+  
   if (attr_of != NULL) {
     // This identifier will be "attr_node" of "attr_of"      
     attr_of->attr = ident_data_node;
@@ -196,17 +198,7 @@ static FuncData *find_func_data(ParserContext* pc, const wchar_t *func_name) {
   }
 
   return result;  
-}
-
-Type *find_type(ParserContext* pc, const wchar_t *str) {
-  Type *result = ht_find(pc->primitive_type_smtb, str);
-
-  if (result == NULL) {
-    result = ht_find(pc->class_type_smtb, str);
-  }
-
-  return result;  
-}  
+} 
 
 static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
                                     const wchar_t *str) {
@@ -347,6 +339,20 @@ static Node *gen_ident_node(Token* first, ParserContext *pc, IdentDataNode* attr
   parse_attribute(pc, result, ident_data_node, is_expr);
   
   get_first_node_type(pc, ident_str, ident_type, ident_data_node, attr_of);
+
+  switch (result->type) {
+  case AST_Identifier:
+    ((IdentifierAST*) result->ast)->ident_data_node = ident_data_node;
+    break;
+
+  case AST_FunctionCall:
+    ((FuncCallAST*) result->ast)->ident_data_node = ident_data_node;
+    break;
+
+  default:
+    panic(L"Unexpected identifier type. check parser.c", tc);
+    break;    
+  }    
 
   result = check_assign(pc, ident_data_node, attr_of, result);
   

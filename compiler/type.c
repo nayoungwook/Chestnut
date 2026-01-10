@@ -1,14 +1,43 @@
 #include "type.h"
+#include "parser.h"
 
-//#define DEBUG
+#define DEBUG
 
-Type *infer_type(Node *node) {
+static unsigned resolve_raw_type_tcq(ParserContext *pc, TypeCheckContext *tcc);
+static unsigned resolve_identifier_tcq(ParserContext *pc,
+                                       TypeCheckContext *tcc);
+static unsigned resolve_identifier_tcq(ParserContext *pc, TypeCheckContext *tcc);
+static unsigned resolve_assign_tcq(ParserContext *pc, TypeCheckContext *tcc);
+
+Type *infer_type(ParserContext *pc, Node *node) {
   Type* result = NULL;
 
-  switch(node->type) {
-  default:
-    return NULL;    
+  assert(node->ast != NULL);
+  
+  switch (node->type) {
+  case AST_FunctionCall:{
+    IdentDataNode *ident_data_node =
+      ((FuncCallAST *)node->ast)->ident_data_node;
+
+    result = get_type_of_ident_data_node(pc, ident_data_node);
+    
+    break;
+  }
+
+  case AST_Identifier: {
+    IdentDataNode *ident_data_node =
+        ((IdentifierAST *)node->ast)->ident_data_node;
+    
+    result = get_type_of_ident_data_node(pc, ident_data_node);
+    
+    break;    
   }    
+    
+  default:
+    break;
+  }
+
+  assert(result != NULL);  
   
   return result;  
 }
@@ -70,7 +99,7 @@ AssignTCQN *gen_assign_tcqn(ParserContext *pc, Node *left_node,
   result->right_node = right_node;
   result->left_node = left_node;
   result->tok = peek(pc->tc);
-
+  
   return result;  
 }
 
@@ -94,9 +123,9 @@ static unsigned resolve_raw_type_tcq(ParserContext *pc, TypeCheckContext *tcc) {
   return err_cnt;  
 }
 
-static unsigned resolve_attr_tcq(ParserContext *pc, Type *type, IdentDataNode *ident_data_node) {
-  unsigned err_cnt = 0;
+static void resolve_attr_tcq(ParserContext *pc, Type *type, IdentDataNode *ident_data_node) {
   IdentData *ident_data = ident_data_node->ident_data;
+  IdentDataNode *first_ident_data_node = ident_data_node;
   
   while (true) {
     ident_data_node = ident_data_node->attr;
@@ -114,7 +143,7 @@ static unsigned resolve_attr_tcq(ParserContext *pc, Type *type, IdentDataNode *i
 
 #ifdef DEBUG
     Type *type_cache = type;
-#endif    
+#endif
     
     if ((type = get_type_of_attr(pc, type, ident_data)) ==
         NULL) { // attr type not exist.
@@ -122,13 +151,15 @@ static unsigned resolve_attr_tcq(ParserContext *pc, Type *type, IdentDataNode *i
 #ifdef DEBUG      
       wprintf(L"Type %S does not contains %S\n", type_cache->type_str, ident_data->str);
 #endif
-      
-      err_cnt++;        
+
       break;
     }
+
+    // this will update type of ident data.    
+    ident_data->type = type;
   }
 
-  return err_cnt;    
+  first_ident_data_node->type_checked = true;
 }
 
 static unsigned resolve_identifier_tcq(ParserContext *pc, TypeCheckContext *tcc) {
@@ -141,9 +172,7 @@ static unsigned resolve_identifier_tcq(ParserContext *pc, TypeCheckContext *tcc)
     IdentDataNode *ident_data_node = ident_tcqn->ident_data_node;    
     IdentData *ident_data = ident_data_node->ident_data;
 
-    assert(ident_data->type_str != NULL);
-
-    Type *type = find_type(pc, ident_data->type_str);
+    Type *type = get_type_of_ident_data_node(pc, ident_data_node);
 
 #ifdef DEBUG
     wprintf(L"Check type of identifier : %S | type : %S\n", ident_data->str,
@@ -155,7 +184,6 @@ static unsigned resolve_identifier_tcq(ParserContext *pc, TypeCheckContext *tcc)
       continue;
     }
 
-    err_cnt += resolve_attr_tcq(pc, type, ident_data_node);
   }
   
   return err_cnt;
@@ -171,14 +199,27 @@ static unsigned resolve_assign_tcq(ParserContext *pc, TypeCheckContext *tcc) {
     assert(assign_tcqn->left_node != NULL && assign_tcqn->right_node != NULL);
     assert(assign_tcqn->tok != NULL);
 
-    Type *left_type = infer_type(assign_tcqn->left_node);
-    Type *right_type = infer_type(assign_tcqn->right_node);
-    
-    // TODO : check assignable
+    Type *left_type = infer_type(pc, assign_tcqn->left_node);
+    Type *right_type = infer_type(pc, assign_tcqn->right_node);
+
+#ifdef DEBUG
+    wprintf(L"Check If types are assignable. %S : %S\n", left_type->type_str, right_type->type_str);
+#endif
+
   }    
 
   return err_cnt;  
-}  
+}
+
+Type *find_type(ParserContext *pc, const wchar_t *type_str) {
+  Type *result = ht_find(pc->primitive_type_smtb, type_str);
+
+  if (result == NULL) {
+    result = ht_find(pc->class_type_smtb, type_str);
+  }
+
+  return result;
+}
 
 void resolve_tcq(ParserContext *pc, TypeCheckContext *tcc) {
   //  pc->tc_assign_queue;
@@ -230,6 +271,29 @@ Type* get_type_of_attr(ParserContext* pc, Type *target, IdentData* attr) {
     wprintf(L"Warning! there are another attrib type.\n");
     return NULL;    
   }    
+}
+
+Type *get_type_of_ident_data_node(ParserContext *pc,
+				  IdentDataNode *ident_data_node) {
+  IdentData *ident_data = ident_data_node->ident_data;
+
+  assert(ident_data != NULL);
+
+  const wchar_t* str = ident_data->type_str;
+  
+  Type *result = find_type(pc, str);
+
+  // if all types all not checked, we have to resolve attr data.  
+  if(!ident_data_node->type_checked)
+    resolve_attr_tcq(pc, result, ident_data_node);
+
+  while (ident_data_node->attr != NULL) {
+    ident_data_node = ident_data_node->attr;      
+    ident_data = ident_data_node->ident_data;
+    result = ident_data->type;
+  }
+  
+  return result;
 }
 
 bool check_type_exist(ParserContext* pc, const wchar_t *type) {

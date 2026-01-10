@@ -54,8 +54,11 @@ typedef struct {
   Token* str_tok;
 } StringLiteralAST;
 
+struct _IdentDataNode;
+
 typedef struct {
-  Token* ident;
+  Token *ident;
+  struct _IdentDataNode *ident_data_node;  
 } IdentifierAST;
 
 typedef struct {
@@ -108,6 +111,7 @@ typedef struct {
   Token* func_name_tok;
   Node** params;
   int param_size;
+  struct _IdentDataNode *ident_data_node;  
 } FuncCallAST;
 
 typedef struct {

@@ -109,9 +109,9 @@ int main(int arc, char *args[]){
                           L"    var foo: Foo;\n"
                           L"    func bar(): void {\n"
                           L"        var foo: Foo;\n"
-                          L"        foo.a = foo.foo();\n"
+                          L"        foo.bar.foo.a = foo.foo();\n"
                           L"        var bar: Bar;\n"
-			  L"        bar.b\n"
+			  L"        bar.b = foo.foo2();\n"
                           L"    }\n"
                           L"}\n"
                           ), tcc);
@@ -128,14 +128,7 @@ int main(int arc, char *args[]){
 
   init_irc(irc, NULL);
 
-  emit_byte(irc, 0x01);
-  emit_byte(irc, 0x02);
-  emit_byte(irc, 0x04);
-  emit_byte(irc, 0x08);
-  emit_byte(irc, 0x16);
-  emit_byte(irc, 0xd8);
-
-  print_bytes(irc);
+  //  print_bytes(irc);
   
   return 0;
 }
