@@ -1,8 +1,6 @@
 #include "type.h"
 #include "parser.h"
 
-#define DEBUG
-
 static unsigned resolve_raw_type_tcq(ParserContext *pc, TypeCheckContext *tcc);
 static unsigned resolve_identifier_tcq(ParserContext *pc,
                                        TypeCheckContext *tcc);
@@ -170,11 +168,11 @@ static unsigned resolve_identifier_tcq(ParserContext *pc, TypeCheckContext *tcc)
     assert(ident_tcqn != NULL && ident_tcqn->ident_data_node != NULL);
 
     IdentDataNode *ident_data_node = ident_tcqn->ident_data_node;    
-    IdentData *ident_data = ident_data_node->ident_data;
 
     Type *type = get_type_of_ident_data_node(pc, ident_data_node);
 
 #ifdef DEBUG
+    IdentData *ident_data = ident_data_node->ident_data;
     wprintf(L"Check type of identifier : %S | type : %S\n", ident_data->str,
             type->type_str);
 #endif    

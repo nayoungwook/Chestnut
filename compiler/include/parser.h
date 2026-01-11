@@ -194,7 +194,7 @@ typedef struct _ClassData {
   Node* node;
   HTable* member_vars;
   HTable* member_funcs;
-  struct _ClassData* paren_class;
+  struct _ClassData *paren_class;
 } ClassData;
 
 typedef struct _Scope {

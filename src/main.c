@@ -1,10 +1,11 @@
+
 #include <token.h>
 #include <parser.h>
 #include <util.h>
 #include <type.h>
 #include <ir.h>
 
-//#define DEBUG
+#define DEBUG
 
 #include <assert.h>
 
@@ -128,7 +129,9 @@ int main(int arc, char *args[]){
 
   init_irc(irc, NULL);
 
-  //  print_bytes(irc);
+  gen_metadata(irc, pc);
+  
+  print_bytes(irc);
   
   return 0;
 }

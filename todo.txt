@@ -1,5 +1,7 @@
 
-type infer and assignable check.
+class inheritance implement.
+
+assignable check.
 
 Array parser implementation.
 
