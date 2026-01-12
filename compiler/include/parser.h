@@ -181,20 +181,21 @@ typedef struct {
 
 typedef struct _FuncData{
   unsigned id;
-  Node* node;
+  wchar_t *func_name;
+  wchar_t *return_type;  
 } FuncData;
 
 typedef struct _VarData {
   unsigned id;
-  Node* node;
+  wchar_t *var_name;
+  wchar_t *type;  
 }VarData;
 
 typedef struct _ClassData {
   unsigned id;
-  Node* node;
+  wchar_t *class_name, *parent_name;
   HTable* member_vars;
   HTable* member_funcs;
-  struct _ClassData *paren_class;
 } ClassData;
 
 typedef struct _Scope {

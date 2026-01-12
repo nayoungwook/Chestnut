@@ -11,7 +11,7 @@
 #define META_TERM 0x03
 
 #define META_CLASS 0x04 // META_CLASS class_id(uint) class_str(whcar_t*) [contents] META_TERM
-#define META_FUNC 0x05  // META_FUNC func_id(uint) func_str(wchar_t*)
+#define META_FUNC 0x05  // META_FUNC func_id(uint) func_str(wchar_t*) return_type(wchar_t*)
 #define META_VAR 0x06   // META_VAR var_id(uint) var_str(wchar_t*)
 
 typedef unsigned char byte;

@@ -26,7 +26,7 @@ static void init_primitive(ParserContext *pc) {
 
   ht_insert(pc->primitive_type_smtb, L"double",
             gen_primitive_type(L"double", 8, 5, true));
-
+  
   ht_insert(pc->primitive_type_smtb, L"bool",
             gen_primitive_type(L"bool", 1, -1, 0));
 
@@ -210,11 +210,8 @@ static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
     if (var == NULL) {
       panic(L"Failed to find variable.", pc->tc);
     }
-    assert(var->node->type == AST_VariableDeclaration);
 
-    VarDeclAST *var_decl_ast = (VarDeclAST *)var->node->ast;
-
-    result = wcsdup(var_decl_ast->var_type_tok->str);
+    result = wcsdup(var->type);
     break;
   }
 
@@ -225,10 +222,7 @@ static wchar_t *get_type_of_identifier(ParserContext *pc, IdentType ident_type,
       panic(L"Failed to find function.", pc->tc);
     }
 
-    assert(func->node->type == AST_FunctionDeclaration);
-
-    FuncDeclAST* func_decl_ast = (FuncDeclAST*) func->node->ast;
-    result = wcsdup(func_decl_ast->ret_type_tok->str);
+    result = wcsdup(func->return_type);
     break;
   }
       
@@ -466,7 +460,8 @@ static FuncData* register_func_data(Node* node, ParserContext* pc){
   FuncDeclAST* func_decl = node->ast;
 
   FuncData* data = (FuncData*) S_malloc(sizeof(FuncData));
-  data->node = node;    
+  data->return_type = wcsdup(func_decl->ret_type_tok->str);
+  data->func_name = wcsdup(func_decl->func_name_tok->str);
   
   if(pc->current_class){ // register in class member.
     ClassData *current_class = pc->current_class;
@@ -539,7 +534,8 @@ static VarData* register_var_data(Node* node, ParserContext* pc){
   bool local = in_func;
   
   VarData* data = (VarData*) S_malloc(sizeof(VarData));
-  data->node = node;
+  data->type = wcsdup(var_decl->var_type_tok->str);
+  data->var_name = wcsdup(var_decl->var_name_tok->str);
 
   HTable* target_smtb = NULL;
 
@@ -745,8 +741,14 @@ static ClassData* register_class_data(Node* node, ParserContext* pc){
   
   ClassData* data = (ClassData*) S_malloc(sizeof(ClassData));
   data->id = pc->class_type_smtb->size + 1;
-  data->node = node;
+  data->class_name = wcsdup(class_ast->name_tok->str);
 
+  if (class_ast->parent_name_tok == NULL) {
+    data->parent_name = L"";
+  } else {
+    data->parent_name = wcsdup(class_ast->parent_name_tok->str);
+  }    
+  
   data->member_funcs = gen_htable();
   data->member_vars = gen_htable();
 

@@ -56,33 +56,28 @@ static void emit_uint(IRContext *irc, unsigned ui) {
 }
 
 static void gen_func_metadata(IRContext *irc, ParserContext *pc, FuncData *fd) {
-  FuncDeclAST *func_ast = fd->node->ast;
-  assert(func_ast != NULL && fd->node->type == AST_FunctionDeclaration);
-
   emit_byte(irc, META_FUNC);
 
   emit_uint(irc, fd->id);
-  emit_str(irc, func_ast->func_name_tok->str);  
+  emit_str(irc, fd->func_name);
+  emit_str(irc, fd->return_type);
 }
 
 static void gen_var_metadata(IRContext *irc, ParserContext *pc, VarData *vd) {
-  VarDeclAST *var_ast = vd->node->ast;
-  assert(var_ast != NULL);
-
   emit_byte(irc, META_VAR);
 
   emit_uint(irc, vd->id);
-  emit_str(irc, var_ast->var_name_tok->str);
-}  
+  emit_str(irc, vd->var_name);
+  emit_str(irc, vd->type);
+}
 
-static void gen_class_metadata(IRContext *irc, ParserContext *pc, ClassData *cd) {
-  ClassAST *class_ast = cd->node->ast;
-  assert(class_ast != NULL && cd->node->type == AST_Class);
-
+static void gen_class_metadata(IRContext *irc, ParserContext *pc,
+                               ClassData *cd) {
+  
   emit_byte(irc, META_CLASS);
 
   emit_uint(irc, cd->id);
-  emit_str(irc, class_ast->name_tok->str);
+  emit_str(irc, cd->class_name);
 
   int i;
   for (i = 0; i < HTABLE_BUFF; i++) {
@@ -96,8 +91,7 @@ static void gen_class_metadata(IRContext *irc, ParserContext *pc, ClassData *cd)
   for (i = 0; i < HTABLE_BUFF; i++) {
     DataNode* node = cd->member_vars->bucket[i];    
     while (node != NULL) {
-      //      print_var_metadata((VarData *)node->ptr, indent + 1);
-      
+      gen_var_metadata(irc, pc, (VarData *)node->ptr);
       node = node->next;
     }
   }

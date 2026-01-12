@@ -145,7 +145,6 @@ static void resolve_attr_tcq(ParserContext *pc, Type *type, IdentDataNode *ident
     
     if ((type = get_type_of_attr(pc, type, ident_data)) ==
         NULL) { // attr type not exist.
-
 #ifdef DEBUG      
       wprintf(L"Type %S does not contains %S\n", type_cache->type_str, ident_data->str);
 #endif
@@ -235,31 +234,27 @@ void resolve_tcq(ParserContext *pc, TypeCheckContext *tcc) {
   }
 }
 
-Type* get_type_of_attr(ParserContext* pc, Type *target, IdentData* attr) {
-
+Type *get_type_of_attr(ParserContext *pc, Type *target, IdentData *attr) {
+  
   ClassData *cd = (ClassData *)target->data;
   assert(cd != NULL);
   
   switch (attr->attr_type) {
   case IT_Var:{
-    VarData* var_data = NULL;
-    if ((var_data = ht_find(cd->member_vars, attr->str)) != NULL) {
-      assert(var_data->node->type == AST_VariableDeclaration);
-      
-      VarDeclAST *var_decl_ast = (VarDeclAST *)var_data->node->ast;
-      return find_type(pc, var_decl_ast->var_type_tok->str);
+    VarData *vd = NULL;
+
+    if ((vd = ht_find(cd->member_vars, attr->str)) != NULL) {
+      return find_type(pc, vd->type);
     }
 
     return NULL;    
   }    
 
   case IT_Func:{
-    FuncData* func_data = NULL;
-    if ((func_data = ht_find(cd->member_funcs, attr->str)) != NULL) {
-      assert(func_data->node->type == AST_FunctionDeclaration);
-
-      FuncDeclAST *func_decl_ast = (FuncDeclAST *)func_data->node->ast;
-      return find_type(pc, func_decl_ast->ret_type_tok->str);
+    FuncData *fd = NULL;
+    
+    if ((fd = ht_find(cd->member_funcs, attr->str)) != NULL) {
+      return find_type(pc, fd->return_type);
     }
 
     return NULL;    
