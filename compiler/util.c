@@ -2,12 +2,66 @@
 
 #include <assert.h>
 #include <token.h>
+#include <stdio.h>
 
-#ifdef __linux__
+#ifdef __unix__
 void unix_error(char *msg){
   fprintf(stderr, "%s: %s\n", msg, strerror(errno));
 }
 #endif
+
+static wchar_t *read_file_unix(const char *path) {
+  FILE *fp = fopen(path, "rb");
+
+  char err_buf[512];
+
+  if (strlen(path) >= 512) {
+    unix_error("File path is too long.");
+  }    
+  
+  sprintf(err_buf, "Failed to open file : %s", path);
+
+  if (!fp) {
+    unix_error(err_buf);
+  }
+
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+  rewind(fp);
+  
+  char *bytes = S_malloc(size + 1);
+  fread(bytes, 1, size, fp);
+  bytes[size] = '\0';
+  fclose(fp);
+
+  mbstate_t st = {0};
+  const char *p = bytes;
+
+  size_t wlen = mbsrtowcs(NULL, &p, 0, &st);
+  if (wlen == (size_t)-1) {
+    unix_error("Invalid UTF-8 sequence");
+  }
+
+  wchar_t *wbuf = S_malloc((wlen + 1) * sizeof(wchar_t));
+
+  st = (mbstate_t){0};
+  p = bytes;
+  mbsrtowcs(wbuf, &p, wlen, &st);
+  wbuf[wlen] = L'\0';
+
+  return wbuf;
+}
+
+wchar_t *read_file(char *path) {
+  wchar_t *result = NULL;  
+#if defined(__unix__)
+  result = read_file_unix(path);
+#endif
+
+  assert(result != NULL);
+
+  return result;  
+}  
 
 static unsigned get_hash(const wchar_t *key) {
   unsigned hash = 5381;
@@ -48,6 +102,7 @@ void ht_insert(HTable *target_table, const wchar_t* key, void *ptr) {
   
   node->ptr = ptr;
   node->key = key;
+  node->next = NULL;
 
   DataNode *tnode = target_table->bucket[hash];
 

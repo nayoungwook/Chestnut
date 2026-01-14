@@ -13,6 +13,8 @@
 void unix_error(char *msg);
 #endif
 
+wchar_t *read_file(char *path);
+
 void *S_malloc(size_t size);
 void *S_realloc(void *ptr, size_t size);
 

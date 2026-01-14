@@ -14,6 +14,14 @@
 #define META_FUNC 0x05  // META_FUNC func_id(uint) func_str(wchar_t*) return_type(wchar_t*)
 #define META_VAR 0x06   // META_VAR var_id(uint) var_str(wchar_t*)
 
+#define CODE_BEGIN 0x51 // begining of code section
+#define CODE_END 0x52
+
+#define CODE_TERM 0x53
+
+#define CODE_CLASS 0x54
+
+
 typedef unsigned char byte;
 
 typedef struct {

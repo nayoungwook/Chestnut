@@ -55,6 +55,24 @@ static void emit_uint(IRContext *irc, unsigned ui) {
   }    
 }
 
+static void emit_int(IRContext *irc, int si) {
+  int i;
+  for (i = 0; i < sizeof(int); i++) {
+    emit_byte(irc, (si & 0xFF));
+    si >>= 4;
+  }
+}
+
+static void emit_float(IRContext *irc, float f) {
+  unsigned fb; // bit data of float.
+  memcpy(&fb, &f, sizeof(float));
+  int i;
+  for (i = 0; i < sizeof(float); i++) {
+    emit_byte(irc, (fb & 0xFF));
+    fb >>= 4;
+  }    
+}  
+
 static void gen_func_metadata(IRContext *irc, ParserContext *pc, FuncData *fd) {
   emit_byte(irc, META_FUNC);
 
@@ -73,7 +91,6 @@ static void gen_var_metadata(IRContext *irc, ParserContext *pc, VarData *vd) {
 
 static void gen_class_metadata(IRContext *irc, ParserContext *pc,
                                ClassData *cd) {
-  
   emit_byte(irc, META_CLASS);
 
   emit_uint(irc, cd->id);
@@ -117,4 +134,13 @@ void print_bytes(IRContext *irc) {
       wprintf(L"\n");
     }      
   }    
+}
+
+void gen_code(IRContext *irc, ParserContext *pc, Node **nodes, unsigned node_size) {
+  int i;
+  for (i = 0; i < node_size; i++) {
+    Node *node = nodes[i];
+
+    
+  }
 }  

@@ -1,6 +1,8 @@
 #include <token.h>
 #include <error.h>
 
+#include <assert.h>
+
 static void init_keyword();
 
 TokenizerContext* gen_tc(wchar_t* file){
@@ -28,28 +30,34 @@ static KeywordEntry *gen_keyword(const wchar_t *keyword, TokenType tok_type) {
   return result;  
 }
 
+static void insert_keyword(const wchar_t *keyword, TokenType tok_type) {
+  assert(keyword_table != NULL);
+
+  ht_insert(keyword_table, keyword, gen_keyword(keyword, tok_type));
+}  
+
 static void init_keyword() {
   if (keyword_table != NULL) {
     return;
   }    
   
-  keyword_table = gen_htable();  
-  
-  ht_insert(keyword_table, L"var", gen_keyword(L"var", TokVar));
-  ht_insert(keyword_table, L"if", gen_keyword(L"if", TokIf));
-  ht_insert(keyword_table, L"for", gen_keyword(L"for", TokFor));
-  ht_insert(keyword_table, L"func", gen_keyword(L"func", TokFunc));
-  ht_insert(keyword_table, L"return", gen_keyword(L"return", TokReturn));
-  ht_insert(keyword_table, L"else", gen_keyword(L"else", TokElse));
-  ht_insert(keyword_table, L"class", gen_keyword(L"class", TokClass));
-  ht_insert(keyword_table, L"extends", gen_keyword(L"extends", TokExtends));
-  ht_insert(keyword_table, L"private", gen_keyword(L"private", TokPrivate));
-  ht_insert(keyword_table, L"public", gen_keyword(L"public", TokPublic));
-  ht_insert(keyword_table, L"protected", gen_keyword(L"protected", TokProtected));
-  ht_insert(keyword_table, L"constructor", gen_keyword(L"constructor", TokConstructor));
-  ht_insert(keyword_table, L"new", gen_keyword(L"new", TokNew));
-  ht_insert(keyword_table, L"true", gen_keyword(L"true", TokTrue));
-  ht_insert(keyword_table, L"false", gen_keyword(L"false", TokFalse));
+  keyword_table = gen_htable();
+
+  insert_keyword(L"var", TokVar);   
+  insert_keyword(L"if", TokIf);  
+  insert_keyword(L"for", TokFor);  
+  insert_keyword(L"func", TokFunc);  
+  insert_keyword(L"return", TokReturn);  
+  insert_keyword(L"else", TokElse);  
+  insert_keyword(L"class", TokClass);  
+  insert_keyword(L"extends", TokExtends);  
+  insert_keyword(L"private", TokPrivate);  
+  insert_keyword(L"public", TokPublic);  
+  insert_keyword(L"protected", TokProtected);  
+  insert_keyword(L"constructor", TokConstructor);  
+  insert_keyword(L"new", TokNew);  
+  insert_keyword(L"true", TokTrue);  
+  insert_keyword(L"false", TokFalse);  
 }  
 
 void init_tc(TokenizerContext* tc){
