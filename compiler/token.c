@@ -1,12 +1,14 @@
 #include <token.h>
 #include <error.h>
 
+#include <stdlib.h>
+#include <wctype.h>
 #include <assert.h>
 
 static void init_keyword();
 
-TokenizerContext* gen_tc(wchar_t* file){
-  TokenizerContext* tc = (TokenizerContext*)S_malloc(sizeof(TokenizerContext));
+struct TokenizerContext* gen_tc(wchar_t* file){
+  struct TokenizerContext* tc = (struct TokenizerContext*)S_malloc(sizeof(struct TokenizerContext));
 
   tc->file = file;
   tc->cur_ch = file;
@@ -19,10 +21,10 @@ TokenizerContext* gen_tc(wchar_t* file){
   return tc;
 }
 
-static HTable *keyword_table;
+static struct HTable *keyword_table;
 
-static KeywordEntry *gen_keyword(const wchar_t *keyword, TokenType tok_type) {
-  KeywordEntry *result = (KeywordEntry *)S_malloc(sizeof(KeywordEntry));
+static struct KeywordEntry *gen_keyword(const wchar_t *keyword, enum TokenType tok_type) {
+  struct KeywordEntry *result = (struct KeywordEntry *)S_malloc(sizeof(struct KeywordEntry));
 
   result->keyword = keyword;
   result->type = tok_type;
@@ -30,7 +32,7 @@ static KeywordEntry *gen_keyword(const wchar_t *keyword, TokenType tok_type) {
   return result;  
 }
 
-static void insert_keyword(const wchar_t *keyword, TokenType tok_type) {
+static void insert_keyword(const wchar_t *keyword, enum TokenType tok_type) {
   assert(keyword_table != NULL);
 
   ht_insert(keyword_table, keyword, gen_keyword(keyword, tok_type));
@@ -60,7 +62,7 @@ static void init_keyword() {
   insert_keyword(L"false", TokFalse);  
 }  
 
-void init_tc(TokenizerContext* tc){
+void init_tc(struct TokenizerContext* tc){
   tc->cur_ch = (wchar_t*) tc->begin_ch;
   tc->token_cache = NULL;
   tc->line_num = 1;
@@ -78,7 +80,7 @@ static bool is_sc(const wchar_t wc) {
   return false;
 }
 
-static Token* gen_num_token(TokenizerContext* tc) {
+static struct Token* gen_num_token(struct TokenizerContext* tc) {
   wchar_t* str = (wchar_t*) S_malloc(MAX_TOKEN_STR * sizeof(wchar_t));
   unsigned str_len = 0;
   unsigned dot_count = 0;
@@ -99,15 +101,15 @@ static Token* gen_num_token(TokenizerContext* tc) {
   }
   str[str_len] = L'\0';
 
-  Token* tok = (Token*)S_malloc(sizeof(Token));
+  struct Token* tok = (struct Token*)S_malloc(sizeof(struct Token));
   tok->str = str;
   tok->type = TokNumberLiteral;
     
   return tok;
 }
 
-static TokenType check_ident_type(const wchar_t* str){
-  KeywordEntry *ke = ht_find(keyword_table, str);
+static enum TokenType check_ident_type(const wchar_t* str){
+  struct KeywordEntry *ke = ht_find(keyword_table, str);
 
   if (ke == NULL) {
     return TokIdent;    
@@ -116,7 +118,7 @@ static TokenType check_ident_type(const wchar_t* str){
   return ke->type;
 }
 
-static Token* gen_ident_token(TokenizerContext* tc) {
+static struct Token* gen_ident_token(struct TokenizerContext* tc) {
   wchar_t* str = (wchar_t*) S_malloc(MAX_TOKEN_STR * sizeof(wchar_t));
   unsigned str_len = 0;
 
@@ -129,16 +131,16 @@ static Token* gen_ident_token(TokenizerContext* tc) {
   }
   str[str_len] = L'\0';
 
-  TokenType type = check_ident_type(str);
-    
-  Token* tok = (Token*)S_malloc(sizeof(Token));
+  enum TokenType type = check_ident_type(str);
+
+  struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
   tok->str = str;
   tok->type = type;
 
   return tok;
 }
 
-static void get_str_literal(TokenizerContext* tc, wchar_t* str, unsigned *str_len){
+static void get_str_literal(struct TokenizerContext* tc, wchar_t* str, unsigned *str_len){
     
   while (true) {
     wchar_t ch = *(tc->cur_ch);
@@ -159,11 +161,11 @@ static void get_str_literal(TokenizerContext* tc, wchar_t* str, unsigned *str_le
   tc->cur_ch++;
 }
 
-static Token* gen_sc_token(TokenizerContext* tc) {
+static struct Token* gen_sc_token(struct TokenizerContext* tc) {
   wchar_t* str = (wchar_t*) S_malloc(MAX_TOKEN_STR * sizeof(wchar_t));
   unsigned str_len = 0;
 
-  TokenType type;
+  enum TokenType type;
 
   wchar_t ch = *tc->cur_ch;
   str[str_len++] = ch;
@@ -357,23 +359,23 @@ static Token* gen_sc_token(TokenizerContext* tc) {
     }
 
     str[str_len] = L'\0';
-
-    Token* tok = (Token*) S_malloc(sizeof(Token));
+    
+    struct Token* tok = (struct Token*) S_malloc(sizeof(struct Token));
     tok->str = str;
     tok->type = type;
 
     return tok;
 }
 
-Token* peek(TokenizerContext* tc) {
+struct Token* peek(struct TokenizerContext* tc) {
   if(tc->token_cache)
     return tc->token_cache;
   
   return tc->token_cache = pull(tc);
 }
 
-Token* pull(TokenizerContext *tc) {
-  Token* tok_cache_backup = tc->token_cache;
+struct Token* pull(struct TokenizerContext *tc) {
+  struct Token* tok_cache_backup = tc->token_cache;
   tc->token_cache = NULL;
   
   if(tok_cache_backup){
@@ -400,15 +402,15 @@ Token* pull(TokenizerContext *tc) {
     return gen_num_token(tc);
   }
 
-  Token* eof_token = (Token*)S_malloc(sizeof(Token));
+  struct Token* eof_token = (struct Token*)S_malloc(sizeof(struct Token));
   eof_token->str = L"EOF";
   eof_token->type = TokEOF;
 
   return eof_token;
 }
 
-Token* consume(TokenizerContext *tc, TokenType tt) {
-  Token *tok = pull(tc);
+struct Token* consume(struct TokenizerContext *tc, enum TokenType tt) {
+  struct Token *tok = pull(tc);
 
   if (tok->type != tt) {
     panic(L"Wrong token type consumed.\n", tc);

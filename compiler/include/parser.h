@@ -1,8 +1,9 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "token.h"
-#include "util.h"
+#include <token.h>
+#include <util.h>
+#include <type.h>
 
 #include <assert.h>
 
@@ -14,7 +15,7 @@
 #define MAX_CLASS_COUNT 512
 #define MAX_FUNC_COUNT 512
 
-typedef enum {
+enum ASTType {
   AST_NumberLiteral = 0,
   AST_Identifier = 1,
   AST_VariableDeclaration = 2,
@@ -37,201 +38,215 @@ typedef enum {
   AST_ArrayAccess = 19,
   AST_BoolLiteral = 20,
   AST_Negative = 21,
-}ASTType;
+};
 
-typedef struct _Node {
-  ASTType type;
-  void* ast;
-  struct _Node* attribute;
-} Node;
+struct Node {
+  enum ASTType type;
+  void *ast;
+  struct Node *attr;
+};
 
-typedef struct {
-  Token* num_tok;
+struct NumberLiteralAST {
+  struct Token *num_tok;
   short byte;
-} NumberLiteralAST;
+};
+
+struct StringLiteralAST {
+  struct Token *str_tok;
+};
+
+struct IdentDataNode;
+
+struct IdentifierAST {
+  struct Token *ident;
+  struct IdentDataNode *ident_data_node;  
+};
 
 typedef struct {
-  Token* str_tok;
-} StringLiteralAST;
-
-struct _IdentDataNode;
-
-typedef struct {
-  Token *ident;
-  struct _IdentDataNode *ident_data_node;  
-} IdentifierAST;
-
-typedef struct {
-  Token* bool_tok;
+  struct Token* bool_tok;
 } BoolLiteralAST;
 
 typedef struct {
-  Token* var_name_tok;
-  Token* var_type_tok;
-  Node* decl;
+  struct Token* var_name_tok;
+  struct Token* var_type_tok;
+  struct Node* decl;
   int ac_mod;
 } VarDeclAST;
 
-typedef struct {
-  Node** var_decls;
+struct VarDeclBundleAST {
+  struct Node **var_decls;
   int var_count;
-} VarDeclBundleAST;
+};
 
-typedef enum { OpNone, OpADD, OpSUB, OpMUL, OpDIV, OpEQUAL, OpNOTEQUAL, OpGREATER, OpLESS, OpEQUALGREATER, OpEQUALLESS, OpASSIGN, OpOR, OpAND } OperatorType;
+enum OperatorType {
+  OpNone,
+  OpADD,
+  OpSUB,
+  OpMUL,
+  OpDIV,
+  OpEQUAL,
+  OpNOTEQUAL,
+  OpGREATER,
+  OpLESS,
+  OpEQUALGREATER,
+  OpEQUALLESS,
+  OpASSIGN,
+  OpOR,
+  OpAND
+};
 
-typedef struct {
-  Node* left, * right;
-  OperatorType opType;
-}BinExprAST;
+struct BinExprAST {
+  struct Node *left, *right;
+  enum OperatorType opType;
+};
 
-typedef struct {
-  Node* expr;
-}UnaryExprAST;
+struct UnaryExprAST {
+  struct Node *expr;
+};
 
-typedef enum { StmtNone, StmtIf, StmtElseIf, StmtElse } IfStmtType;
+enum IfStmtType { StmtNone, StmtIf, StmtElseIf, StmtElse } ;
 
-typedef struct {
-  IfStmtType stmt_type;
-  Node* cond;
-  Node* next_stmt;
-  Node** body;
+struct IfStmtAST {
+  enum IfStmtType stmt_type;
+  struct Node *cond;
+  struct Node *next_stmt;
+  struct Node **body;
   unsigned body_size;
-} IfStmtAST;
+};
 
-typedef struct {
-  Token* func_name_tok;
-  Token* ret_type_tok;
-  Node* params; // variable declaration bundle.
-  Node** body;
+struct FuncDeclAST {
+  struct Token *func_name_tok;
+  struct Token *ret_type_tok;
+  struct Node *params; // variable declaration bundle.
+  struct Node **body;
   unsigned body_size;
   int ac_mod;
-} FuncDeclAST;
+};
 
-typedef struct {
-  Token* func_name_tok;
-  Node** params;
+struct FuncCallAST {
+  struct Token *func_name_tok;
+  struct Node **params;
   int param_size;
-  struct _IdentDataNode *ident_data_node;  
-} FuncCallAST;
+  struct IdentDataNode *ident_data_node;  
+};
 
-typedef struct {
-  Token* identifier;
-} IdentIncreAST;
+struct IdentIncreAST {
+  struct Token *identifier;
+};
 
-typedef struct {
-  Token* identifier;
-} IdentDecreAST;
+struct IdentDecreAST {
+  struct Token *identifier;
+};
 
-typedef struct {
-  Node* init;
-  Node* cond;
-  Node* step;
-  Node** body;
+struct ForStmtAST {
+  struct Node *init;
+  struct Node *cond;
+  struct Node *step;
+  struct Node **body;
   unsigned body_size;
-} ForStmtAST;
+};
 
-typedef struct {
-  Node* expr;
-} ReturnAST;
+struct ReturnAST {
+  struct Node *expr;
+};
 
-typedef struct {
-  Node* parameters;
-  Node** body;
+struct ConstructorAST {
+  struct Node *parameters;
+  struct Node **body;
   unsigned body_size;
   int ac_mod;
-} ConstructorAST;
+};
 
-typedef struct {
-  Node* initializer;
-  Node* constructor;
+struct ClassAST {
+  struct Node *initializer;
+  struct Node *constructor;
 
-  Node** body;
+  struct Node **body;
   unsigned body_size;
 
-  Token* name_tok;
-  Token* parent_name_tok;
+  struct Token* name_tok;
+  struct Token* parent_name_tok;
+};
 
-} ClassAST;
-
-typedef struct {
-  Token* name_tok;
-  Node** parameters;
+struct NewAST {
+  struct Token *name_tok;
+  struct Node **parameters;
   int parameter_count;
-} NewAST;
+};
 
-typedef struct {
+struct NullAST {
 
-}NullAST;
+};
 
-typedef struct {
+struct ArrayDeclAST {
   int element_count;
-  Node** elements;
-  Token* ele_type_tok;
-} ArrayDeclAST;
+  struct Node **elements;
+  struct Token *ele_type_tok;
+};
 
-typedef struct {
-  Node** indexes;
+struct ArrayAccessAST {
+  struct Node** indexes;
+  struct Node* target_array;
   int access_count;
-  Node* target_array;
-}ArrayAccessAST;
+};
 
-typedef struct {
-  Node* ast;
-}NegAST;
+struct NegAST {
+  struct Node *ast;
+};
 
-typedef struct _FuncData{
+struct FuncData{
   unsigned id;
   wchar_t *func_name;
   wchar_t *return_type;  
-} FuncData;
+};
 
-typedef struct _VarData {
+struct VarData {
   unsigned id;
   wchar_t *var_name;
   wchar_t *type;  
-}VarData;
+};
 
-typedef struct _ClassData {
+struct ClassData {
   unsigned id;
   wchar_t *class_name, *parent_name;
-  HTable* member_vars;
-  HTable* member_funcs;
-} ClassData;
+  struct HTable* member_vars;
+  struct HTable* member_funcs;
+};
 
-typedef struct _Scope {
-  HTable *local_var_smtb;
-  struct _Scope *prev_scope;
-} Scope;
+struct Scope {
+  struct HTable *local_var_smtb;
+  struct Scope *prev_scope;
+};
 
-struct _TypeCheckContex;
+struct ParserContext {
+  struct TokenizerContext *tc;
+  struct TypeCheckContext *tcc;  
+  
+  struct HTable *glob_var_smtb; // VarData will be stored.
+  struct HTable *glob_func_smtb; // FuncData will be stored.
 
-typedef struct {
-  TokenizerContext *tc;
-  struct _TypeCheckContext *tcc;  
-
-  HTable *glob_var_smtb; // VarData will be stored.
-  HTable *glob_func_smtb; // FuncData will be stored.
-
-  HTable *class_type_smtb; // Type will be stored.
-  HTable *primitive_type_smtb;  // Type will be stored.
+  struct HTable *class_type_smtb; // Type will be stored.
+  struct HTable *primitive_type_smtb;  // Type will be stored.
   
   unsigned class_data_cnt;
-  ClassData *class_data[MAX_CLASS_COUNT];
+  struct ClassData *class_data[MAX_CLASS_COUNT];
   
   unsigned func_data_cnt;
-  FuncData *func_data[MAX_FUNC_COUNT];
+  struct FuncData *func_data[MAX_FUNC_COUNT];
 
-  Scope *current_scope;
+  struct Scope *current_scope;
 
-  ClassData *current_class; // current parsing class.
-  FuncData *current_func;   // current parsing func.
+  struct ClassData *current_class; // current parsing class.
+  struct FuncData *current_func;   // current parsing func.
+};
 
-} ParserContext;
 
-ParserContext *gen_pc();
-void compile_file(ParserContext *pc, TokenizerContext* tc, struct _TypeCheckContext* tcc);
+struct ParserContext *gen_pc();
+
+void compile_file(struct ParserContext *pc, struct TokenizerContext *tc,
+                  struct TypeCheckContext *tcc);
 
 // parse
-Node *parse(ParserContext* pc, bool is_expr);
+struct Node *parse(struct ParserContext* pc, bool is_expr);
 
 #endif

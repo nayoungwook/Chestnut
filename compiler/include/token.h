@@ -1,19 +1,14 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <memory.h>
-#include <string.h>
-#include <ctype.h>
 #include <wchar.h>
-#include <wctype.h>
 
 #include <util.h>
 
 #define MAX_TOKEN_STR 512
 
-typedef enum {
+enum TokenType {
   TokEOF = -1,
   TokIdent = 0,
   TokNumberLiteral = 1,
@@ -80,31 +75,31 @@ typedef enum {
 
   TokTrue = 52,
   TokFalse = 53,
-} TokenType;
+};
 
-typedef struct {
+struct Token {
   wchar_t* str;
-  TokenType type;
-} Token;
+  enum TokenType type;
+};
 
-typedef struct {
-  Token* token_cache; // cache token for consume, peek, pull
+struct TokenizerContext {
+  struct Token* token_cache; // cache token for consume, peek, pull
   wchar_t* file; // full file contents.
   wchar_t* cur_ch; // current ch
   const wchar_t* begin_ch; // begin ch (*initial position of file.)
   unsigned line_num;
-} TokenizerContext;
+};
 
-typedef struct {
+struct KeywordEntry {
   const wchar_t* keyword;
-  TokenType type;
-} KeywordEntry;
+  enum TokenType type;
+};
 
-Token* consume(TokenizerContext *tc, TokenType tt);
-Token* peek(TokenizerContext* tc);
-Token *pull(TokenizerContext *tc);
+struct Token* consume(struct TokenizerContext *tc, enum TokenType tt);
+struct Token* peek(struct TokenizerContext* tc);
+struct Token *pull(struct TokenizerContext *tc);
 
-void init_tc(TokenizerContext* tc);
-TokenizerContext* gen_tc(wchar_t* file);
+void init_tc(struct TokenizerContext* tc);
+struct TokenizerContext* gen_tc(wchar_t* file);
 
 #endif

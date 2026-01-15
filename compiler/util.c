@@ -75,8 +75,8 @@ static unsigned get_hash(const wchar_t *key) {
   return hash % HTABLE_BUFF;
 }
 
-HTable *gen_htable() {
-  HTable *res = (HTable *)S_malloc(sizeof(HTable));
+struct HTable *gen_htable() {
+  struct HTable *res = (struct HTable *)S_malloc(sizeof(struct HTable));
 
   res->size = 0;
   res->capacity = HTABLE_BUFF;
@@ -84,27 +84,27 @@ HTable *gen_htable() {
   return res;      
 }
 
-void free_htable(HTable *target_table) {
+void free_htable(struct HTable *target_table) {
   int i;
   for (i = 0; i < HTABLE_BUFF; i++) {
-    DataNode* node = target_table->bucket[i];
+    struct DataNode* node = target_table->bucket[i];
     while (node != NULL) {
-      DataNode* next_node = node->next;      
+      struct DataNode* next_node = node->next;      
       free(node);
       node = next_node;      
     }      
   }    
 }  
 
-void ht_insert(HTable *target_table, const wchar_t* key, void *ptr) {
-  DataNode *node = (DataNode *)S_malloc(sizeof(DataNode));
+void ht_insert(struct HTable *target_table, const wchar_t* key, void *ptr) {
+  struct DataNode *node = (struct DataNode *)S_malloc(sizeof(struct DataNode));  
   unsigned hash = get_hash(key);
   
   node->ptr = ptr;
   node->key = key;
   node->next = NULL;
 
-  DataNode *tnode = target_table->bucket[hash];
+  struct DataNode *tnode = target_table->bucket[hash];  
 
   if (!tnode) {
     target_table->bucket[hash] = node;
@@ -115,9 +115,9 @@ void ht_insert(HTable *target_table, const wchar_t* key, void *ptr) {
   target_table->size++;
 }
 
-void *ht_find(HTable *target_table, const wchar_t *key) {
+void *ht_find(struct HTable *target_table, const wchar_t *key) {  
   unsigned hash = get_hash(key);
-  DataNode *tnode = target_table->bucket[hash];
+  struct DataNode *tnode = target_table->bucket[hash];  
 
   while (tnode) {
     if (wcscmp(tnode->key, key) == 0) {
@@ -133,8 +133,8 @@ void *ht_find(HTable *target_table, const wchar_t *key) {
   return tnode->ptr;
 }  
 
-Queue *gen_queue(){
-  Queue* result = (Queue*) S_malloc(sizeof(Queue));
+struct Queue *gen_queue(){
+  struct Queue *result = (struct Queue *)S_malloc(sizeof(struct Queue));  
 
   result->size = 0;
   result->tail = NULL;
@@ -142,8 +142,8 @@ Queue *gen_queue(){
   return result;
 }
 
-void q_push(Queue *target_queue, void* ptr){
-  DataNode *node = (DataNode*) S_malloc(sizeof(DataNode));
+void q_push(struct Queue *target_queue, void *ptr) {
+  struct DataNode *node = (struct DataNode *)S_malloc(sizeof(struct DataNode));  
   node->ptr = ptr;
 
   assert(target_queue != NULL);
@@ -160,13 +160,13 @@ void q_push(Queue *target_queue, void* ptr){
   target_queue->size++;
 }
 
-void* q_pop(Queue *target_queue){
+void *q_pop(struct Queue *target_queue) {  
   if(target_queue->size == 0)
     return NULL;
 
-  assert(target_queue->tail != NULL);  
-  
-  DataNode* result = target_queue->tail->next;
+  assert(target_queue->tail != NULL);
+
+  struct DataNode *result = target_queue->tail->next;  
 
   if(target_queue->size == 1){
     target_queue->tail = NULL;

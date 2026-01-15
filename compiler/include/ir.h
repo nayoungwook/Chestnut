@@ -24,19 +24,19 @@
 
 typedef unsigned char byte;
 
-typedef struct {
-  byte *bytes;  
-  Node *node;
+struct IRContext {
+  byte *bytes;
+  struct Node *node;
   unsigned byte_cnt, byte_size; // byte counter, byte size
-} IRContext;
+};
 
-IRContext *gen_irc();
+struct IRContext *gen_irc();
 
-void init_irc(IRContext *irc, Node *node);
-void emit_byte(IRContext *irc, byte _b);
+void init_irc(struct IRContext *irc, struct Node *node);
+void emit_byte(struct IRContext *irc, byte _b);
 
-void gen_metadata(IRContext *irc, ParserContext *pc);
+void gen_metadata(struct IRContext *irc, struct ParserContext *pc);
 
-void print_bytes(IRContext *irc);
+void print_bytes(struct IRContext *irc);
 
 #endif

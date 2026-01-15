@@ -19,31 +19,31 @@ void *S_malloc(size_t size);
 void *S_realloc(void *ptr, size_t size);
 
 // node for data structure.
-typedef struct _DNode {
-  struct _DNode *next;
-  void* ptr;
-  const wchar_t* key;  
-} DataNode;
+struct DataNode {
+  struct DataNode *next;
+  void *ptr;
+  const wchar_t *key;
+};
 
-typedef struct {
-  DataNode *bucket[HTABLE_BUFF];
+struct HTable {
+  struct DataNode *bucket[HTABLE_BUFF];
   unsigned size;
   unsigned capacity;
-} HTable;
+};
 
-HTable *gen_htable();
-void free_htable(HTable *target_table);
+struct HTable *gen_htable();
+void free_htable(struct HTable *target_table);
 
-void ht_insert(HTable* target_table, const wchar_t* key, void* ptr);
-void* ht_find(HTable* target_table, const wchar_t* key);
+void ht_insert(struct HTable *target_table, const wchar_t *key, void *ptr);
+void *ht_find(struct HTable *target_table, const wchar_t *key);
 
-typedef struct {
-  DataNode *tail;
+struct Queue {
+  struct DataNode *tail;
   unsigned size;
-} Queue;
+};
 
-Queue *gen_queue();
-void q_push(Queue *target_queue, void* ptr);
-void* q_pop(Queue *target_queue);
+struct Queue *gen_queue();
+void q_push(struct Queue *target_queue, void* ptr);
+void* q_pop(struct Queue *target_queue);
 
 #endif

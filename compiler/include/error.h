@@ -5,6 +5,6 @@
 
 #include "token.h"
 
-void panic(wchar_t *msg, TokenizerContext* tc);
+void panic(wchar_t *msg, struct TokenizerContext* tc);
 
 #endif
