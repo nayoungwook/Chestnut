@@ -78,20 +78,21 @@ enum TokenType {
 };
 
 struct Token {
-  wchar_t* str;
+  const char *str;
+  unsigned length;  
   enum TokenType type;
 };
 
 struct TokenizerContext {
   struct Token* token_cache; // cache token for consume, peek, pull
-  wchar_t* file; // full file contents.
-  wchar_t* cur_ch; // current ch
-  const wchar_t* begin_ch; // begin ch (*initial position of file.)
+  char* file; // full file contents.
+  char* cur_ch; // current ch
+  const char* begin_ch; // begin ch (*initial position of file.)
   unsigned line_num;
 };
 
 struct KeywordEntry {
-  const wchar_t* keyword;
+  const char* keyword;
   enum TokenType type;
 };
 
@@ -100,6 +101,6 @@ struct Token* peek(struct TokenizerContext* tc);
 struct Token *pull(struct TokenizerContext *tc);
 
 void init_tc(struct TokenizerContext* tc);
-struct TokenizerContext* gen_tc(wchar_t* file);
+struct TokenizerContext* gen_tc(char* file);
 
 #endif

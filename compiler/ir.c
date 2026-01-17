@@ -29,17 +29,16 @@ void emit_byte(struct IRContext *irc, byte _b) {
   }
 }
 
-static void emit_str(struct IRContext *irc, wchar_t *str) {
-  wchar_t *ch = str;
-
-  // wchar_t is 2byte. so we have to separate it.
+static void emit_str(struct IRContext *irc, const char *str) {
+  unsigned i = 0;
+  char ch;
+  
   // [0xFF 0xAA] [0xCD 0xEF] ... [0xDF 0xER]
   
-  while (*ch != L'\0') {
-    emit_byte(irc, ((*ch >> 8) & 0xFF));
-    emit_byte(irc, ((*ch) & 0xFF));
+  while ((ch = *(str + i)) != '\0') {
+    emit_byte(irc, ((ch) & 0xFF));
 
-    ch++;
+    i++;
   }
 
   // emit null character  

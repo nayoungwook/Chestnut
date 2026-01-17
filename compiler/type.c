@@ -15,7 +15,7 @@ static unsigned resolve_assign_tcq(struct ParserContext *pc,
 
 struct Type *infer_type(struct ParserContext *pc, struct Node *node) {  
   struct Type* result = NULL;
-  wchar_t *ident = L"";
+  const char *ident = "";
   
   assert(node->ast != NULL);
 
@@ -26,7 +26,7 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
       (func_call_ast)->ident_data_node;
 
     result = get_type_of_ident_data_node(pc, ident_data_node);
-    ident = wcsdup(ident_data_node->ident_data->str);
+    ident = ident_data_node->ident_data->str;
     
     break;
   }
@@ -36,7 +36,7 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
         ((struct IdentifierAST *)node->ast)->ident_data_node;
     
     result = get_type_of_ident_data_node(pc, ident_data_node);
-    ident = wcsdup(ident_data_node->ident_data->str);
+    ident = ident_data_node->ident_data->str;
     
     break;    
   }    
@@ -46,15 +46,15 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
   }
 
   if (result == NULL) {
-    wchar_t err_buf[512];
-    swprintf(err_buf, 512, L"Failed to infer type of identifier : %S", ident);
-    wprintf(L"%S\n", err_buf);
+    char err_buf[512];
+    sprintf(err_buf, "Failed to infer type of identifier : %s", ident);
+    printf("%s\n", err_buf);
   }    
   
   return result;  
 }
 
-struct PrimitiveType *gen_primitive_type(const wchar_t *type_str, unsigned nbyte,
+struct PrimitiveType *gen_primitive_type(const char *type_str, unsigned nbyte,
                                   unsigned rank, bool is_signed) {
   struct PrimitiveType *result = (struct PrimitiveType *)S_malloc(sizeof(struct PrimitiveType));
 
@@ -66,10 +66,10 @@ struct PrimitiveType *gen_primitive_type(const wchar_t *type_str, unsigned nbyte
   return result;  
 }
 
-struct Type *gen_type(const wchar_t *type_str, void *data) {
+struct Type *gen_type(const char *type_str, void *data) {
   struct Type *type = (struct Type *)S_malloc(sizeof(struct Type));  
 
-  type->type_str = wcsdup(type_str);
+  type->type_str = type_str;
   type->data = data;  
 
   return type;
@@ -98,7 +98,7 @@ struct IdentifierTCQN *gen_ident_tcqn(struct ParserContext *pc,
 }
 
 struct RawTypeTCQN *gen_rawtype_tcqn(struct ParserContext *pc,
-                                     wchar_t *type_str) {  
+                                     const char *type_str) {  
   struct RawTypeTCQN *result =
       (struct RawTypeTCQN *)S_malloc(sizeof(struct RawTypeTCQN));  
 
@@ -128,7 +128,7 @@ static unsigned resolve_raw_type_tcq(struct ParserContext *pc,
     struct RawTypeTCQN *raw_type_tcqn = q_pop(tcc->tc_type_queue);    
 
 #ifdef DEBUG    
-    wprintf(L"Check type existance : %S\n", raw_type_tcqn->type_str);
+    printf("Check type existance : %s\n", raw_type_tcqn->type_str);
 #endif
     
     if (!check_type_existance(pc, raw_type_tcqn->type_str)) {
@@ -152,7 +152,7 @@ static void resolve_attr_tcq(struct ParserContext *pc, struct Type *type,
     }
 
 #ifdef DEBUG
-    wprintf(L"Check attr of %S -> %S\n", type->type_str,
+    printf("Check attr of %s -> %s\n", type->type_str,
             ident_data_node->ident_data->str);
 #endif    
       
@@ -165,7 +165,7 @@ static void resolve_attr_tcq(struct ParserContext *pc, struct Type *type,
     if ((type = get_type_of_attr(pc, type, ident_data)) ==
         NULL) { // attr type not exist.
 #ifdef DEBUG      
-      wprintf(L"Type %S does not contains %S\n", type_cache->type_str, ident_data->str);
+      printf("Type %s does not contains %s\n", type_cache->type_str, ident_data->str);
 #endif
 
       break;
@@ -192,7 +192,7 @@ static unsigned resolve_identifier_tcq(struct ParserContext *pc,
 
 #ifdef DEBUG
     struct IdentData *ident_data = ident_data_node->ident_data;
-    wprintf(L"Check type of identifier : %S | type : %S\n", ident_data->str,
+    printf("Check type of identifier : %s | type : %s\n", ident_data->str,
             type->type_str);
 #endif    
     
@@ -221,7 +221,7 @@ static unsigned resolve_assign_tcq(struct ParserContext *pc,
     struct Type *right_type = infer_type(pc, assign_tcqn->right_node);    
 
 #ifdef DEBUG
-    wprintf(L"Check If types are assignable. %S : %S\n", left_type->type_str, right_type->type_str);
+    printf("Check If types are assignable. %s : %s\n", left_type->type_str, right_type->type_str);
 #endif
 
   }    
@@ -229,7 +229,7 @@ static unsigned resolve_assign_tcq(struct ParserContext *pc,
   return err_cnt;  
 }
 
-struct Type *find_type(struct ParserContext *pc, const wchar_t *type_str) {  
+struct Type *find_type(struct ParserContext *pc, const char *type_str) {  
   struct Type *result = ht_find(pc->primitive_type_smtb, type_str);
 
   if (result == NULL) {
@@ -251,7 +251,7 @@ void resolve_tcq(struct ParserContext *pc, struct TypeCheckContext *tcc) {
   err_cnt += resolve_assign_tcq(pc, tcc);
   
   if (err_cnt > 0){
-    wprintf(L"Type error occured! : %d\n", err_cnt);
+    printf("Type error occured! : %d\n", err_cnt);
   }
 }
 
@@ -282,7 +282,7 @@ struct Type *get_type_of_attr(struct ParserContext *pc, struct Type *target,
   }
     
   default:
-    wprintf(L"Warning! there are another attrib type.\n");
+    printf("Warning! there are another attrib type.\n");
     return NULL;    
   }    
 }
@@ -294,7 +294,7 @@ get_type_of_ident_data_node(struct ParserContext *pc,
 
   assert(ident_data != NULL);
 
-  const wchar_t* str = ident_data->type_str;
+  const char* str = ident_data->type_str;
   
   struct Type *result = find_type(pc, str);
 
@@ -311,6 +311,6 @@ get_type_of_ident_data_node(struct ParserContext *pc,
   return result;
 }
 
-bool check_type_existance(struct ParserContext *pc, const wchar_t *type) {  
-  return find_type(pc, type) != NULL || wcscmp(type, L"void") == 0;
+bool check_type_existance(struct ParserContext *pc, const char *type) {  
+  return find_type(pc, type) != NULL || strcmp(type, "void") == 0;
 }  

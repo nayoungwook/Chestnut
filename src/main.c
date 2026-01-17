@@ -20,16 +20,16 @@ int main(int arc, char *args[]){
 
   compile_file(pc, gen_tc(read_file("test.chest")), tcc);
 
-  compile_file(pc, gen_tc(L"class Bar {\n"
-                          L"    var b: int = 0;\n"
-                          L"    var foo: Foo;\n"
-                          L"    func bar(): void {\n"
-                          L"        var foo: Foo;\n"
-                          L"        foo.bar.foo.a = foo.foo();\n"
-                          L"        var bar: Bar;\n"
-                          L"        bar.b = foo.foo3();\n"
-                          L"    }\n"
-                          L"}\n"
+  compile_file(pc, gen_tc("class Bar {\n"
+                          "    var b: int = 0;\n"
+                          "    var foo: Foo;\n"
+                          "    func bar(): void {\n"
+                          "        var foo: Foo;\n"
+                          "        foo.bar.foo.a = foo.foo();\n"
+                          "        var bar: Bar;\n"
+                          "        bar.b = foo.foo3();\n"
+                          "    }\n"
+                          "}\n"
                           ), tcc);
   
   resolve_tcq(pc, tcc);

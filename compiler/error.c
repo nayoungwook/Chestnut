@@ -1,7 +1,7 @@
 #include <error.h>
 
-void panic(wchar_t *msg, struct TokenizerContext* tc) {
-  wprintf(L"PANIC!\n");
-  wprintf(L"%d | %S %S\n", tc->line_num, msg, tc->cur_ch);
+void panic(char *msg, struct TokenizerContext* tc) {
+  printf("PANIC!\n");
+  printf("%d | %s %s\n", tc->line_num, msg, tc->cur_ch);
   exit(1);
 }

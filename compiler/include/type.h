@@ -8,7 +8,7 @@
 #include <wchar.h>
 
 struct Type {
-  const wchar_t *type_str;
+  const char *type_str;
   void* data;  
 };
 
@@ -16,17 +16,17 @@ struct ParserContext;
 struct Node;
 
 struct PrimitiveType {
-  const wchar_t *type_str;
+  const char *type_str;
   uint32_t nbyte;
   unsigned rank;
   bool is_signed;
 };
 
-struct PrimitiveType *gen_primitive_type(const wchar_t *type_str, unsigned nbyte,
+struct PrimitiveType *gen_primitive_type(const char *type_str, unsigned nbyte,
                                   unsigned rank, bool is_signed);
 
 struct Type *infer_type(struct ParserContext *pc, struct Node *node);
-struct Type *gen_type(const wchar_t *type_str, void *data);
+struct Type *gen_type(const char *type_str, void *data);
 
 // for @TypeCheckAttrib
 enum IdentType {
@@ -36,8 +36,8 @@ enum IdentType {
 };
 
 struct IdentData {
-  const wchar_t *str;
-  const wchar_t *type_str;
+  const char *str;
+  const char *type_str;
   struct Type *type;
   enum IdentType attr_type;
 };
@@ -59,7 +59,7 @@ struct IdentifierTCQN {
 
 // raw type existance check node
 struct RawTypeTCQN {
-  wchar_t *type_str;
+  const char *type_str;
   struct Token *tok;
 };
 
@@ -84,17 +84,17 @@ struct TypeCheckContext *gen_tcc();
 struct IdentifierTCQN *gen_ident_tcqn(struct ParserContext *pc,
 				      struct IdentDataNode *ident_data_node);
 struct RawTypeTCQN *gen_rawtype_tcqn(struct ParserContext *pc,
-			     wchar_t* type);
+				     const char* type);
 struct AssignTCQN *gen_assign_tcqn(struct ParserContext *pc, struct Node *left_node,
                             struct Node *right_node);
 
 void resolve_tcq(struct ParserContext *pc, struct TypeCheckContext *tcc);
 
 struct Type *get_type_of_attr(struct ParserContext *pc, struct Type *target, struct IdentData *attr);
-bool check_type_existance(struct ParserContext *pc, const wchar_t *type);
+bool check_type_existance(struct ParserContext *pc, const char *type);
 
 struct Type *get_type_of_ident_data_node(struct ParserContext *pc,
 					 struct IdentDataNode *ident_data_node);
-struct Type *find_type(struct ParserContext *pc, const wchar_t *type_str);
+struct Type *find_type(struct ParserContext *pc, const char *type_str);
 
 #endif

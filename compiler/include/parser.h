@@ -196,19 +196,19 @@ struct NegAST {
 
 struct FuncData{
   unsigned id;
-  wchar_t *func_name;
-  wchar_t *return_type;  
+  const char *func_name;
+  const char *return_type;  
 };
 
 struct VarData {
   unsigned id;
-  wchar_t *var_name;
-  wchar_t *type;  
+  const char *var_name;
+  const char *type;  
 };
 
 struct ClassData {
   unsigned id;
-  wchar_t *class_name, *parent_name;
+  const char *class_name, *parent_name;
   struct HTable* member_vars;
   struct HTable* member_funcs;
 };

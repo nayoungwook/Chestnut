@@ -9,26 +9,26 @@ static struct Node *parse_expression(struct ParserContext *pc);
 
 static void init_primitive(struct ParserContext *pc) {
   // char < int < uint < float < double
-  ht_insert(pc->primitive_type_smtb, L"int",
-            gen_primitive_type(L"int", 4, 2, true));
+  ht_insert(pc->primitive_type_smtb, "int",
+            gen_primitive_type("int", 4, 2, true));
   
-  ht_insert(pc->primitive_type_smtb, L"uint",
-            gen_primitive_type(L"uint", 4, 3, false));
+  ht_insert(pc->primitive_type_smtb, "uint",
+            gen_primitive_type("uint", 4, 3, false));
 
-  ht_insert(pc->primitive_type_smtb, L"char",
-            gen_primitive_type(L"char", 2, 1, false));
+  ht_insert(pc->primitive_type_smtb, "char",
+            gen_primitive_type("char", 2, 1, false));
 
-  ht_insert(pc->primitive_type_smtb, L"float",
-            gen_primitive_type(L"float", 4, 4, true));
+  ht_insert(pc->primitive_type_smtb, "float",
+            gen_primitive_type("float", 4, 4, true));
 
-  ht_insert(pc->primitive_type_smtb, L"double",
-            gen_primitive_type(L"double", 8, 5, true));
+  ht_insert(pc->primitive_type_smtb, "double",
+            gen_primitive_type("double", 8, 5, true));
   
-  ht_insert(pc->primitive_type_smtb, L"bool",
-            gen_primitive_type(L"bool", 1, -1, false));
+  ht_insert(pc->primitive_type_smtb, "bool",
+            gen_primitive_type("bool", 1, -1, false));
 
-  ht_insert(pc->primitive_type_smtb, L"void",
-            gen_primitive_type(L"void", 0, -1, false));
+  ht_insert(pc->primitive_type_smtb, "void",
+            gen_primitive_type("void", 0, -1, false));
 }  
 
 struct ParserContext *gen_pc() {
@@ -126,10 +126,10 @@ static struct Node* gen_func_call_node(struct Token* first, struct ParserContext
   [first identifier] ... [attr_of] -> [attr_of] -> [gen_ident_node]
   We have to check attribute and type validation after the parsing.
 */
-static struct IdentData *gen_ident_data(const wchar_t *ident, enum IdentType attr_type) {
+static struct IdentData *gen_ident_data(const char *ident, enum IdentType attr_type) {
   struct IdentData *ident_data = (struct IdentData *)S_malloc(sizeof(struct IdentData));
 
-  ident_data->type_str = L"";
+  ident_data->type_str = "";
   ident_data->type = NULL;
   ident_data->attr_type = attr_type;
   ident_data->str = ident;
@@ -138,7 +138,7 @@ static struct IdentData *gen_ident_data(const wchar_t *ident, enum IdentType att
 }
 
 static struct IdentDataNode *
-gen_ident_data_node(const wchar_t *ident, enum IdentType ident_type,
+gen_ident_data_node(const char *ident, enum IdentType ident_type,
                     struct IdentDataNode *attr_of) {
   struct IdentDataNode *ident_data_node = (struct IdentDataNode *)S_malloc(sizeof(struct IdentDataNode));
   ident_data_node->ident_data = gen_ident_data(ident, ident_type);
@@ -158,7 +158,7 @@ void free_ident_node(struct IdentDataNode* ident_data_node) {
   free(ident_data_node);
 }
 
-static struct VarData *find_var_data(struct ParserContext *pc, const wchar_t *var_name) {
+static struct VarData *find_var_data(struct ParserContext *pc, const char *var_name) {
   struct VarData *result = NULL;
 
   if (pc->current_scope != NULL) { // first find in local
@@ -184,7 +184,7 @@ static struct VarData *find_var_data(struct ParserContext *pc, const wchar_t *va
   return result;
 }
 
-static struct FuncData *find_func_data(struct ParserContext* pc, const wchar_t *func_name) {
+static struct FuncData *find_func_data(struct ParserContext* pc, const char *func_name) {
   struct ClassData *current_class = pc->current_class;
   struct FuncData *result = NULL;
   
@@ -199,18 +199,18 @@ static struct FuncData *find_func_data(struct ParserContext* pc, const wchar_t *
   return result;  
 } 
 
-static wchar_t *get_type_of_identifier(struct ParserContext *pc, enum IdentType ident_type,
-                                    const wchar_t *str) {
-  wchar_t *result = NULL;
+static const char *get_type_of_identifier(struct ParserContext *pc, enum IdentType ident_type,
+                                    const char *str) {
+  const char *result = NULL;
   
   switch (ident_type) {
   case IT_Var: {
     struct VarData *var = find_var_data(pc, str);
     if (var == NULL) {
-      panic(L"Failed to find variable.", pc->tc);
+      panic("Failed to find variable.", pc->tc);
     }
 
-    result = wcsdup(var->type);
+    result = var->type;
     break;
   }
 
@@ -218,10 +218,10 @@ static wchar_t *get_type_of_identifier(struct ParserContext *pc, enum IdentType 
     struct FuncData *func = find_func_data(pc, str);
     
     if (func == NULL) {
-      panic(L"Failed to find function.", pc->tc);
+      panic("Failed to find function.", pc->tc);
     }
 
-    result = wcsdup(func->return_type);
+    result = func->return_type;
     break;
   }
       
@@ -232,7 +232,7 @@ static wchar_t *get_type_of_identifier(struct ParserContext *pc, enum IdentType 
   return result;
 }
 
-static void get_first_node_type(struct ParserContext *pc, wchar_t *ident_str,
+static void get_first_node_type(struct ParserContext *pc, const char *ident_str,
                                 enum IdentType ident_type,
                                 struct IdentDataNode *ident_data_node,
                                 struct IdentDataNode *attr_of) {
@@ -241,7 +241,7 @@ static void get_first_node_type(struct ParserContext *pc, wchar_t *ident_str,
   // If it is first node, we have to check type of identifier.
   // This is first identifier we put typechek on queue.
   if (attr_of == NULL) {
-    wchar_t* type_str = get_type_of_identifier(pc, ident_type, ident_str);
+    const char* type_str = get_type_of_identifier(pc, ident_type, ident_str);
     struct TypeCheckContext *tcc = pc->tcc;
 
     assert(tcc != NULL);    
@@ -309,7 +309,7 @@ static struct Node *gen_ident_node(struct Token *first,
   struct TokenizerContext* tc = pc->tc;
   struct Token *nt = peek(tc);
 
-  wchar_t *ident_str = wcsdup(first->str);
+  const char *ident_str = first->str;
   struct IdentDataNode *ident_data_node = NULL;
   enum IdentType ident_type = IT_None;
   
@@ -346,7 +346,7 @@ static struct Node *gen_ident_node(struct Token *first,
     break;
 
   default:
-    panic(L"Unexpected identifier type. check parser.c", tc);
+    panic("Unexpected identifier type. check parser.c", tc);
     break;    
   }    
 
@@ -462,8 +462,8 @@ static struct FuncData* register_func_data(struct Node* node, struct ParserConte
   struct FuncDeclAST* func_decl = node->ast;
   
   struct FuncData* data = (struct FuncData*) S_malloc(sizeof(struct FuncData));
-  data->return_type = wcsdup(func_decl->ret_type_tok->str);
-  data->func_name = wcsdup(func_decl->func_name_tok->str);
+  data->return_type = func_decl->ret_type_tok->str;
+  data->func_name = func_decl->func_name_tok->str;
   
   if(pc->current_class){ // register in class member.
     struct ClassData *current_class = pc->current_class;
@@ -536,8 +536,8 @@ static struct VarData* register_var_data(struct Node* node, struct ParserContext
   bool local = in_func;
   
   struct VarData* data = (struct VarData*) S_malloc(sizeof(struct VarData));
-  data->type = wcsdup(var_decl->var_type_tok->str);
-  data->var_name = wcsdup(var_decl->var_name_tok->str);
+  data->type = var_decl->var_type_tok->str;
+  data->var_name = var_decl->var_name_tok->str;
 
   struct HTable* target_smtb = NULL;
 
@@ -603,7 +603,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
 	consume(tc, TokSemiColon);
       break;
     default:
-      panic(L"Unexpected token in variable declaration.", tc);
+      panic("Unexpected token in variable declaration.", tc);
     }
 
     VarDeclAST *var_decl = (VarDeclAST *)S_malloc(sizeof(VarDeclAST));    
@@ -665,7 +665,7 @@ static struct Node *gen_next_if_stmt_node(enum IfStmtType stmt_type,
   }
 
   if(stmt_type == StmtElse && next_stmt != NULL){
-    panic(L"Wrong statement. statement after else statement.", tc);
+    panic("Wrong statement. statement after else statement.", tc);
   }
 
   return next_stmt;
@@ -683,7 +683,7 @@ static struct Node *gen_if_stmt_node(struct Token *first,
     consume(tc, TokIf);
   }
   if(stmt_type == StmtNone){
-    panic(L"Wrong Statement type", tc);
+    panic("Wrong Statement type", tc);
   }
   
   void* cond = NULL;
@@ -757,12 +757,12 @@ static struct ClassData *register_class_data(struct Node *node,
   struct ClassData *data =
       (struct ClassData *)S_malloc(sizeof(struct ClassData));  
   data->id = pc->class_type_smtb->size + 1;
-  data->class_name = wcsdup(class_ast->name_tok->str);
+  data->class_name = class_ast->name_tok->str;
 
   if (class_ast->parent_name_tok == NULL) {
-    data->parent_name = L"";
+    data->parent_name = "";
   } else {
-    data->parent_name = wcsdup(class_ast->parent_name_tok->str);
+    data->parent_name = class_ast->parent_name_tok->str;
   }    
   
   data->member_funcs = gen_htable();
@@ -864,7 +864,7 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
   }
     
   default:
-    panic(L"Unexpected Token type\n", tc);
+    panic("Unexpected Token type\n", tc);
     
   }    
 
@@ -951,7 +951,7 @@ static struct Node *parse_compare_expression(struct ParserContext* pc) {
     case TokEqualGreater: op_type = OpEQUALGREATER; break;
     case TokEqualLesser: op_type = OpEQUALLESS; break;
     default:
-      panic(L"Unknown operator type.", tc);
+      panic("Unknown operator type.", tc);
     }
 
     struct BinExprAST* bin_expr = (struct BinExprAST*)S_malloc(sizeof(struct BinExprAST));
@@ -979,7 +979,7 @@ static struct Node *parse_expression(struct ParserContext* pc) {
     case TokOr: op_type = OpOR; break;
     case TokAnd: op_type = OpAND; break;
     default:
-      panic(L"Unknown operator type.", tc);
+      panic("Unknown operator type.", tc);
     }
 
     struct BinExprAST* bin_expr = (struct BinExprAST*)S_malloc(sizeof(struct BinExprAST));

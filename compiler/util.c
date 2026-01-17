@@ -10,7 +10,7 @@ void unix_error(char *msg){
 }
 #endif
 
-static wchar_t *read_file_unix(const char *path) {
+static char *read_file_unix(const char *path) {
   FILE *fp = fopen(path, "rb");
 
   char err_buf[512];
@@ -34,6 +34,7 @@ static wchar_t *read_file_unix(const char *path) {
   bytes[size] = '\0';
   fclose(fp);
 
+  /*
   mbstate_t st = {0};
   const char *p = bytes;
 
@@ -48,12 +49,13 @@ static wchar_t *read_file_unix(const char *path) {
   p = bytes;
   mbsrtowcs(wbuf, &p, wlen, &st);
   wbuf[wlen] = L'\0';
-
-  return wbuf;
+  */
+  
+  return bytes;
 }
 
-wchar_t *read_file(char *path) {
-  wchar_t *result = NULL;  
+char *read_file(char *path) {
+  char *result = NULL;  
 #if defined(__unix__)
   result = read_file_unix(path);
 #endif
@@ -63,9 +65,9 @@ wchar_t *read_file(char *path) {
   return result;  
 }  
 
-static unsigned get_hash(const wchar_t *key) {
+static unsigned get_hash(const char *key) {
   unsigned hash = 5381;
-  wchar_t ch;
+  char ch;
 
   while ((ch = *key) != L'\0') {
     hash += ((ch << 5) + ch) % HTABLE_BUFF;
@@ -96,7 +98,7 @@ void free_htable(struct HTable *target_table) {
   }    
 }  
 
-void ht_insert(struct HTable *target_table, const wchar_t* key, void *ptr) {
+void ht_insert(struct HTable *target_table, const char* key, void *ptr) {
   struct DataNode *node = (struct DataNode *)S_malloc(sizeof(struct DataNode));  
   unsigned hash = get_hash(key);
   
@@ -115,12 +117,12 @@ void ht_insert(struct HTable *target_table, const wchar_t* key, void *ptr) {
   target_table->size++;
 }
 
-void *ht_find(struct HTable *target_table, const wchar_t *key) {  
+void *ht_find(struct HTable *target_table, const char *key) {  
   unsigned hash = get_hash(key);
   struct DataNode *tnode = target_table->bucket[hash];  
 
   while (tnode) {
-    if (wcscmp(tnode->key, key) == 0) {
+    if (strcmp(tnode->key, key) == 0) {
       break;
     }
     tnode = tnode->next;
