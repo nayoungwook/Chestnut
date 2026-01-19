@@ -227,7 +227,7 @@ struct ParserContext {
 
   struct HTable *class_type_smtb; // Type will be stored.
   struct HTable *primitive_type_smtb;  // Type will be stored.
-  
+
   unsigned class_data_cnt;
   struct ClassData *class_data[MAX_CLASS_COUNT];
   
@@ -238,8 +238,10 @@ struct ParserContext {
 
   struct ClassData *current_class; // current parsing class.
   struct FuncData *current_func;   // current parsing func.
-};
 
+  struct Node **nodes;
+  unsigned node_size, node_capacity;
+};
 
 struct ParserContext *gen_pc();
 

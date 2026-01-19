@@ -118,7 +118,7 @@ static void gen_class_metadata(struct IRContext *irc, struct ParserContext *pc,
   emit_byte(irc, META_TERM);
 }
 
-void gen_metadata(struct IRContext *irc, struct ParserContext *pc) {
+static void gen_metadata(struct IRContext *irc, struct ParserContext *pc) {
   int i;  
   for (i = 0; i < pc->class_data_cnt; i++) {
     struct ClassData *cd = pc->class_data[i];
@@ -130,17 +130,43 @@ void gen_metadata(struct IRContext *irc, struct ParserContext *pc) {
 void print_bytes(struct IRContext *irc) {
   int i;
   for (i = 0; i < irc->byte_size; i++) {
-    wprintf(L"%2x", irc->bytes[i]);
+    printf("%.2x", irc->bytes[i]);
 
-    if ((i + 1) % 8 == 0) {
-      wprintf(L"\n");
+    if ((i + 1) % 16 == 0) {
+      printf("\n");
     }      
   }    
 }
 
-void gen_code(struct IRContext *irc, struct ParserContext *pc, struct Node **nodes, unsigned node_size) {
+static void gen_node_ir(struct IRContext *irc, struct Node *node) {
+  switch (node->type) {
+
+  case AST_NumberLiteral: {
+    struct NumberLiteralAST *num_lit_ast = (struct NumberLiteralAST *)node->ast;
+    
+    emit_byte(irc, OP_NUMBER_LITERAL);
+
+    break;    
+  }    
+    
+  default: {
+    printf("Unknown ast type : %d\n", node->type);
+    break;
+  }    
+  }    
+}  
+
+void gen_ir(struct IRContext *irc, struct ParserContext *pc) {
+  gen_metadata(irc, pc);
+
+  emit_byte(irc, CODE_BEGIN);  
+  
   int i;
-  for (i = 0; i < node_size; i++) {
-    //    struct Node *node = nodes[i];
+  for (i = 0; i < pc->node_size; i++) {
+    struct Node *node = pc->nodes[i];
+
+    gen_node_ir(irc, node);
   }
+
+  emit_byte(irc, CODE_END);  
 }  

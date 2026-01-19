@@ -10,6 +10,7 @@ class Foo {
 
   func foo2(): void {
   }
+
 }
 
 func main(): void {

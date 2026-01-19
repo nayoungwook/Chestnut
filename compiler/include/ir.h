@@ -21,6 +21,7 @@
 
 #define CODE_CLASS 0x54
 
+#define OP_NUMBER_LITERAL 0x55
 
 typedef unsigned char byte;
 
@@ -35,8 +36,7 @@ struct IRContext *gen_irc();
 void init_irc(struct IRContext *irc, struct Node *node);
 void emit_byte(struct IRContext *irc, byte _b);
 
-void gen_metadata(struct IRContext *irc, struct ParserContext *pc);
-
 void print_bytes(struct IRContext *irc);
+void gen_ir(struct IRContext *irc, struct ParserContext *pc);
 
 #endif

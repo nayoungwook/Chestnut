@@ -123,7 +123,7 @@ struct AssignTCQN *gen_assign_tcqn(struct ParserContext *pc,
 static unsigned resolve_raw_type_tcq(struct ParserContext *pc,
                                      struct TypeCheckContext *tcc) {  
   unsigned err_cnt = 0;
-  
+
   while (tcc->tc_type_queue->size != 0) {
     struct RawTypeTCQN *raw_type_tcqn = q_pop(tcc->tc_type_queue);    
 
@@ -164,8 +164,10 @@ static void resolve_attr_tcq(struct ParserContext *pc, struct Type *type,
     
     if ((type = get_type_of_attr(pc, type, ident_data)) ==
         NULL) { // attr type not exist.
-#ifdef DEBUG      
-      printf("Type %s does not contains %s\n", type_cache->type_str, ident_data->str);
+#ifdef DEBUG
+      printf("Type %s does not contains %s\n", type_cache->type_str,
+             ident_data->str);
+      exit(0);
 #endif
 
       break;

@@ -27,7 +27,6 @@ int main(int arc, char *args[]){
                           "        var foo: Foo;\n"
                           "        foo.bar.foo.a = foo.foo();\n"
                           "        var bar: Bar;\n"
-                          "        bar.b = foo.foo3();\n"
                           "    }\n"
                           "}\n"
                           ), tcc);
@@ -39,9 +38,9 @@ int main(int arc, char *args[]){
   
   init_irc(irc, NULL);
 
-  gen_metadata(irc, pc);
+  gen_ir(irc, pc);  
   
-  //  print_bytes(irc);
+  print_bytes(irc);
   
   return 0;
 }

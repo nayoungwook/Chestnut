@@ -97,4 +97,14 @@ struct Type *get_type_of_ident_data_node(struct ParserContext *pc,
 					 struct IdentDataNode *ident_data_node);
 struct Type *find_type(struct ParserContext *pc, const char *type_str);
 
+typedef struct {
+  
+  struct Queue *tc_ident_queue; // queue for type checking of identifier.
+                         // stores IdentDataNode (like a, b, foo, bar ..)
+  struct Queue *tc_type_queue; // queue for type checking of raw Type.
+                        // stores wstring (like class, int, float ..).
+  struct Queue *tc_assign_queue; // queue for type checking of assign.
+  
+} TypeCheckContext;
+
 #endif

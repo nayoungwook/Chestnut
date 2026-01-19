@@ -47,7 +47,11 @@ struct ParserContext *gen_pc() {
   pc->primitive_type_smtb = gen_htable();
 
   pc->class_data_cnt = 0;
-  pc->func_data_cnt = 0;  
+  pc->func_data_cnt = 0;
+
+  pc->nodes = NULL;
+  pc->node_size = 0;
+  pc->node_capacity = 1;
 
   init_primitive(pc);  
   
@@ -56,12 +60,19 @@ struct ParserContext *gen_pc() {
 
 void compile_file(struct ParserContext *pc, struct TokenizerContext *tc,
                   struct TypeCheckContext *tcc) {  
-  void *ast = NULL;
+  struct Node *node = NULL;
 
   pc->tc = tc;
   pc->tcc = tcc;
-  
-  while ((ast = parse(pc, false)) != NULL) {
+
+  while ((node = parse(pc, false)) != NULL) {
+    if (pc->node_size + 1 >= pc->node_capacity) {
+      pc->node_capacity *= 2;
+      pc->nodes = (struct Node **)S_realloc(pc->nodes, sizeof(struct Node *) *
+                                                           pc->node_capacity);
+    }
+
+    pc->nodes[pc->node_size++] = node;    
   }
 
   pc->tc = NULL;  
