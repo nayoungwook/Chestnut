@@ -47,14 +47,6 @@ static void emit_str(struct IRContext *irc, const char *str) {
 }
 
 // uint will be stored as little endian.
-static void emit_uint(struct IRContext *irc, unsigned ui) {
-  int i;
-  for (i = 0; i < sizeof(unsigned); i++) {
-    emit_byte(irc, (ui & 0xFF));
-    ui >>= 4;
-  }    
-}
-
 static void emit_int(struct IRContext *irc, int si) {
   int i;
   for (i = 0; i < sizeof(int); i++) {
@@ -76,7 +68,7 @@ static void emit_float(struct IRContext *irc, float f) {
 static void gen_func_metadata(struct IRContext *irc, struct ParserContext *pc, struct FuncData *fd) {
   emit_byte(irc, META_FUNC);
 
-  emit_uint(irc, fd->id);
+  emit_int(irc, fd->id);
   emit_str(irc, fd->func_name);
   emit_str(irc, fd->return_type);
 }
@@ -84,7 +76,7 @@ static void gen_func_metadata(struct IRContext *irc, struct ParserContext *pc, s
 static void gen_var_metadata(struct IRContext *irc, struct ParserContext *pc, struct VarData *vd) {
   emit_byte(irc, META_VAR);
 
-  emit_uint(irc, vd->id);
+  emit_int(irc, vd->id);
   emit_str(irc, vd->var_name);
   emit_str(irc, vd->type);
 }
@@ -93,7 +85,7 @@ static void gen_class_metadata(struct IRContext *irc, struct ParserContext *pc,
                                struct ClassData *cd) {
   emit_byte(irc, META_CLASS);
 
-  emit_uint(irc, cd->id);
+  emit_int(irc, cd->id);
   emit_str(irc, cd->class_name);
 
   int i;
@@ -145,6 +137,12 @@ static void gen_node_ir(struct IRContext *irc, struct Node *node) {
     struct NumberLiteralAST *num_lit_ast = (struct NumberLiteralAST *)node->ast;
     
     emit_byte(irc, OP_NUMBER_LITERAL);
+
+    if (num_lit_ast->is_integer) {
+      
+    } else { // floating point.
+      
+    }
 
     break;    
   }    

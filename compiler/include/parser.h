@@ -49,6 +49,7 @@ struct Node {
 struct NumberLiteralAST {
   struct Token *num_tok;
   short byte;
+  bool is_integer;  
 };
 
 struct StringLiteralAST {

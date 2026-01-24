@@ -11,9 +11,6 @@ static void init_primitive(struct ParserContext *pc) {
   // char < int < uint < float < double
   ht_insert(pc->primitive_type_smtb, "int",
             gen_primitive_type("int", 4, 2, true));
-  
-  ht_insert(pc->primitive_type_smtb, "uint",
-            gen_primitive_type("uint", 4, 3, false));
 
   ht_insert(pc->primitive_type_smtb, "char",
             gen_primitive_type("char", 2, 1, false));
