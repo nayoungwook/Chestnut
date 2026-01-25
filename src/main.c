@@ -19,17 +19,6 @@ int main(int arc, char *args[]){
   struct TypeCheckContext *tcc = gen_tcc();
 
   compile_file(pc, gen_tc(read_file("test.chest")), tcc);
-
-  compile_file(pc, gen_tc("class Bar {\n"
-                          "    var b: int = 0;\n"
-                          "    var foo: Foo;\n"
-                          "    func bar(): void {\n"
-                          "        var foo: Foo;\n"
-                          "        foo.bar.foo.a = foo.foo();\n"
-                          "        var bar: Bar;\n"
-                          "    }\n"
-                          "}\n"
-                          ), tcc);
   
   resolve_tcq(pc, tcc);
 

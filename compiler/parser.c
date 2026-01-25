@@ -435,9 +435,41 @@ static void close_scope(struct ParserContext *pc) {
   free(pc->current_scope);
   
   pc->current_scope = prev_scope;
+}
+
+static unsigned get_decl_stack_size(struct Node *node) {
+
+  int i = 0;
+  unsigned result = 0;  
+  
+  switch (node->type) {
+
+  case AST_VariableDeclaration: {
+    
+    break;
+  }    
+    
+  case AST_VariableDeclarationBundle: {
+    struct VarDeclBundleAST *var_decl_bundle =
+        (struct VarDeclBundleAST *)node->ast;
+
+    for (i = 0; i < var_decl_bundle->var_count; i++) {
+      result += get_decl_stack_size(var_decl_bundle->var_decls[i]);
+    }
+    break;    
+  }    
+    
+  default:{
+    result = 0;
+    break;
+  }    
+  }
+
+  return result;
 }  
 
-static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
+static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size,
+                              unsigned *declared_stack_size) {
   struct TokenizerContext *tc = pc->tc;
 
   consume(tc, TokLBracket);
@@ -445,6 +477,8 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
   
   unsigned size = 0, capacity = 1;
   struct Node **result = (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
+
+  unsigned stack_size = 0;
   
   while (peek(tc)->type != TokRBracket) {
     void *element = parse(pc, false);
@@ -455,12 +489,15 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
       result = (struct Node**) S_realloc(result, sizeof(struct Node*) * capacity);
     }
 
-    result[size++] = element;    
+    result[size++] = element;
+
+    stack_size += get_decl_stack_size(element);
   }
 
   consume(tc, TokRBracket);
   close_scope(pc);
-  
+
+  *declared_stack_size = stack_size;
   *body_size = size;
   
   return result;  
