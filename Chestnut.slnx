@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Chestnut/Chestnut.vcxproj" />
+  <Project Path="Chestnut.vcxproj" Id="b25a96e8-4953-4e6d-85bd-a90491efd88c" />
 </Solution>

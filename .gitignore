@@ -8,9 +8,10 @@ Chestnut
 compile_commands.json
 
 # ignore visual studio configures. 
-# .slnx file remains.
+# .vcxproj files remain.
 .vs/
 x64/
 Chestnut.pdb
 Chestnut/
 Chestnut.exe
+Chestnut.slnx
