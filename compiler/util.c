@@ -74,7 +74,6 @@ static char *read_file_unix(const char *path) {
 #endif
 
 #ifdef _WIN32
-
 static char *read_file_win(const char *path) {
 	FILE *fp = fopen(path, "rb");
 	if (!fp) {
@@ -130,6 +129,12 @@ char *read_file(char *path) {
 
 	return result;
 }
+
+#ifdef __linux__
+
+
+
+#endif
 
 static unsigned get_hash(const char *key) {
 	unsigned hash = 5381;
