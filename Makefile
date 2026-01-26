@@ -7,7 +7,7 @@ COMPILER_OBJS = $(COMPILER_SRC:.c=.o)
 SRC = $(wildcard src/*.c)
 OBJS = $(SRC:.c=.o)
 
-TARGET = main
+TARGET = Chestnut
 
 all: $(TARGET)
 

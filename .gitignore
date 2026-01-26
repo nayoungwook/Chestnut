@@ -1,7 +1,7 @@
 
 # ignore build files.
 **/*.o
-main
+Chestnut
 .cache/
 
 # ignore compile commands for emacs lsp.
@@ -13,3 +13,4 @@ compile_commands.json
 x64/
 Chestnut.pdb
 Chestnut/
+Chestnut.exe
