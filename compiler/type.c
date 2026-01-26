@@ -47,7 +47,15 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
 
   if (result == NULL) {
     char err_buf[512];
+
+#ifdef __linux__
+    sprintf(err_buf, "Failed to infer type of identifier : %s", ident);
+#endif
+
+#ifdef _WIN32
     sprintf_s(err_buf, 512, "Failed to infer type of identifier : %s", ident);
+#endif
+    
     printf("%s\n", err_buf);
   }    
   

@@ -13,5 +13,8 @@ compile_commands.json
 x64/
 Chestnut.pdb
 Chestnut/
-Chestnut
+Chestnut.exe
 Chestnut.slnx
+**/*.vcxproj
+**/*.vcxproj.filters
+**/*.vcxproj.user
