@@ -6,3 +6,10 @@ main
 
 # ignore compile commands for emacs lsp.
 compile_commands.json
+
+# ignore visual studio configures. 
+# .slnx file remains.
+.vs/
+x64/
+Chestnut.pdb
+Chestnut/

@@ -177,7 +177,7 @@ struct NewAST {
 };
 
 struct NullAST {
-
+    struct Token *null_tok;
 };
 
 struct ArrayDeclAST {

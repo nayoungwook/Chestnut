@@ -1,10 +1,10 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
+#include <util.h>
+
 #include <memory.h>
 #include <wchar.h>
-
-#include <util.h>
 
 #define MAX_TOKEN_STR 512
 

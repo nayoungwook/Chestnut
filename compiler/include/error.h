@@ -1,9 +1,9 @@
 #ifndef ERROR_H
 #define ERROR_H
 
-#include <wchar.h>
+#include <token.h>
 
-#include "token.h"
+#include <wchar.h>
 
 void panic(char *msg, struct TokenizerContext* tc);
 
