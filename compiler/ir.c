@@ -1,5 +1,7 @@
+#include <parser.h>
 #include <ir.h>
 #include <util.h>
+#include <error.h>
 
 struct IRContext *gen_irc() {
   struct IRContext *irc = (struct IRContext *)S_malloc(sizeof(struct IRContext));
@@ -130,7 +132,34 @@ void print_bytes(struct IRContext *irc) {
   }    
 }
 
-static void gen_node_ir(struct IRContext *irc, struct Node *node) {
+static unsigned get_size_of_type(struct ParserContext *pc, const char *type_str) {
+
+  struct Type *type = find_type(pc, type_str);
+
+  if (type != NULL) {
+    return type->nbyte;
+  }
+
+  panic("Failed to find type", pc->tc);
+  
+  return 0;
+}
+
+static unsigned get_total_stack_size_of_func(
+					     struct ParserContext *pc,
+					     struct FuncData *func_data) {
+    int i;
+    for (i = 0; i < func_data->declared_var_count; i++) {
+      struct VarData *var_data = func_data->declared_vars[i];
+      printf("%s(%d) declared in %s, type : %s\n", var_data->var_name,
+             var_data->id, func_data->func_name, var_data->type);
+      printf("size of variable : %d\n\n", get_size_of_type(pc, var_data->type));
+    }
+
+    return 0;
+}  
+
+static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc, struct Node *node) {
   switch (node->type) {
 
   case AST_NumberLiteral: {
@@ -144,7 +173,15 @@ static void gen_node_ir(struct IRContext *irc, struct Node *node) {
       
     }
 
-    break;    
+    break;
+  }
+
+  case AST_FunctionDeclaration: {
+    struct FuncDeclAST *func_decl_ast = (struct FuncDeclAST *) node->ast;
+    struct FuncData *func_data = func_decl_ast->func_data;
+
+    unsigned total_stack_size = get_total_stack_size_of_func(pc, func_data);
+    
   }    
     
   default: {
@@ -163,7 +200,7 @@ void gen_ir(struct IRContext *irc, struct ParserContext *pc) {
   for (i = 0; i < pc->node_size; i++) {
     struct Node *node = pc->nodes[i];
 
-    gen_node_ir(irc, node);
+    gen_node_ir(irc, pc, node);
   }
 
   emit_byte(irc, CODE_END);  

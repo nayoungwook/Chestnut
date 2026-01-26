@@ -58,8 +58,9 @@ static void init_keyword() {
   insert_keyword("protected", TokProtected);  
   insert_keyword("constructor", TokConstructor);  
   insert_keyword("new", TokNew);  
-  insert_keyword("true", TokTrue);  
-  insert_keyword("false", TokFalse);  
+  insert_keyword("true", TokTrue);
+  insert_keyword("false", TokFalse);
+  insert_keyword("null", TokNull);  
 }  
 
 void init_tc(struct TokenizerContext* tc){

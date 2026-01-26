@@ -29,7 +29,7 @@ int main(int arc, char *args[]){
 
   gen_ir(irc, pc);  
   
-  print_bytes(irc);
+  //  print_bytes(irc);
   
   return 0;
 }

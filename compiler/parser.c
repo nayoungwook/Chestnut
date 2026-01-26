@@ -437,39 +437,7 @@ static void close_scope(struct ParserContext *pc) {
   pc->current_scope = prev_scope;
 }
 
-static unsigned get_decl_stack_size(struct Node *node) {
-
-  int i = 0;
-  unsigned result = 0;  
-  
-  switch (node->type) {
-
-  case AST_VariableDeclaration: {
-    
-    break;
-  }    
-    
-  case AST_VariableDeclarationBundle: {
-    struct VarDeclBundleAST *var_decl_bundle =
-        (struct VarDeclBundleAST *)node->ast;
-
-    for (i = 0; i < var_decl_bundle->var_count; i++) {
-      result += get_decl_stack_size(var_decl_bundle->var_decls[i]);
-    }
-    break;    
-  }    
-    
-  default:{
-    result = 0;
-    break;
-  }    
-  }
-
-  return result;
-}  
-
-static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size,
-                              unsigned *declared_stack_size) {
+static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
   struct TokenizerContext *tc = pc->tc;
 
   consume(tc, TokLBracket);
@@ -478,8 +446,6 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size,
   unsigned size = 0, capacity = 1;
   struct Node **result = (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
 
-  unsigned stack_size = 0;
-  
   while (peek(tc)->type != TokRBracket) {
     void *element = parse(pc, false);
     assert(element != NULL);
@@ -490,14 +456,11 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size,
     }
 
     result[size++] = element;
-
-    stack_size += get_decl_stack_size(element);
   }
 
   consume(tc, TokRBracket);
   close_scope(pc);
 
-  *declared_stack_size = stack_size;
   *body_size = size;
   
   return result;  
@@ -509,8 +472,9 @@ static struct FuncData* register_func_data(struct Node* node, struct ParserConte
   struct FuncData* data = (struct FuncData*) S_malloc(sizeof(struct FuncData));
   data->return_type = func_decl->ret_type_tok->str;
   data->func_name = func_decl->func_name_tok->str;
-  
-  if(pc->current_class){ // register in class member.
+
+  if (pc->current_class) {
+    // register in class member.    
     struct ClassData *current_class = pc->current_class;
     
     data->id = current_class->member_funcs->size + 1;
@@ -519,14 +483,15 @@ static struct FuncData* register_func_data(struct Node* node, struct ParserConte
 
     return data;
   }
-
-  // register in global.
-  data->id = pc->glob_func_smtb->size + 1;
+  else{
+    // register in global.
+    data->id = pc->glob_func_smtb->size + 1;
       
-  ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, data);
-  pc->func_data[pc->func_data_cnt++] = data;
-    
-  return data;
+    ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, data);
+    pc->func_data[pc->func_data_cnt++] = data;
+
+    return data;
+  }  
 }
 
 static struct Node* gen_func_decl_node(struct Token *first, struct ParserContext *pc) {
@@ -534,6 +499,12 @@ static struct Node* gen_func_decl_node(struct Token *first, struct ParserContext
   
   struct TokenizerContext *tc = pc->tc;
 
+  //reset local var declaration.
+  pc->declared_local_var_count = 0;
+  pc->declared_local_var_capacity = 1;
+  pc->declared_local_vars =
+      (struct VarData **)S_malloc(sizeof(struct VarData *));
+  
   struct Token *func_name_tok = pull(tc);
   
   struct Node* params = gen_func_param_node(pc);
@@ -553,12 +524,17 @@ static struct Node* gen_func_decl_node(struct Token *first, struct ParserContext
   struct Node* result =  pack(AST_FunctionDeclaration, func_decl);
   struct FuncData* fd = register_func_data(result, pc);
   assert(fd != NULL);
-
+  func_decl->func_data = fd;  
+  
   // and parse body.
   pc->current_func = fd;
   unsigned body_size = 0;
   func_decl->body = gen_body(pc, &body_size);
   pc->current_func = NULL;
+
+  // register local var data to calcaulte stack size after.  
+  fd->declared_var_count = pc->declared_local_var_count;
+  fd->declared_vars = pc->declared_local_vars;
   
   return result;
 }  
@@ -584,8 +560,8 @@ static struct VarData* register_var_data(struct Node* node, struct ParserContext
   data->type = var_decl->var_type_tok->str;
   data->var_name = var_decl->var_name_tok->str;
 
-  struct HTable* target_smtb = NULL;
-
+  struct HTable *target_smtb = NULL;
+  
   if (member) {
     target_smtb = pc->current_class->member_vars;
   }
@@ -595,6 +571,16 @@ static struct VarData* register_var_data(struct Node* node, struct ParserContext
   }
 
   if (local) {
+    // register in pc->declared_local_vars to calcaulte total size of stack
+    if (pc->declared_local_var_capacity >= pc->declared_local_var_count + 1) {
+      pc->declared_local_var_capacity *= 2;
+      pc->declared_local_vars = (struct VarData **)S_realloc(
+          pc->declared_local_vars,
+          sizeof(struct VarData **) * pc->declared_local_var_capacity);
+    }
+
+    pc->declared_local_vars[pc->declared_local_var_count++] = data;    
+    
     target_smtb = pc->current_scope->local_var_smtb;
   }
 
@@ -814,8 +800,8 @@ static struct ClassData *register_class_data(struct Node *node,
   data->member_vars = gen_htable();
 
   ht_insert(pc->class_type_smtb, class_ast->name_tok->str,
-            gen_type(class_ast->name_tok->str, data));
-
+            gen_class_type(class_ast->name_tok->str, data));
+  
   pc->class_data[pc->class_data_cnt++] = data;  
 
   return data;
@@ -868,6 +854,11 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
     return pack(AST_NumberLiteral, num);
   }
 
+  case TokNull: {
+    struct NullAST *null = (struct NullAST *)S_malloc(sizeof(struct NullAST *));
+    return pack(AST_Null, null);
+  }    
+    
   case TokIf: {
     return gen_if_stmt_node(first, pc);
   }

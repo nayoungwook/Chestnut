@@ -120,6 +120,7 @@ struct FuncDeclAST {
   struct Token *ret_type_tok;
   struct Node *params; // variable declaration bundle.
   struct Node **body;
+  struct FuncData *func_data;  
   unsigned body_size;
   int ac_mod;
 };
@@ -198,7 +199,10 @@ struct NegAST {
 struct FuncData{
   unsigned id;
   const char *func_name;
-  const char *return_type;  
+  const char *return_type;
+
+  struct VarData **declared_vars;
+  unsigned declared_var_count;
 };
 
 struct VarData {
@@ -240,6 +244,9 @@ struct ParserContext {
   struct ClassData *current_class; // current parsing class.
   struct FuncData *current_func;   // current parsing func.
 
+  struct VarData **declared_local_vars;
+  unsigned declared_local_var_count, declared_local_var_capacity;
+  
   struct Node **nodes;
   unsigned node_size, node_capacity;
 };

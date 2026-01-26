@@ -54,10 +54,11 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
   return result;  
 }
 
-struct PrimitiveType *gen_primitive_type(const char *type_str, unsigned nbyte,
+struct Type *gen_primitive_type(const char *type_str, unsigned nbyte,
                                   unsigned rank, bool is_signed) {
-  struct PrimitiveType *result = (struct PrimitiveType *)S_malloc(sizeof(struct PrimitiveType));
+  struct Type *result = (struct Type *)S_malloc(sizeof(struct Type));
 
+  result->data = NULL;  
   result->type_str = type_str;
   result->nbyte = nbyte;
   result->rank = rank;
@@ -66,12 +67,16 @@ struct PrimitiveType *gen_primitive_type(const char *type_str, unsigned nbyte,
   return result;  
 }
 
-struct Type *gen_type(const char *type_str, void *data) {
+struct Type *gen_class_type(const char *type_str, void *data) {
   struct Type *type = (struct Type *)S_malloc(sizeof(struct Type));  
 
   type->type_str = type_str;
-  type->data = data;  
-
+  type->data = data;
+  type->nbyte = 8;
+  
+  type->rank = 0;
+  type->is_signed = false;
+  
   return type;
 }
 

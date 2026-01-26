@@ -4,8 +4,8 @@ class Foo {
 }
 
 func main(): void {
-
   var a: int = 0;
   var b: float = 0;
-
+  var foo: Foo = null;
+  var bar: Bar = null;
 }
