@@ -12,24 +12,24 @@
 
 int main(int arc, char *args[]){
 
-  setlocale(LC_ALL, "");  
+	setlocale(LC_ALL, "");  
 
-  // front end  
-  struct ParserContext *pc = gen_pc();
-  struct TypeCheckContext *tcc = gen_tcc();
+	// front end  
+	struct ParserContext *pc = gen_pc();
+	struct TypeCheckContext *tcc = gen_tcc();
 
-  compile_file(pc, gen_tc(read_file("test.chest")), tcc);
+	compile_file(pc, gen_tc(read_file("test.chest")), tcc);
   
-  resolve_tcq(pc, tcc);
+	resolve_tcq(pc, tcc);
 
-  // back end
-  struct IRContext *irc = gen_irc();
+	// back end
+	struct IRContext *irc = gen_irc();
   
-  init_irc(irc, NULL);
+	init_irc(irc, NULL);
 
-  gen_ir(irc, pc);  
+	gen_ir(irc, pc);  
   
-  //  print_bytes(irc);
+	//  print_bytes(irc);
   
-  return 0;
+	return 0;
 }

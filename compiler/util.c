@@ -53,20 +53,20 @@ static char *read_file_unix(const char *path) {
 	fclose(fp);
 
 	/*
-	mbstate_t st = {0};
-	const char *p = bytes;
+	  mbstate_t st = {0};
+	  const char *p = bytes;
 
-	size_t wlen = mbsrtowcs(NULL, &p, 0, &st);
-	if (wlen == (size_t)-1) {
+	  size_t wlen = mbsrtowcs(NULL, &p, 0, &st);
+	  if (wlen == (size_t)-1) {
 	  unix_error("Invalid UTF-8 sequence");
-	}
+	  }
 
-	wchar_t *wbuf = S_malloc((wlen + 1) * sizeof(wchar_t));
+	  wchar_t *wbuf = S_malloc((wlen + 1) * sizeof(wchar_t));
 
-	st = (mbstate_t){0};
-	p = bytes;
-	mbsrtowcs(wbuf, &p, wlen, &st);
-	wbuf[wlen] = L'\0';
+	  st = (mbstate_t){0};
+	  p = bytes;
+	  mbsrtowcs(wbuf, &p, wlen, &st);
+	  wbuf[wlen] = L'\0';
 	*/
 
 	return bytes;
@@ -89,14 +89,14 @@ static char *read_file_win(const char *path) {
 	rewind(fp);
 
 	if (size <= 0)
-	{
-		char *err_buff[512];
-		sprintf_s(err_buff, 512, "File size is too small : %s", path);
-		error(err_buff);
+		{
+			char *err_buff[512];
+			sprintf_s(err_buff, 512, "File size is too small : %s", path);
+			error(err_buff);
 
-		fclose(fp);
-		return NULL;
-	}
+			fclose(fp);
+			return NULL;
+		}
 
 	char *buffer = (char *)S_malloc((size_t)size + 1);
 
@@ -104,10 +104,10 @@ static char *read_file_win(const char *path) {
 	fclose(fp);
 
 	if (read != (size_t)size)
-	{
-		free(buffer);
-		return NULL;
-	}
+		{
+			free(buffer);
+			return NULL;
+		}
 
 	buffer[size] = '\0';
 
