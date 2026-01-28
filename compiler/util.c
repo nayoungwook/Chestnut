@@ -89,14 +89,14 @@ static char *read_file_win(const char *path) {
 	rewind(fp);
 
 	if (size <= 0)
-		{
-			char *err_buff[512];
-			sprintf_s(err_buff, 512, "File size is too small : %s", path);
-			error(err_buff);
+	{
+		char *err_buff[512];
+		sprintf_s(err_buff, 512, "File size is too small : %s", path);
+		error(err_buff);
 
-			fclose(fp);
-			return NULL;
-		}
+		fclose(fp);
+		return NULL;
+	}
 
 	char *buffer = (char *)S_malloc((size_t)size + 1);
 
@@ -104,10 +104,10 @@ static char *read_file_win(const char *path) {
 	fclose(fp);
 
 	if (read != (size_t)size)
-		{
-			free(buffer);
-			return NULL;
-		}
+	{
+		free(buffer);
+		return NULL;
+	}
 
 	buffer[size] = '\0';
 

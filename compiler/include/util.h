@@ -20,15 +20,15 @@ void *S_realloc(void *ptr, size_t size);
 
 // node for data structure.
 struct DataNode {
-  struct DataNode *next;
-  void *ptr;
-  const char *key;
+	struct DataNode *next;
+	void *ptr;
+	const char *key;
 };
 
 struct HTable {
-  struct DataNode *bucket[HTABLE_BUFF];
-  unsigned size;
-  unsigned capacity;
+	struct DataNode *bucket[HTABLE_BUFF];
+	unsigned size;
+	unsigned capacity;
 };
 
 struct HTable *gen_htable();
@@ -38,12 +38,12 @@ void ht_insert(struct HTable *target_table, const char *key, void *ptr);
 void *ht_find(struct HTable *target_table, const char *key);
 
 struct Queue {
-  struct DataNode *tail;
-  unsigned size;
+	struct DataNode *tail;
+	unsigned size;
 };
 
 struct Queue *gen_queue();
-void q_push(struct Queue *target_queue, void* ptr);
-void* q_pop(struct Queue *target_queue);
+void q_push(struct Queue *target_queue, void *ptr);
+void *q_pop(struct Queue *target_queue);
 
 #endif

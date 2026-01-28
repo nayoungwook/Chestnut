@@ -81,7 +81,7 @@ enum TokenType {
 
 struct Token {
 	const char *str;
-	unsigned length;  
+	unsigned length;
 	enum TokenType type;
 };
 
@@ -102,7 +102,7 @@ struct Token *consume(struct TokenizerContext *tc, enum TokenType tt);
 struct Token *peek(struct TokenizerContext *tc);
 struct Token *pull(struct TokenizerContext *tc);
 
-void init_tc(struct TokenizerContext* tc);
-struct TokenizerContext* gen_tc(char* file);
+void init_tc(struct TokenizerContext *tc);
+struct TokenizerContext *gen_tc(char *file);
 
 #endif

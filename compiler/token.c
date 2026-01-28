@@ -7,8 +7,8 @@
 
 static void init_keyword();
 
-struct TokenizerContext* gen_tc(char* file){
-	struct TokenizerContext* tc = (struct TokenizerContext*)S_malloc(sizeof(struct TokenizerContext));
+struct TokenizerContext *gen_tc(char *file) {
+	struct TokenizerContext *tc = (struct TokenizerContext *)S_malloc(sizeof(struct TokenizerContext));
 
 	tc->file = file;
 	tc->cur_ch = file;
@@ -16,8 +16,8 @@ struct TokenizerContext* gen_tc(char* file){
 	tc->token_cache = NULL;
 	tc->line_num = 1;
 
-	init_keyword();  
-  
+	init_keyword();
+
 	return tc;
 }
 
@@ -29,42 +29,42 @@ static struct KeywordEntry *gen_keyword(const char *keyword, enum TokenType tok_
 	result->keyword = keyword;
 	result->type = tok_type;
 
-	return result;  
+	return result;
 }
 
 static void insert_keyword(const char *keyword, enum TokenType tok_type) {
 	assert(keyword_table != NULL);
 
 	ht_insert(keyword_table, keyword, gen_keyword(keyword, tok_type));
-}  
+}
 
 static void init_keyword() {
 	if (keyword_table != NULL) {
 		return;
-	}    
-  
+	}
+
 	keyword_table = gen_htable();
 
-	insert_keyword("var", TokVar);   
-	insert_keyword("if", TokIf);  
-	insert_keyword("for", TokFor);  
-	insert_keyword("func", TokFunc);  
-	insert_keyword("return", TokReturn);  
-	insert_keyword("else", TokElse);  
-	insert_keyword("class", TokClass);  
-	insert_keyword("extends", TokExtends);  
-	insert_keyword("private", TokPrivate);  
-	insert_keyword("public", TokPublic);  
-	insert_keyword("protected", TokProtected);  
-	insert_keyword("constructor", TokConstructor);  
-	insert_keyword("new", TokNew);  
+	insert_keyword("var", TokVar);
+	insert_keyword("if", TokIf);
+	insert_keyword("for", TokFor);
+	insert_keyword("func", TokFunc);
+	insert_keyword("return", TokReturn);
+	insert_keyword("else", TokElse);
+	insert_keyword("class", TokClass);
+	insert_keyword("extends", TokExtends);
+	insert_keyword("private", TokPrivate);
+	insert_keyword("public", TokPublic);
+	insert_keyword("protected", TokProtected);
+	insert_keyword("constructor", TokConstructor);
+	insert_keyword("new", TokNew);
 	insert_keyword("true", TokTrue);
 	insert_keyword("false", TokFalse);
-	insert_keyword("null", TokNull);  
-}  
+	insert_keyword("null", TokNull);
+}
 
-void init_tc(struct TokenizerContext* tc){
-	tc->cur_ch = (char*) tc->begin_ch;
+void init_tc(struct TokenizerContext *tc) {
+	tc->cur_ch = (char *)tc->begin_ch;
 	tc->token_cache = NULL;
 	tc->line_num = 1;
 }
@@ -81,22 +81,22 @@ static bool is_sc(const char wc) {
 	return false;
 }
 
-static struct Token* gen_num_token(struct TokenizerContext* tc) {
-	char* str = (char*) S_malloc(MAX_TOKEN_STR * sizeof(char));
+static struct Token *gen_num_token(struct TokenizerContext *tc) {
+	char *str = (char *)S_malloc(MAX_TOKEN_STR * sizeof(char));
 	unsigned str_len = 0;
 	unsigned dot_count = 0;
-    
+
 	while (iswdigit(*tc->cur_ch) || *tc->cur_ch == L'.') {
 		str[str_len++] = *tc->cur_ch;
 
-		if(str_len >= MAX_TOKEN_STR - 1) panic("token string buffer overflow", tc);
+		if (str_len >= MAX_TOKEN_STR - 1) panic("token string buffer overflow", tc);
 
 		tc->cur_ch++;
-	
-		if(*tc->cur_ch == L'.') {
+
+		if (*tc->cur_ch == L'.') {
 			dot_count++;
 		}
-		if(dot_count >= 2){
+		if (dot_count >= 2) {
 			panic("Invalid numeric type.", tc);
 		}
 	}
@@ -104,32 +104,32 @@ static struct Token* gen_num_token(struct TokenizerContext* tc) {
 
 	struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
 
-	tok->length = str_len;  
+	tok->length = str_len;
 	tok->str = str;
 	tok->type = TokNumberLiteral;
-    
+
 	return tok;
 }
 
-static enum TokenType check_ident_type(const char* str){
+static enum TokenType check_ident_type(const char *str) {
 	struct KeywordEntry *ke = ht_find(keyword_table, str);
 
 	if (ke == NULL) {
-		return TokIdent;    
-	}    
+		return TokIdent;
+	}
 
 	return ke->type;
 }
 
-static struct Token* gen_ident_token(struct TokenizerContext* tc) {
-	char* str = (char*) S_malloc(MAX_TOKEN_STR * sizeof(char));
+static struct Token *gen_ident_token(struct TokenizerContext *tc) {
+	char *str = (char *)S_malloc(MAX_TOKEN_STR * sizeof(char));
 	unsigned str_len = 0;
 
 	while (iswalnum(*tc->cur_ch) || *tc->cur_ch == L'_') {
 		str[str_len++] = *tc->cur_ch;
 
-		if(str_len >= MAX_TOKEN_STR - 1) panic("token string buffer overflow", tc);
-	
+		if (str_len >= MAX_TOKEN_STR - 1) panic("token string buffer overflow", tc);
+
 		tc->cur_ch++;
 	}
 	str[str_len] = L'\0';
@@ -143,29 +143,29 @@ static struct Token* gen_ident_token(struct TokenizerContext* tc) {
 	return tok;
 }
 
-static void get_str_literal(struct TokenizerContext* tc, char* str, unsigned *str_len){
-    
+static void get_str_literal(struct TokenizerContext *tc, char *str, unsigned *str_len) {
+
 	while (true) {
 		char ch = *(tc->cur_ch);
-		if(ch == L'\0'){
+		if (ch == L'\0') {
 			panic("Unterminaled string literal", tc);
 		}
-		if(ch == L'\"'){
+		if (ch == L'\"') {
 			tc->cur_ch++;
 			break;
 		}
-		if(*str_len >= MAX_TOKEN_STR - 1) panic("String literal buffer overflow.", tc);
+		if (*str_len >= MAX_TOKEN_STR - 1) panic("String literal buffer overflow.", tc);
 
 		str[(*str_len)++] = ch;
 		tc->cur_ch++;
 	}
-    
+
 	str[(*str_len)++] = L'\"';
 	tc->cur_ch++;
 }
 
-static struct Token* gen_sc_token(struct TokenizerContext* tc) {
-	char* str = (char*) S_malloc(MAX_TOKEN_STR * sizeof(char));
+static struct Token *gen_sc_token(struct TokenizerContext *tc) {
+	char *str = (char *)S_malloc(MAX_TOKEN_STR * sizeof(char));
 	unsigned str_len = 0;
 
 	enum TokenType type;
@@ -179,11 +179,11 @@ static struct Token* gen_sc_token(struct TokenizerContext* tc) {
 		type = TokStringLiteral;
 		get_str_literal(tc, str, &str_len);
 		break;
-	}    
+	}
 
 	case '=': {
 		type = TokAssign;
-	
+
 		if (*(tc->cur_ch) == '=') {
 			type = TokEqual;
 
@@ -191,11 +191,11 @@ static struct Token* gen_sc_token(struct TokenizerContext* tc) {
 			tc->cur_ch++;
 		}
 		break;
-	}    
+	}
 
 	case '!': {
 		type = TokNot;
-	
+
 		if (*(tc->cur_ch) == '=') {
 			type = TokNotEqual;
 			str[str_len++] = *tc->cur_ch;
@@ -207,7 +207,7 @@ static struct Token* gen_sc_token(struct TokenizerContext* tc) {
 	case '#': {
 		type = TokSharp;
 		break;
-	}    
+	}
 
 	case '<': {
 		type = TokLesser;
@@ -219,11 +219,11 @@ static struct Token* gen_sc_token(struct TokenizerContext* tc) {
 			tc->cur_ch++;
 		}
 		break;
-	}    
+	}
 
 	case '>': {
 		type = TokGreater;
-	
+
 		if (*(tc->cur_ch) == '=') {
 			type = TokEqualGreater;
 
@@ -231,12 +231,12 @@ static struct Token* gen_sc_token(struct TokenizerContext* tc) {
 			tc->cur_ch++;
 		}
 		break;
-	}    
+	}
 
 	case '(': {
 		type = TokLParen;
 		break;
-	}    
+	}
 
 	case ')': {
 		type = TokRParen;
@@ -246,42 +246,42 @@ static struct Token* gen_sc_token(struct TokenizerContext* tc) {
 	case '{': {
 		type = TokLBracket;
 		break;
-	}    
+	}
 
 	case '}': {
 		type = TokRBracket;
 		break;
-	}    
+	}
 
 	case '[': {
 		type = TokLSquareBracket;
 		break;
-	}    
+	}
 
 	case ']': {
 		type = TokRSquareBracket;
 		break;
-	}    
+	}
 
 	case ':': {
 		type = TokColon;
 		break;
-	}    
+	}
 
 	case ';': {
 		type = TokSemiColon;
 		break;
-	}    
+	}
 
 	case '.': {
 		type = TokDot;
 		break;
-	}    
+	}
 
 	case ',': {
 		type = TokComma;
 		break;
-	}    
+	}
 
 	case '|': {
 		type = TokBitOr;
@@ -293,23 +293,23 @@ static struct Token* gen_sc_token(struct TokenizerContext* tc) {
 			tc->cur_ch++;
 		}
 		break;
-	}    
+	}
 
-	case '&':{
+	case '&': {
 		type = TokBitAnd;
 
 		if (*(tc->cur_ch) == '&') {
 			type = TokAnd;
-	    
+
 			str[str_len++] = *tc->cur_ch;
 			tc->cur_ch++;
 		}
 		break;
-	}    
+	}
 
 	case '+': {
 		type = TokAdd;
-	
+
 		if (*(tc->cur_ch) == '=') {
 			type = TokPlusAssign;
 
@@ -318,16 +318,16 @@ static struct Token* gen_sc_token(struct TokenizerContext* tc) {
 		}
 		else if (*(tc->cur_ch) == '+') {
 			type = TokIncrease;
-	    
+
 			str[str_len++] = *tc->cur_ch;
 			tc->cur_ch++;
 		}
 		break;
-	}    
+	}
 
 	case '-': {
 		type = TokSub;
-	
+
 		if (*(tc->cur_ch) == '=') {
 			type = TokMinusAssign;
 
@@ -339,101 +339,101 @@ static struct Token* gen_sc_token(struct TokenizerContext* tc) {
 
 			str[str_len++] = *tc->cur_ch;
 			tc->cur_ch++;
-}
-    break;
-  }    
+		}
+		break;
+	}
 
-  case '*': {
-    type = TokMul;
-    if (*(tc->cur_ch) == '=') {
-      type = TokMultAssign;
+	case '*': {
+		type = TokMul;
+		if (*(tc->cur_ch) == '=') {
+			type = TokMultAssign;
 
-      str[str_len++] = *tc->cur_ch;
-      tc->cur_ch++;
-    }
-    else if (*(tc->cur_ch) == '*') {
-      type = TokPow;
+			str[str_len++] = *tc->cur_ch;
+			tc->cur_ch++;
+		}
+		else if (*(tc->cur_ch) == '*') {
+			type = TokPow;
 
-      str[str_len++] = *tc->cur_ch;
-      tc->cur_ch++;
-    }
-    break;
-  }    
+			str[str_len++] = *tc->cur_ch;
+			tc->cur_ch++;
+		}
+		break;
+	}
 
-  case '/': {
-    type = TokDiv;
-    if (*(tc->cur_ch) == '=') {
-      type = TokDivAssign;
-      
-      str[str_len++] = *tc->cur_ch;
-      tc->cur_ch++;
-    }
-    break;
-  }    
-    
-  default: {
-    panic("Undefined special character", tc);
-      break;
-  }
-  }
+	case '/': {
+		type = TokDiv;
+		if (*(tc->cur_ch) == '=') {
+			type = TokDivAssign;
 
-  str[str_len] = '\0';
-    
-  struct Token* tok = (struct Token*) S_malloc(sizeof(struct Token));
-  tok->str = str;
-  tok->type = type;
+			str[str_len++] = *tc->cur_ch;
+			tc->cur_ch++;
+		}
+		break;
+	}
 
-  return tok;
-}
+	default: {
+		panic("Undefined special character", tc);
+		break;
+	}
+	}
 
-struct Token* peek(struct TokenizerContext* tc) {
-  if(tc->token_cache)
-    return tc->token_cache;
-  
-  return tc->token_cache = pull(tc);
+	str[str_len] = '\0';
+
+	struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
+	tok->str = str;
+	tok->type = type;
+
+	return tok;
 }
 
-struct Token* pull(struct TokenizerContext *tc) {
-  struct Token* tok_cache_backup = tc->token_cache;
-  tc->token_cache = NULL;
-  
-  if(tok_cache_backup){
-    return tok_cache_backup;
-  }
+struct Token *peek(struct TokenizerContext *tc) {
+	if (tc->token_cache)
+		return tc->token_cache;
 
-  while (iswspace(*tc->cur_ch)) { // skip white space 
-    if (*tc->cur_ch == '\n') {
-      tc->line_num++;
-    }      
-   
-    tc->cur_ch++;
-  }
-  
-  if (iswalpha(*tc->cur_ch)) {
-    return gen_ident_token(tc);
-  }
-
-  if (is_sc(*tc->cur_ch)) {
-    return gen_sc_token(tc);
-  }
-
-  if (iswdigit(*tc->cur_ch)) {
-    return gen_num_token(tc);
-  }
-
-  struct Token* eof_token = (struct Token*)S_malloc(sizeof(struct Token));
-  eof_token->str = "EOF";
-  eof_token->type = TokEOF;
-
-  return eof_token;
+	return tc->token_cache = pull(tc);
 }
 
-struct Token* consume(struct TokenizerContext *tc, enum TokenType tt) {
-  struct Token *tok = pull(tc);
+struct Token *pull(struct TokenizerContext *tc) {
+	struct Token *tok_cache_backup = tc->token_cache;
+	tc->token_cache = NULL;
 
-  if (tok->type != tt) {
-    panic("Wrong token type consumed.\n", tc);
-  }
+	if (tok_cache_backup) {
+		return tok_cache_backup;
+	}
 
-  return tok;  
-}  
+	while (iswspace(*tc->cur_ch)) { // skip white space 
+		if (*tc->cur_ch == '\n') {
+			tc->line_num++;
+		}
+
+		tc->cur_ch++;
+	}
+
+	if (iswalpha(*tc->cur_ch)) {
+		return gen_ident_token(tc);
+	}
+
+	if (is_sc(*tc->cur_ch)) {
+		return gen_sc_token(tc);
+	}
+
+	if (iswdigit(*tc->cur_ch)) {
+		return gen_num_token(tc);
+	}
+
+	struct Token *eof_token = (struct Token *)S_malloc(sizeof(struct Token));
+	eof_token->str = "EOF";
+	eof_token->type = TokEOF;
+
+	return eof_token;
+}
+
+struct Token *consume(struct TokenizerContext *tc, enum TokenType tt) {
+	struct Token *tok = pull(tc);
+
+	if (tok->type != tt) {
+		panic("Wrong token type consumed.\n", tc);
+	}
+
+	return tok;
+}

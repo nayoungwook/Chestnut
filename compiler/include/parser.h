@@ -49,7 +49,7 @@ struct Node {
 struct NumberLiteralAST {
 	struct Token *num_tok;
 	short byte;
-	bool is_integer;  
+	bool is_integer;
 };
 
 struct StringLiteralAST {
@@ -60,7 +60,7 @@ struct IdentDataNode;
 
 struct IdentifierAST {
 	struct Token *ident;
-	struct IdentDataNode *ident_data_node;  
+	struct IdentDataNode *ident_data_node;
 };
 
 typedef struct {
@@ -68,68 +68,68 @@ typedef struct {
 } BoolLiteralAST;
 
 typedef struct {
-    struct Token *var_name_tok;
-    struct Token *var_type_tok;
-    struct Node *decl;
-    int ac_mod;
+	struct Token *var_name_tok;
+	struct Token *var_type_tok;
+	struct Node *decl;
+	int ac_mod;
 } VarDeclAST;
 
 struct VarDeclBundleAST {
-    struct Node **var_decls;
-    int var_count;
+	struct Node **var_decls;
+	int var_count;
 };
 
 enum OperatorType {
-    OpNone,
-    OpADD,
-    OpSUB,
-    OpMUL,
-    OpDIV,
-    OpEQUAL,
-    OpNOTEQUAL,
-    OpGREATER,
-    OpLESS,
-    OpEQUALGREATER,
-    OpEQUALLESS,
-    OpASSIGN,
-    OpOR,
-    OpAND
+	OpNone,
+	OpADD,
+	OpSUB,
+	OpMUL,
+	OpDIV,
+	OpEQUAL,
+	OpNOTEQUAL,
+	OpGREATER,
+	OpLESS,
+	OpEQUALGREATER,
+	OpEQUALLESS,
+	OpASSIGN,
+	OpOR,
+	OpAND
 };
 
 struct BinExprAST {
-    struct Node *left, *right;
-    enum OperatorType opType;
+	struct Node *left, *right;
+	enum OperatorType opType;
 };
 
 struct UnaryExprAST {
-    struct Node *expr;
+	struct Node *expr;
 };
 
-enum IfStmtType { StmtNone, StmtIf, StmtElseIf, StmtElse } ;
+enum IfStmtType { StmtNone, StmtIf, StmtElseIf, StmtElse };
 
 struct IfStmtAST {
-    enum IfStmtType stmt_type;
-    struct Node *cond;
-    struct Node *next_stmt;
-    struct Node **body;
-    unsigned body_size;
+	enum IfStmtType stmt_type;
+	struct Node *cond;
+	struct Node *next_stmt;
+	struct Node **body;
+	unsigned body_size;
 };
 
 struct FuncDeclAST {
-    struct Token *func_name_tok;
-    struct Token *ret_type_tok;
-    struct Node *params; // variable declaration bundle.
-    struct Node **body;
-    struct FuncData *func_data;  
-    unsigned body_size;
-    int ac_mod;
+	struct Token *func_name_tok;
+	struct Token *ret_type_tok;
+	struct Node *params; // variable declaration bundle.
+	struct Node **body;
+	struct FuncData *func_data;
+	unsigned body_size;
+	int ac_mod;
 };
 
 struct FuncCallAST {
-    struct Token *func_name_tok;
-    struct Node **params;
-    int param_size;
-    struct IdentDataNode *ident_data_node;  
+	struct Token *func_name_tok;
+	struct Node **params;
+	int param_size;
+	struct IdentDataNode *ident_data_node;
 };
 
 struct IdentIncreAST {
@@ -166,8 +166,8 @@ struct ClassAST {
 	struct Node **body;
 	unsigned body_size;
 
-	struct Token* name_tok;
-	struct Token* parent_name_tok;
+	struct Token *name_tok;
+	struct Token *parent_name_tok;
 };
 
 struct NewAST {
@@ -177,7 +177,7 @@ struct NewAST {
 };
 
 struct NullAST {
-    struct Token *null_tok;
+	struct Token *null_tok;
 };
 
 struct ArrayDeclAST {
@@ -187,8 +187,8 @@ struct ArrayDeclAST {
 };
 
 struct ArrayAccessAST {
-	struct Node** indexes;
-	struct Node* target_array;
+	struct Node **indexes;
+	struct Node *target_array;
 	int access_count;
 };
 
@@ -196,7 +196,7 @@ struct NegAST {
 	struct Node *ast;
 };
 
-struct FuncData{
+struct FuncData {
 	unsigned id;
 	const char *func_name;
 	const char *return_type;
@@ -207,15 +207,16 @@ struct FuncData{
 
 struct VarData {
 	unsigned id;
+	unsigned offset; // offset data from stack pointer or class
 	const char *var_name;
-	const char *type;  
+	const char *type;
 };
 
 struct ClassData {
 	unsigned id;
 	const char *class_name, *parent_name;
-	struct HTable* member_vars;
-	struct HTable* member_funcs;
+	struct HTable *member_vars;
+	struct HTable *member_funcs;
 };
 
 struct Scope {
@@ -225,8 +226,8 @@ struct Scope {
 
 struct ParserContext {
 	struct TokenizerContext *tc;
-	struct TypeCheckContext *tcc;  
-  
+	struct TypeCheckContext *tcc;
+
 	struct HTable *glob_var_smtb; // VarData will be stored.
 	struct HTable *glob_func_smtb; // FuncData will be stored.
 
@@ -235,7 +236,7 @@ struct ParserContext {
 
 	unsigned class_data_cnt;
 	struct ClassData *class_data[MAX_CLASS_COUNT];
-  
+
 	unsigned func_data_cnt;
 	struct FuncData *func_data[MAX_FUNC_COUNT];
 
@@ -246,7 +247,7 @@ struct ParserContext {
 
 	struct VarData **declared_local_vars;
 	unsigned declared_local_var_count, declared_local_var_capacity;
-  
+
 	struct Node **nodes;
 	unsigned node_size, node_capacity;
 };
@@ -254,9 +255,9 @@ struct ParserContext {
 struct ParserContext *gen_pc();
 
 void compile_file(struct ParserContext *pc, struct TokenizerContext *tc,
-                  struct TypeCheckContext *tcc);
+	struct TypeCheckContext *tcc);
 
 // parse
-struct Node *parse(struct ParserContext* pc, bool is_expr);
+struct Node *parse(struct ParserContext *pc, bool is_expr);
 
 #endif
