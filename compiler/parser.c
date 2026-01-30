@@ -1,3 +1,4 @@
+#include "token.h"
 #pragma warning(disable: 6011) // ignore posible NULL pointer reference.
 
 #include <parser.h>
@@ -9,24 +10,29 @@ static struct Node *parse_unary_expression(struct ParserContext *pc);
 static struct Node *parse_compare_expression(struct ParserContext *pc);
 static struct Node *parse_expression(struct ParserContext *pc);
 
+static struct FuncData *gen_func_data(const char *func_name, const char *ret_type, unsigned id, bool varargs);
+
 static void init_primitive(struct ParserContext *pc) {
 	// char < int < uint < float < double
 	ht_insert(pc->primitive_type_smtb, "int",
-		gen_primitive_type("int", 4, 2, true));
+		  gen_primitive_type("int", 4, 2, true));
 
 	ht_insert(pc->primitive_type_smtb, "char",
-		gen_primitive_type("char", 2, 1, false));
+		  gen_primitive_type("char", 2, 1, false));
 
 	ht_insert(pc->primitive_type_smtb, "float",
-		gen_primitive_type("float", 4, 4, true));
-
+		  gen_primitive_type("float", 4, 4, true));
 	ht_insert(pc->primitive_type_smtb, "double",
-		gen_primitive_type("double", 8, 5, true));
+		  gen_primitive_type("double", 8, 5, true));
 
 	ht_insert(pc->primitive_type_smtb, "bool",
-		gen_primitive_type("bool", 1, -1, false));
+		  gen_primitive_type("bool", 1, -1, false));
 	ht_insert(pc->primitive_type_smtb, "void",
-		gen_primitive_type("void", 0, -1, false));
+		  gen_primitive_type("void", 0, -1, false));
+}
+
+static void init_syscall(struct ParserContext *pc) {
+	ht_insert(pc->syscall_smtb, "print", gen_func_data("print", "void", 0, true));
 }
 
 struct ParserContext *gen_pc() {
@@ -51,13 +57,16 @@ struct ParserContext *gen_pc() {
 	pc->node_size = 0;
 	pc->node_capacity = 1;
 
+	pc->syscall_smtb = gen_htable();
+	
 	init_primitive(pc);
+	init_syscall(pc);
 
 	return pc;
 }
 
 void compile_file(struct ParserContext *pc, struct TokenizerContext *tc,
-	struct TypeCheckContext *tcc) {
+		  struct TypeCheckContext *tcc) {
 	struct Node *node = NULL;
 
 	pc->tc = tc;
@@ -67,7 +76,7 @@ void compile_file(struct ParserContext *pc, struct TokenizerContext *tc,
 		if (pc->node_size + 1 >= pc->node_capacity) {
 			pc->node_capacity *= 2;
 			pc->nodes = (struct Node **)S_realloc(pc->nodes, sizeof(struct Node *) *
-				pc->node_capacity);
+							      pc->node_capacity);
 		}
 
 		pc->nodes[pc->node_size++] = node;
@@ -148,7 +157,7 @@ static struct IdentData *gen_ident_data(const char *ident, enum IdentType attr_t
 
 static struct IdentDataNode *
 gen_ident_data_node(const char *ident, enum IdentType ident_type,
-	struct IdentDataNode *attr_of) {
+		    struct IdentDataNode *attr_of) {
 	struct IdentDataNode *ident_data_node = (struct IdentDataNode *)S_malloc(sizeof(struct IdentDataNode));
 	ident_data_node->ident_data = gen_ident_data(ident, ident_type);
 	ident_data_node->attr = NULL;
@@ -209,7 +218,7 @@ static struct FuncData *find_func_data(struct ParserContext *pc, const char *fun
 }
 
 static const char *get_type_of_identifier(struct ParserContext *pc, enum IdentType ident_type,
-	const char *str) {
+					  const char *str) {
 	const char *result = NULL;
 
 	switch (ident_type) {
@@ -245,9 +254,9 @@ static const char *get_type_of_identifier(struct ParserContext *pc, enum IdentTy
 }
 
 static void get_first_node_type(struct ParserContext *pc, const char *ident_str,
-	enum IdentType ident_type,
-	struct IdentDataNode *ident_data_node,
-	struct IdentDataNode *attr_of) {
+				enum IdentType ident_type,
+				struct IdentDataNode *ident_data_node,
+				struct IdentDataNode *attr_of) {
 	assert(ident_data_node != NULL);
 
 	// If it is first node, we have to check type of identifier.
@@ -265,7 +274,7 @@ static void get_first_node_type(struct ParserContext *pc, const char *ident_str,
 }
 
 static struct Node *gen_ident_node(struct Token *first, struct ParserContext *pc, struct IdentDataNode *attr_of,
-	bool is_expr);
+				   bool is_expr);
 
 static void parse_attribute(struct ParserContext *pc, struct Node *result, struct IdentDataNode *ident_node, bool is_expr) {
 	struct TokenizerContext *tc = pc->tc;
@@ -281,7 +290,7 @@ static void parse_attribute(struct ParserContext *pc, struct Node *result, struc
 
 // return binary expr ast node if it is assign expression.
 static struct Node *check_assign(struct ParserContext *pc, struct IdentDataNode *ident_node,
-	struct IdentDataNode *attr_of, struct Node *result) {
+				 struct IdentDataNode *attr_of, struct Node *result) {
 	// if it is not first node, return
 	if (attr_of != NULL) {
 		return result;
@@ -315,9 +324,9 @@ static struct Node *check_assign(struct ParserContext *pc, struct IdentDataNode 
 }
 
 static struct Node *gen_ident_node(struct Token *first,
-	struct ParserContext *pc,
-	struct IdentDataNode *attr_of,
-	bool is_expr) {
+				   struct ParserContext *pc,
+				   struct IdentDataNode *attr_of,
+				   bool is_expr) {
 	struct TokenizerContext *tc = pc->tc;
 	struct Token *nt = peek(tc);
 
@@ -399,7 +408,8 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
 
 		if (param_size + 1 >= capacity) {
 			capacity *= 2;
-			result->var_decls = S_realloc(result->var_decls, sizeof(struct VarDeclBundleAST *) * capacity);
+			result->var_decls
+				= S_realloc(result->var_decls, sizeof(struct VarDeclBundleAST *) * capacity);
 		}
 
 		result->var_decls[param_size++] = pack(AST_VariableDeclaration, var_decl);
@@ -471,13 +481,24 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
 	return result;
 }
 
+static struct FuncData *gen_func_data(const char *func_name, const char *ret_type, unsigned id, bool varargs) {
+	struct FuncData *data = (struct FuncData *)S_malloc(sizeof(struct FuncData));
+	data->return_type = func_name;
+	data->func_name = ret_type;
+	data->id = id;
+	data->varargs = varargs;
+
+	return data;
+ }
+ 
 static struct FuncData *register_func_data(struct Node *node, struct ParserContext *pc) {
 	struct FuncDeclAST *func_decl = node->ast;
-
-	struct FuncData *data = (struct FuncData *)S_malloc(sizeof(struct FuncData));
-	data->return_type = func_decl->ret_type_tok->str;
-	data->func_name = func_decl->func_name_tok->str;
-
+	
+	// id is -1 in this code but we will assign id after.
+	struct FuncData *data =
+		gen_func_data(func_decl->func_name_tok->str, func_decl->ret_type_tok->str, -1, false);
+	
+	// id assign.
 	if (pc->current_class) {
 		// register in class member.    
 		struct ClassData *current_class = pc->current_class;
@@ -580,8 +601,8 @@ static struct VarData *register_var_data(struct Node *node, struct ParserContext
 		if (pc->declared_local_var_capacity >= pc->declared_local_var_count + 1) {
 			pc->declared_local_var_capacity *= 2;
 			pc->declared_local_vars = (struct VarData **)S_realloc(
-				pc->declared_local_vars,
-				sizeof(struct VarData **) * pc->declared_local_var_capacity);
+									       pc->declared_local_vars,
+									       sizeof(struct VarData **) * pc->declared_local_var_capacity);
 		}
 
 		pc->declared_local_vars[pc->declared_local_var_count++] = data;
@@ -598,7 +619,7 @@ static struct VarData *register_var_data(struct Node *node, struct ParserContext
 }
 
 static struct Node *gen_var_decl_node(struct Token *first,
-	struct ParserContext *pc, bool is_expr) {
+				      struct ParserContext *pc, bool is_expr) {
 	struct TokenizerContext *tc = pc->tc;
 	struct VarDeclBundleAST *result =
 		(struct VarDeclBundleAST *)S_malloc(sizeof(struct VarDeclBundleAST));
@@ -651,7 +672,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
 		if (var_count + 1 >= capacity) {
 			capacity *= 2;
 			result->var_decls = (struct Node **)S_realloc(
-				result->var_decls, sizeof(struct Node *) * capacity);
+								      result->var_decls, sizeof(struct Node *) * capacity);
 		}
 
 		struct Node *node = pack(AST_VariableDeclaration, var_decl);
@@ -668,7 +689,7 @@ static enum IfStmtType get_if_stmt_type(struct Token *first, struct ParserContex
 static struct Node *gen_next_if_stmt_node(enum IfStmtType stmt_type, struct  ParserContext *pc);
 
 static enum IfStmtType get_if_stmt_type(struct Token *first,
-	struct ParserContext *pc) {
+					struct ParserContext *pc) {
 	struct TokenizerContext *tc = pc->tc;
 	struct Token *nt = peek(tc);
 	enum IfStmtType stmt_type = StmtNone;
@@ -689,7 +710,7 @@ static enum IfStmtType get_if_stmt_type(struct Token *first,
 }
 
 static struct Node *gen_next_if_stmt_node(enum IfStmtType stmt_type,
-	struct ParserContext *pc) {
+					  struct ParserContext *pc) {
 	struct TokenizerContext *tc = pc->tc;
 	struct Token *nt = peek(tc);
 	struct Node *next_stmt = NULL;
@@ -708,7 +729,7 @@ static struct Node *gen_next_if_stmt_node(enum IfStmtType stmt_type,
 }
 
 static struct Node *gen_if_stmt_node(struct Token *first,
-	struct ParserContext *pc) {
+				     struct ParserContext *pc) {
 	struct IfStmtAST *result =
 		(struct IfStmtAST *)S_malloc(sizeof(struct IfStmtAST));
 
@@ -744,7 +765,7 @@ static struct Node *gen_if_stmt_node(struct Token *first,
 }
 
 static struct Node *gen_for_stmt_node(struct Token *first,
-	struct ParserContext *pc) {
+				      struct ParserContext *pc) {
 	struct ForStmtAST *result =
 		(struct ForStmtAST *)S_malloc(sizeof(struct ForStmtAST));
 
@@ -776,7 +797,7 @@ static struct Node *gen_for_stmt_node(struct Token *first,
 }
 
 static struct Node *gen_ret_node(struct Token *first,
-	struct ParserContext *pc) {
+				 struct ParserContext *pc) {
 	struct Node *expr = parse_expression(pc);
 	struct ReturnAST *ret_ast =
 		(struct ReturnAST *)S_malloc(sizeof(struct ReturnAST));
@@ -787,7 +808,7 @@ static struct Node *gen_ret_node(struct Token *first,
 }
 
 static struct ClassData *register_class_data(struct Node *node,
-	struct ParserContext *pc) {
+					     struct ParserContext *pc) {
 	struct ClassAST *class_ast = node->ast;
 
 	struct ClassData *data =
@@ -806,7 +827,7 @@ static struct ClassData *register_class_data(struct Node *node,
 	data->member_vars = gen_htable();
 
 	ht_insert(pc->class_type_smtb, class_ast->name_tok->str,
-		gen_class_type(class_ast->name_tok->str, data));
+		  gen_class_type(class_ast->name_tok->str, data));
 
 	pc->class_data[pc->class_data_cnt++] = data;
 
@@ -814,7 +835,7 @@ static struct ClassData *register_class_data(struct Node *node,
 }
 
 static struct Node *gen_class_decl_node(struct Token *first,
-	struct ParserContext *pc) {
+					struct ParserContext *pc) {
 	struct TokenizerContext *tc = pc->tc;
 	struct ClassAST *class_ast =
 		(struct ClassAST *)S_malloc(sizeof(struct ClassAST));
@@ -858,6 +879,15 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
 		num->num_tok = first;
 
 		return pack(AST_NumberLiteral, num);
+	}
+
+	case TokStringLiteral: {
+		struct StringLiteralAST *str =
+			(struct StringLiteralAST *) S_malloc(sizeof(struct StringLiteralAST));
+
+		str->str_tok = first;
+
+		return pack(AST_StringLiteral, str);
 	}
 
 	case TokNull: {
@@ -977,10 +1007,10 @@ static struct Node *parse_compare_expression(struct ParserContext *pc) {
 	struct TokenizerContext *tc = pc->tc;
 
 	while (peek(tc) &&
-		(peek(tc)->type == TokEqual || peek(tc)->type == TokNotEqual ||
-			peek(tc)->type == TokGreater || peek(tc)->type == TokLesser ||
-			peek(tc)->type == TokEqualGreater ||
-			peek(tc)->type == TokEqualLesser)) {
+	       (peek(tc)->type == TokEqual || peek(tc)->type == TokNotEqual ||
+		peek(tc)->type == TokGreater || peek(tc)->type == TokLesser ||
+		peek(tc)->type == TokEqualGreater ||
+		peek(tc)->type == TokEqualLesser)) {
 
 		struct Token *operator_token = pull(tc);
 		enum TokenType op = operator_token->type;

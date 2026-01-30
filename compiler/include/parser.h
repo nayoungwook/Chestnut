@@ -201,6 +201,7 @@ struct FuncData {
 	const char *func_name;
 	const char *return_type;
 
+	bool varargs;
 	struct VarData **declared_vars;
 	unsigned declared_var_count;
 };
@@ -234,6 +235,8 @@ struct ParserContext {
 	struct HTable *class_type_smtb; // Type will be stored.
 	struct HTable *primitive_type_smtb;  // Type will be stored.
 
+	struct HTable *syscall_smtb;
+	
 	unsigned class_data_cnt;
 	struct ClassData *class_data[MAX_CLASS_COUNT];
 

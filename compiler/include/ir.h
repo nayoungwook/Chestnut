@@ -39,4 +39,6 @@ void emit_byte(struct IRContext *irc, byte _b);
 void print_bytes(struct IRContext *irc);
 void gen_ir(struct IRContext *irc, struct ParserContext *pc);
 
+const byte *get_bytes(struct IRContext *irc);
+
 #endif

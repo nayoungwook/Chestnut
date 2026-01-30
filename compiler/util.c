@@ -1,9 +1,11 @@
 #include <util.h>
 #include <token.h>
+#include <ir.h>
 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #ifdef __unix__
 void unix_error(char *msg) {
@@ -26,6 +28,8 @@ static void error(char *msg) {
 	win_error(msg);
 #endif
 }
+
+// ----- file system -----
 
 #ifdef __unix__
 static char *read_file_unix(const char *path) {
@@ -130,11 +134,29 @@ char *read_file(char *path) {
 	return result;
 }
 
-#ifdef __linux__
+#ifdef __unix__
 
+static void unix_write_file(const char *path, const size_t len, const char *data) {
+	FILE *fp = fopen(path, "wb");
+	if (!fp) {
+		error("Failed to open file.");
+	}
 
+	if (fwrite(data, sizeof(byte), len, fp) != len) {
+		fclose(fp);
+		error("Write failed.");
+	}
+
+	fclose(fp);
+}
 
 #endif
+
+void write_file(const char *path, const size_t len, const char *data){
+#ifdef __unix__
+	unix_write_file(path, len, data);
+#endif
+}
 
 static unsigned get_hash(const char *key) {
 	unsigned hash = 5381;

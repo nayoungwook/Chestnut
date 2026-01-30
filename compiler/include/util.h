@@ -8,12 +8,8 @@
 
 #define HTABLE_BUFF 509
 
-#ifdef __linux__
-#include <errno.h>
-void unix_error(char *msg);
-#endif
-
 char *read_file(char *path);
+void write_file(const char *path, const size_t len, const char *data);
 
 void *S_malloc(size_t size);
 void *S_realloc(void *ptr, size_t size);

@@ -10,7 +10,6 @@
 #include <locale.h>
 
 int main(int arc, char *args[]) {
-
 	setlocale(LC_ALL, "");
 
 	// front end  
@@ -28,7 +27,9 @@ int main(int arc, char *args[]) {
 
 	gen_ir(irc, pc);
 
-	//  print_bytes(irc);
+	write_file("test.cb", irc->byte_size, (const char*) get_bytes(irc));
+	
+	//	print_bytes(irc);
 
 	return 0;
 }

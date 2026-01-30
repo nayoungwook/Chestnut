@@ -132,6 +132,10 @@ void print_bytes(struct IRContext *irc) {
 	}
 }
 
+const byte *get_bytes(struct IRContext *irc){
+	return irc->bytes;
+}
+
 static unsigned get_size_of_type(struct ParserContext *pc, const char *type_str) {
 
 	struct Type *type = find_type(pc, type_str);
