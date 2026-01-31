@@ -178,13 +178,13 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc, struct 
 	case AST_NumberLiteral: {
 		struct NumberLiteralAST *num_lit_ast = (struct NumberLiteralAST *)node->ast;
 
-		emit_byte(irc, OP_NUMBER_LITERAL);
+		//		emit_byte(irc, OP_NUMBER_LITERAL);
 
 		if (num_lit_ast->is_integer) {
 
 		}
 		else { // floating point.
-
+			
 		}
 
 		break;
@@ -195,6 +195,8 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc, struct 
 		struct FuncData *func_data = func_decl_ast->func_data;
 
 		unsigned total_stack_size = get_total_stack_size_of_func(pc, func_data);
+
+		emit_byte(irc, OP_SP_PUSH);
 
 	}
 

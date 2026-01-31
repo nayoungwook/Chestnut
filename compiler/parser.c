@@ -948,8 +948,9 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
 static struct Node *parse_term(struct ParserContext *pc) {
 	struct Node *node = parse(pc, true);
 	struct TokenizerContext *tc = pc->tc;
-
-	while (peek(tc) && (peek(tc)->type == TokMul || peek(tc)->type == TokDiv)) {
+	struct Token *tok = NULL;
+	
+	while ((tok = peek(tc)) != NULL && (tok->type == TokMul || tok->type == TokDiv)) {
 		enum TokenType op = pull(tc)->type;
 		void *right = parse(pc, true);
 
@@ -970,8 +971,9 @@ static struct Node *parse_term(struct ParserContext *pc) {
 static struct Node *parse_simple_expression(struct ParserContext *pc) {
 	struct Node *node = parse_term(pc);
 	struct TokenizerContext *tc = pc->tc;
-
-	while (peek(tc) && (peek(tc)->type == TokAdd || peek(tc)->type == TokSub)) {
+	struct Token *tok = NULL;
+	
+	while ((tok = peek(tc)) != NULL && (tok->type == TokAdd || tok->type == TokSub)) {
 		enum TokenType op = pull(tc)->type;
 		void *right = parse_term(pc);
 
@@ -990,8 +992,9 @@ static struct Node *parse_simple_expression(struct ParserContext *pc) {
 
 static struct Node *parse_unary_expression(struct ParserContext *pc) {
 	struct TokenizerContext *tc = pc->tc;
+	struct Token *tok = NULL;
 
-	if (peek(tc) && peek(tc)->type == TokNot) {
+	if ((tok = peek(tc)) != NULL && tok->type == TokNot) {
 		pull(tc); // Consume '!'
 		struct UnaryExprAST *unary_expr = (struct UnaryExprAST *)S_malloc(sizeof(struct UnaryExprAST));
 
@@ -1005,12 +1008,13 @@ static struct Node *parse_unary_expression(struct ParserContext *pc) {
 static struct Node *parse_compare_expression(struct ParserContext *pc) {
 	void *node = parse_unary_expression(pc);
 	struct TokenizerContext *tc = pc->tc;
-
-	while (peek(tc) &&
-	       (peek(tc)->type == TokEqual || peek(tc)->type == TokNotEqual ||
-		peek(tc)->type == TokGreater || peek(tc)->type == TokLesser ||
-		peek(tc)->type == TokEqualGreater ||
-		peek(tc)->type == TokEqualLesser)) {
+	struct Token *tok = NULL;
+	
+	while (((tok = peek(tc)) != NULL) &&
+	       (tok->type == TokEqual || tok->type == TokNotEqual ||
+		tok->type == TokGreater || tok->type == TokLesser ||
+		tok->type == TokEqualGreater ||
+		tok->type == TokEqualLesser)) {
 
 		struct Token *operator_token = pull(tc);
 		enum TokenType op = operator_token->type;
@@ -1043,8 +1047,9 @@ static struct Node *parse_compare_expression(struct ParserContext *pc) {
 static struct Node *parse_expression(struct ParserContext *pc) {
 	struct Node *node = parse_compare_expression(pc);
 	struct TokenizerContext *tc = pc->tc;
-
-	while (peek(tc) && (peek(tc)->type == TokOr || peek(tc)->type == TokAnd)) {
+	struct Token *tok = NULL;
+	
+	while (((tok = peek(tc)) != NULL) && (peek(tc)->type == TokOr || peek(tc)->type == TokAnd)) {
 		enum TokenType op = pull(tc)->type;
 		struct Node *right = parse_compare_expression(pc);
 

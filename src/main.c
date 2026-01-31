@@ -16,7 +16,7 @@ int main(int arc, char *args[]) {
 	struct ParserContext *pc = gen_pc();
 	struct TypeCheckContext *tcc = gen_tcc();
 
-	compile_file(pc, gen_tc(read_file("test.chest")), tcc);
+	compile_file(pc, gen_tc(read_file("test.cn")), tcc);
 
 	resolve_tcq(pc, tcc);
 

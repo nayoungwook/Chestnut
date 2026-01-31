@@ -161,7 +161,6 @@ static void get_str_literal(struct TokenizerContext *tc, char *str, unsigned *st
 	}
 
 	str[(*str_len)++] = L'\"';
-	tc->cur_ch++;
 }
 
 static struct Token *gen_sc_token(struct TokenizerContext *tc) {
@@ -387,8 +386,9 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
 }
 
 struct Token *peek(struct TokenizerContext *tc) {
-	if (tc->token_cache)
+	if (tc->token_cache){
 		return tc->token_cache;
+	}
 
 	return tc->token_cache = pull(tc);
 }

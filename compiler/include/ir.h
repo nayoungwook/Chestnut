@@ -21,7 +21,11 @@
 
 #define CODE_CLASS 0x54
 
-#define OP_NUMBER_LITERAL 0x55
+#define CODE_FUNC 0x55 // CODE_FUNC func_id(uint)
+
+#define OP_SP_PUSH 0x56 // sp_push amount(uint)
+#define OP_SP_POP 0x57  // sp_pop amount(uint)
+
 
 typedef unsigned char byte;
 
