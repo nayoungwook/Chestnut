@@ -1,8 +1,6 @@
 
 func main(): void {
 	foo();
+	bar();
 }
 
-func foo(): void {
-
-}

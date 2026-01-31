@@ -120,8 +120,11 @@ struct FuncDeclAST {
 	struct Token *ret_type_tok;
 	struct Node *params; // variable declaration bundle.
 	struct Node **body;
-	struct FuncData *func_data;
 	unsigned body_size;
+	
+	struct VarData **declared_vars;
+	unsigned declared_var_count;
+	
 	int ac_mod;
 };
 
@@ -202,8 +205,6 @@ struct FuncData {
 	const char *return_type;
 
 	bool varargs;
-	struct VarData **declared_vars;
-	unsigned declared_var_count;
 };
 
 struct VarData {
@@ -262,5 +263,8 @@ void compile_file(struct ParserContext *pc, struct TokenizerContext *tc,
 
 // parse
 struct Node *parse(struct ParserContext *pc, bool is_expr);
+void parse_structure(struct ParserContext *pc);
+
+void debug_view_data(struct ParserContext *pc);
 
 #endif

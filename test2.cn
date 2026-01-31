@@ -1,0 +1,22 @@
+
+
+class Foo {
+	func foo(): void {
+
+	}
+}
+
+func foo(): void {
+
+}
+
+class Bar {
+	func bar(): void {
+
+	}
+}
+
+
+func bar(): void {
+
+}

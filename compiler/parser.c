@@ -1,4 +1,5 @@
 #include "token.h"
+#include "util.h"
 #pragma warning(disable: 6011) // ignore posible NULL pointer reference.
 
 #include <parser.h>
@@ -483,20 +484,19 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
 
 static struct FuncData *gen_func_data(const char *func_name, const char *ret_type, unsigned id, bool varargs) {
 	struct FuncData *data = (struct FuncData *)S_malloc(sizeof(struct FuncData));
-	data->return_type = func_name;
-	data->func_name = ret_type;
+	data->return_type = ret_type;
+	data->func_name = func_name;
 	data->id = id;
 	data->varargs = varargs;
 
 	return data;
  }
  
-static struct FuncData *register_func_data(struct Node *node, struct ParserContext *pc) {
-	struct FuncDeclAST *func_decl = node->ast;
-	
+static struct FuncData *register_func_data(const char *func_name, const char *ret_type, struct ParserContext *pc) {
+
 	// id is -1 in this code but we will assign id after.
 	struct FuncData *data =
-		gen_func_data(func_decl->func_name_tok->str, func_decl->ret_type_tok->str, -1, false);
+		gen_func_data(func_name, ret_type, -1, false);
 	
 	// id assign.
 	if (pc->current_class) {
@@ -505,7 +505,7 @@ static struct FuncData *register_func_data(struct Node *node, struct ParserConte
 
 		data->id = current_class->member_funcs->size + 1;
 
-		ht_insert(current_class->member_funcs, func_decl->func_name_tok->str, data);
+		ht_insert(current_class->member_funcs, func_name, data);
 
 		return data;
 	}
@@ -513,7 +513,7 @@ static struct FuncData *register_func_data(struct Node *node, struct ParserConte
 		// register in global.
 		data->id = pc->glob_func_smtb->size + 1;
 
-		ht_insert(pc->glob_func_smtb, func_decl->func_name_tok->str, data);
+		ht_insert(pc->glob_func_smtb, func_name, data);
 		pc->func_data[pc->func_data_cnt++] = data;
 
 		return data;
@@ -546,30 +546,45 @@ static struct Node *gen_func_decl_node(struct Token *first, struct ParserContext
 	func_decl->ret_type_tok = ret_type_tok;
 	func_decl->params = params;
 
-	// first register function data.
 	struct Node *result = pack(AST_FunctionDeclaration, func_decl);
-	struct FuncData *fd = register_func_data(result, pc);
-	assert(fd != NULL);
-	func_decl->func_data = fd;
 
-	// and parse body.
-	pc->current_func = fd;
 	unsigned body_size = 0;
 	func_decl->body = gen_body(pc, &body_size);
 	pc->current_func = NULL;
 
 	// register local var data to calcaulte stack size after.  
-	fd->declared_var_count = pc->declared_local_var_count;
-	fd->declared_vars = pc->declared_local_vars;
+	func_decl->declared_var_count = pc->declared_local_var_count;
+	func_decl->declared_vars = pc->declared_local_vars;
 
 	return result;
 }
 
-static struct VarData *register_var_data(struct Node *node, struct ParserContext *pc) {
-	VarDeclAST *var_decl = node->ast;
+static struct VarData *register_local_var_data(const char *name, const char *type, struct ParserContext *pc){
+	struct VarData *data = (struct VarData *)S_malloc(sizeof(struct VarData));
+	data->type = type;
+	data->var_name = name;
 
-	assert(var_decl != NULL);
+	struct HTable *target_smtb = NULL;
 
+	// register in pc->declared_local_vars to calcaulte total size of stack
+	if (pc->declared_local_var_capacity >= pc->declared_local_var_count + 1) {
+		pc->declared_local_var_capacity *= 2;
+		pc->declared_local_vars = (struct VarData **)S_realloc(
+								       pc->declared_local_vars,
+								       sizeof(struct VarData **) * pc->declared_local_var_capacity);
+	}
+
+	pc->declared_local_vars[pc->declared_local_var_count++] = data;
+
+	target_smtb = pc->current_scope->local_var_smtb;
+	
+	data->id = target_smtb->size + 1;
+	ht_insert(target_smtb, name, data);
+
+	return data;
+}
+
+static struct VarData *register_var_data(const char *name, const char *type, struct ParserContext *pc) {
 	bool in_class = pc->current_class != NULL;
 	bool in_func = pc->current_func != NULL;
 
@@ -583,8 +598,8 @@ static struct VarData *register_var_data(struct Node *node, struct ParserContext
 	bool local = in_func;
 
 	struct VarData *data = (struct VarData *)S_malloc(sizeof(struct VarData));
-	data->type = var_decl->var_type_tok->str;
-	data->var_name = var_decl->var_name_tok->str;
+	data->type = type;
+	data->var_name = name;
 
 	struct HTable *target_smtb = NULL;
 
@@ -597,23 +612,13 @@ static struct VarData *register_var_data(struct Node *node, struct ParserContext
 	}
 
 	if (local) {
-		// register in pc->declared_local_vars to calcaulte total size of stack
-		if (pc->declared_local_var_capacity >= pc->declared_local_var_count + 1) {
-			pc->declared_local_var_capacity *= 2;
-			pc->declared_local_vars = (struct VarData **)S_realloc(
-									       pc->declared_local_vars,
-									       sizeof(struct VarData **) * pc->declared_local_var_capacity);
-		}
-
-		pc->declared_local_vars[pc->declared_local_var_count++] = data;
-
-		target_smtb = pc->current_scope->local_var_smtb;
+		// errror
 	}
 
 	assert(target_smtb != NULL);
 
 	data->id = target_smtb->size + 1;
-	ht_insert(target_smtb, var_decl->var_name_tok->str, data);
+	ht_insert(target_smtb, name, data);
 
 	return data;
 }
@@ -677,8 +682,14 @@ static struct Node *gen_var_decl_node(struct Token *first,
 
 		struct Node *node = pack(AST_VariableDeclaration, var_decl);
 		result->var_decls[var_count++] = node;
+		
+		bool in_func = pc->current_func != NULL;
 
-		register_var_data(node, pc);
+		bool local = in_func;
+
+		if(local){
+			register_local_var_data(var_name_tok->str, var_type_tok->str, pc);
+		}
 	}
 
 	return pack(AST_VariableDeclarationBundle, result);
@@ -807,27 +818,21 @@ static struct Node *gen_ret_node(struct Token *first,
 	return pack(AST_Return, ret_ast);
 }
 
-static struct ClassData *register_class_data(struct Node *node,
+static struct ClassData *register_class_data(const char *class_name, const char *parent_name,
 					     struct ParserContext *pc) {
-	struct ClassAST *class_ast = node->ast;
 
 	struct ClassData *data =
 		(struct ClassData *)S_malloc(sizeof(struct ClassData));
 	data->id = pc->class_type_smtb->size + 1;
-	data->class_name = class_ast->name_tok->str;
-
-	if (class_ast->parent_name_tok == NULL) {
-		data->parent_name = "";
-	}
-	else {
-		data->parent_name = class_ast->parent_name_tok->str;
-	}
+	data->class_name = class_name;
+	
+	data->parent_name = parent_name;
 
 	data->member_funcs = gen_htable();
 	data->member_vars = gen_htable();
 
-	ht_insert(pc->class_type_smtb, class_ast->name_tok->str,
-		  gen_class_type(class_ast->name_tok->str, data));
+	ht_insert(pc->class_type_smtb, class_name,
+		  gen_class_type(class_name, data));
 
 	pc->class_data[pc->class_data_cnt++] = data;
 
@@ -853,10 +858,7 @@ static struct Node *gen_class_decl_node(struct Token *first,
 
 	// first register class data.
 	struct Node *result = pack(AST_Class, class_ast);
-	struct ClassData *cd = register_class_data(result, pc);
-	assert(cd != NULL);
-
-	pc->current_class = cd;
+	
 	// and parse body
 	unsigned body_size;
 	class_ast->body = gen_body(pc, &body_size);
@@ -865,7 +867,171 @@ static struct Node *gen_class_decl_node(struct Token *first,
 	return result;
 }
 
+static void parse_class_structure(struct ParserContext *pc){
+	struct TokenizerContext *tc = pc->tc;
+
+	struct Token *class_name_tok = pull(tc);
+	
+	const char *class_name = class_name_tok->str;
+	const char *parent_name = "";
+	
+	if(peek(tc)->type == TokExtends){
+		consume(tc, TokExtends);
+		struct Token *parent_name_tok = pull(tc);
+		parent_name = parent_name_tok->str;
+	}
+
+	struct ClassData *cd = register_class_data(class_name, parent_name, pc);
+	pc->current_class = cd;
+
+	consume(tc, TokLBracket);
+
+	struct Token *tok = NULL;
+
+	while((tok = peek(tc))->type != TokRBracket){
+		parse_structure(pc);
+	}
+
+	consume(tc, TokRBracket);
+
+	pc->current_class = NULL;
+}
+
+static void parse_func_structure(struct ParserContext *pc){
+	struct TokenizerContext *tc = pc->tc;
+
+	struct Token *func_name_tok = pull(tc);
+
+	consume(tc, TokLParen);
+	struct Token *tok = NULL;
+	
+	while((tok = pull(tc))->type != TokRParen){
+	}
+
+	consume(tc, TokColon);
+
+	struct Token *ret_type_tok = pull(tc);
+
+	register_func_data(func_name_tok->str, ret_type_tok->str, pc);
+
+	// We will not parse content of function declaration.
+	consume(tc, TokLBracket);
+
+	while((tok = pull(tc))->type != TokRBracket){
+	}
+}
+
+static void parse_var_structure(struct ParserContext *pc){
+	struct TokenizerContext *tc = pc->tc;
+	bool comp = false;
+
+	while (!comp) {
+		struct Token *var_name_tok = pull(tc);
+
+		consume(tc, TokColon);
+
+		struct Token *var_type_tok = pull(tc);
+
+		//		var a: int = 0;
+
+		struct Token *tok = NULL;
+
+		while((tok = pull(tc)) != NULL){
+			if(tok->type == TokSemiColon){
+				comp = true;
+				break;
+			}
+
+			if(tok->type == TokComma){
+				break;
+			}
+		}
+
+		// Since we do not parse function declaration, all variables must be in class or global scope.
+		register_var_data(var_name_tok->str, var_type_tok->str, pc);
+	}
+}
+
+// First pass of compiler
+// This function will parse the structure of source code roughly
+// This function will register global class data (with member of class) , global function data, global variable data
+void parse_structure(struct ParserContext *pc){
+	struct TokenizerContext *tc = pc->tc;
+
+	assert(tc != NULL);
+
+	struct Token *first = pull(tc);
+
+	switch(first->type){
+	case TokClass: {
+		parse_class_structure(pc);
+		break;
+	}
+
+	case TokFunc: {
+		parse_func_structure(pc);
+		break;
+	}
+
+	case TokVar: {
+		parse_var_structure(pc);
+		break;
+	}
+
+	default:{
+		panic("Unexpected token, block of source code must begin with class or function.", tc);
+	}
+	}
+}
+
+static void debug_view_func_smtb(struct HTable *htable){
+	int i;
+	for(i=0; i<HTABLE_BUFF; i++){
+		struct DataNode *dn = htable->bucket[i];
+
+		while(dn != NULL){
+			struct FuncData *fd = (struct FuncData *)dn->ptr;
+			
+			printf("Function Data : %s(%d), ret type : %s\n", fd->func_name, fd->id, fd->return_type);
+			dn = dn->next;
+		}
+	}
+}
+
+static void debug_view_var_smtb(struct HTable *htable){
+	int i;
+	for(i=0; i<HTABLE_BUFF; i++){
+		struct DataNode *dn = htable->bucket[i];
+
+		while(dn != NULL){
+			struct  VarData *vd = (struct VarData *)dn->ptr;
+			
+			printf("Variable Data : %s(%d), type : %s\n", vd->var_name, vd->id, vd->type);
+			dn = dn->next;
+		}
+	}
+}
+
+void debug_view_data(struct ParserContext *pc){
+	debug_view_func_smtb(pc->glob_func_smtb);
+	
+	int i;
+	for(i=0; i<pc->class_data_cnt; i++){
+		struct ClassData *cd = pc->class_data[i];
+
+		printf("Class Data : %s(%d), parent : %s\n", cd->class_name, cd->id, cd->parent_name);
+
+		printf("------ members -----\n");
+
+		debug_view_func_smtb(cd->member_funcs);
+		debug_view_var_smtb(cd->member_vars);
+
+		printf("-------------------\n\n");
+	}
+}
+
 struct Node *parse(struct ParserContext *pc, bool is_expr) {
+
 	struct TokenizerContext *tc = pc->tc;
 	assert(tc != NULL);
 

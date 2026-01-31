@@ -16,10 +16,22 @@ int main(int arc, char *args[]) {
 	struct ParserContext *pc = gen_pc();
 	struct TypeCheckContext *tcc = gen_tcc();
 
-	compile_file(pc, gen_tc(read_file("test.cn")), tcc);
+	struct TokenizerContext *tc = gen_tc(read_file("test.cn"));
+	pc->tc = tc;
+	while(peek(tc)->type != TokEOF){
+		parse_structure(pc);
+	}
+	init_tc(tc);
 
-	resolve_tcq(pc, tcc);
+	tc = gen_tc(read_file("test2.cn"));
+	pc->tc = tc;
+	while(peek(tc)->type != TokEOF){
+		parse_structure(pc);
+	}
+	init_tc(tc);
 
+	debug_view_data(pc);
+	
 	// back end
 	struct IRContext *irc = gen_irc();
 
