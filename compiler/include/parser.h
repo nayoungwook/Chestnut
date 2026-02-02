@@ -56,11 +56,8 @@ struct StringLiteralAST {
 	struct Token *str_tok;
 };
 
-struct IdentDataNode;
-
 struct IdentifierAST {
 	struct Token *ident;
-	struct IdentDataNode *ident_data_node;
 };
 
 typedef struct {
@@ -132,7 +129,6 @@ struct FuncCallAST {
 	struct Token *func_name_tok;
 	struct Node **params;
 	int param_size;
-	struct IdentDataNode *ident_data_node;
 };
 
 struct IdentIncreAST {
@@ -228,7 +224,9 @@ struct Scope {
 
 struct ParserContext {
 	struct TokenizerContext *tc;
-	struct TypeCheckContext *tcc;
+	
+	struct Queue *first_pass_queue;
+	struct Queue *second_pass_queue;
 
 	struct HTable *glob_var_smtb; // VarData will be stored.
 	struct HTable *glob_func_smtb; // FuncData will be stored.
@@ -258,8 +256,7 @@ struct ParserContext {
 
 struct ParserContext *gen_pc();
 
-void compile_file(struct ParserContext *pc, struct TokenizerContext *tc,
-	struct TypeCheckContext *tcc);
+void compile_file(struct ParserContext *pc, struct TokenizerContext *tc);
 
 // parse
 struct Node *parse(struct ParserContext *pc, bool is_expr);

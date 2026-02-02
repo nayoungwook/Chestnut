@@ -1,6 +1,11 @@
 
 func main(): void {
-	foo();
-	bar();
+	var foo: Foo;
+
+	foo.bar.bar();
+
+	touch();
 }
 
+func touch(): void {
+}

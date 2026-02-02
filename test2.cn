@@ -1,6 +1,7 @@
 
 
 class Foo {
+	var bar: Bar;
 	func foo(): void {
 
 	}
@@ -11,6 +12,7 @@ func foo(): void {
 }
 
 class Bar {
+	var foo: Foo;
 	func bar(): void {
 
 	}

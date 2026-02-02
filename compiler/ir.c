@@ -150,18 +150,18 @@ static unsigned get_size_of_type(struct ParserContext *pc, const char *type_str)
 }
 
 static unsigned get_total_stack_size_of_func(struct ParserContext *pc,
-	struct FuncData *func_data) {
+					     struct FuncDeclAST *func_decl) {
 	int i;
 	unsigned stack_offset = 0;
 
-	for (i = 0; i < func_data->declared_var_count; i++) {
-		struct VarData *var_data = func_data->declared_vars[i];
+	for (i = 0; i < func_decl->declared_var_count; i++) {
+		struct VarData *var_data = func_decl->declared_vars[i];
 		unsigned data_size = get_size_of_type(pc, var_data->type);
 
 		var_data->offset = stack_offset;
 
 		printf("%s(%d) declared in %s, type : %s\n", var_data->var_name,
-			var_data->id, func_data->func_name, var_data->type);
+		       var_data->id, func_decl->func_name_tok->str, var_data->type);
 		printf("stack offset : %d, size of variable : %d\n\n",
 			stack_offset,
 			data_size);
@@ -192,9 +192,8 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc, struct 
 
 	case AST_FunctionDeclaration: {
 		struct FuncDeclAST *func_decl_ast = (struct FuncDeclAST *)node->ast;
-		struct FuncData *func_data = func_decl_ast->func_data;
 
-		unsigned total_stack_size = get_total_stack_size_of_func(pc, func_data);
+		unsigned total_stack_size = get_total_stack_size_of_func(pc, func_decl_ast);
 
 		emit_byte(irc, OP_SP_PUSH);
 

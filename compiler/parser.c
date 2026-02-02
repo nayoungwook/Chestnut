@@ -41,6 +41,9 @@ struct ParserContext *gen_pc() {
 
 	pc->tc = NULL;
 
+	pc->first_pass_queue = gen_queue();
+	pc->second_pass_queue = gen_queue();
+	
 	pc->current_scope = NULL;
 	pc->current_class = NULL;
 	pc->current_func = NULL;
@@ -66,12 +69,11 @@ struct ParserContext *gen_pc() {
 	return pc;
 }
 
-void compile_file(struct ParserContext *pc, struct TokenizerContext *tc,
-		  struct TypeCheckContext *tcc) {
+void compile_file(struct ParserContext *pc, struct TokenizerContext *tc) {
+		
 	struct Node *node = NULL;
 
 	pc->tc = tc;
-	pc->tcc = tcc;
 
 	while ((node = parse(pc, false)) != NULL) {
 		if (pc->node_size + 1 >= pc->node_capacity) {
@@ -140,43 +142,6 @@ static struct Node *gen_func_call_node(struct Token *first, struct ParserContext
 	return pack(AST_FunctionCall, func_call);
 }
 
-/*
-  AttribNode -> this identifier node will be attribute of "attr_of" node.
-  [first identifier] ... [attr_of] -> [attr_of] -> [gen_ident_node]
-  We have to check attribute and type validation after the parsing.
-*/
-static struct IdentData *gen_ident_data(const char *ident, enum IdentType attr_type) {
-	struct IdentData *ident_data = (struct IdentData *)S_malloc(sizeof(struct IdentData));
-
-	ident_data->type_str = "";
-	ident_data->type = NULL;
-	ident_data->attr_type = attr_type;
-	ident_data->str = ident;
-
-	return ident_data;
-}
-
-static struct IdentDataNode *
-gen_ident_data_node(const char *ident, enum IdentType ident_type,
-		    struct IdentDataNode *attr_of) {
-	struct IdentDataNode *ident_data_node = (struct IdentDataNode *)S_malloc(sizeof(struct IdentDataNode));
-	ident_data_node->ident_data = gen_ident_data(ident, ident_type);
-	ident_data_node->attr = NULL;
-	ident_data_node->type_checked = false;
-
-	if (attr_of != NULL) {
-		// This identifier will be "attr_node" of "attr_of"
-		attr_of->attr = ident_data_node;
-	}
-
-	return ident_data_node;
-}
-
-void free_ident_node(struct IdentDataNode *ident_data_node) {
-	free(ident_data_node->ident_data);
-	free(ident_data_node);
-}
-
 static struct VarData *find_var_data(struct ParserContext *pc, const char *var_name) {
 	struct VarData *result = NULL;
 
@@ -218,85 +183,71 @@ static struct FuncData *find_func_data(struct ParserContext *pc, const char *fun
 	return result;
 }
 
-static const char *get_type_of_identifier(struct ParserContext *pc, enum IdentType ident_type,
-					  const char *str) {
-	const char *result = NULL;
+static struct ClassData *find_class_data(struct ParserContext *pc, const char *class_name){
+	struct Type *type = find_type(pc, class_name);
 
-	switch (ident_type) {
-	case IT_Var: {
-		struct VarData *var = find_var_data(pc, str);
-
-		if (var == NULL) {
-			panic("Failed to find variable.", pc->tc);
-		}
-
-		result = var->type;
-
-		break;
-	}
-
-	case IT_Func: {
-		struct FuncData *func = find_func_data(pc, str);
-
-		if (func == NULL) {
-			panic("Failed to find function.", pc->tc);
-		}
-
-		result = func->return_type;
-
-		break;
-	}
-
-	default:
-		break;
-	}
-
-	return result;
-}
-
-static void get_first_node_type(struct ParserContext *pc, const char *ident_str,
-				enum IdentType ident_type,
-				struct IdentDataNode *ident_data_node,
-				struct IdentDataNode *attr_of) {
-	assert(ident_data_node != NULL);
-
-	// If it is first node, we have to check type of identifier.
-	// This is first identifier we put typechek on queue.
-	if (attr_of == NULL) {
-		const char *type_str = get_type_of_identifier(pc, ident_type, ident_str);
-		struct TypeCheckContext *tcc = pc->tcc;
-
-		assert(tcc != NULL);
-
-		ident_data_node->ident_data->type_str = type_str;
-
-		q_push(tcc->tc_ident_queue, gen_ident_tcqn(pc, ident_data_node));
-	}
-}
-
-static struct Node *gen_ident_node(struct Token *first, struct ParserContext *pc, struct IdentDataNode *attr_of,
-				   bool is_expr);
-
-static void parse_attribute(struct ParserContext *pc, struct Node *result, struct IdentDataNode *ident_node, bool is_expr) {
 	struct TokenizerContext *tc = pc->tc;
-	struct Token *nt = NULL;
+	char error_buff[512];
+		
+	if(type == NULL){
+		sprintf(error_buff, "Failed to find type %s", class_name);
+		panic(error_buff, tc);
+	}
+	
+	if(type->data == NULL){
+		sprintf(error_buff, "%s is not class.", class_name);
+		panic(error_buff, tc);
+	}
 
-	if ((nt = peek(tc))->type == TokDot) {
-		consume(tc, TokDot);
+	struct ClassData *class_data = (struct ClassData *) type->data;
 
-		struct Node *attr = gen_ident_node(pull(tc), pc, ident_node, is_expr);
-		result->attr = attr;
+	return class_data;
+}
+
+static struct Node *gen_ident_node(struct Token *first, struct ParserContext *pc, struct ClassData *attr_of,  bool is_expr);
+
+static bool check_attr(struct ClassData *class_data, struct Node *node){
+	if(node->type == AST_Identifier){
+		struct IdentifierAST *ident_ast = (struct IdentifierAST *) node->ast;
+
+		return ht_find(class_data->member_vars, ident_ast->ident->str) != NULL;
+	}
+
+	if(node->type == AST_FunctionCall){
+		struct FuncCallAST *func_call_ast = (struct FuncCallAST *) node->ast;
+		
+		return ht_find(class_data->member_funcs, func_call_ast->func_name_tok->str) != NULL;
+	}
+
+	return false;
+}
+
+static void parse_attribute(struct ParserContext *pc, struct ClassData *target_class, struct Node *ident_node, bool is_expr) {
+	struct TokenizerContext *tc = pc->tc;
+
+	assert(target_class != NULL);
+
+	struct Node *attr = gen_ident_node(pull(tc), pc, target_class, is_expr);
+	ident_node->attr = attr;
+
+	if(!check_attr(target_class, attr)){
+		const char *ident_str = "";
+		if(attr->type == AST_Identifier){
+			ident_str = ((struct IdentifierAST *) attr->ast)->ident->str;
+		}
+
+		if(attr->type == AST_FunctionCall){
+			ident_str = ((struct FuncCallAST *) attr->ast)->func_name_tok->str;
+		}
+		
+		char error_buff[512];
+		sprintf(error_buff, "Failed to find attribute \"%s\" from \"%s\"", ident_str, target_class->class_name);
+		panic(error_buff, tc);
 	}
 }
 
 // return binary expr ast node if it is assign expression.
-static struct Node *check_assign(struct ParserContext *pc, struct IdentDataNode *ident_node,
-				 struct IdentDataNode *attr_of, struct Node *result) {
-	// if it is not first node, return
-	if (attr_of != NULL) {
-		return result;
-	}
-
+static struct Node *check_assign(struct ParserContext *pc, struct Node *result) {
 	struct TokenizerContext *tc = pc->tc;
 	struct Token *nt = peek(tc);
 
@@ -309,41 +260,73 @@ static struct Node *check_assign(struct ParserContext *pc, struct IdentDataNode 
 	struct Node *expr = parse_expression(pc);
 	consume(tc, TokSemiColon);
 
-	struct TypeCheckContext *tcc = pc->tcc;
-
-	assert(tcc != NULL);
-
 	struct BinExprAST *bin_expr_ast = (struct BinExprAST *)S_malloc(sizeof(struct BinExprAST));
 
 	bin_expr_ast->left = result;
 	bin_expr_ast->opType = OpASSIGN;
 	bin_expr_ast->right = expr;
 
-	q_push(tcc->tc_assign_queue, gen_assign_tcqn(pc, bin_expr_ast->left, bin_expr_ast->right));
+	//	q_push(tcc->tc_assign_queue, gen_assign_tcqn(pc, bin_expr_ast->left, bin_expr_ast->right));
 
 	return pack(AST_BinExpr, bin_expr_ast);
 }
 
-static struct Node *gen_ident_node(struct Token *first,
-				   struct ParserContext *pc,
-				   struct IdentDataNode *attr_of,
-				   bool is_expr) {
+static struct ClassData *get_class_data_of_ident_node(struct ParserContext *pc, struct ClassData *attr_of, struct Node *ident_node){
+	struct ClassData *target_class = NULL;
+	struct TokenizerContext *tc = pc->tc;
+	
+	if(ident_node->type == AST_Identifier){
+		struct IdentifierAST *ident_ast = (struct IdentifierAST *) ident_node->ast;
+
+		struct VarData *var_data = NULL;
+
+		if(attr_of == NULL){
+			var_data = find_var_data(pc, ident_ast->ident->str);
+		} else {
+			var_data = (struct VarData *) ht_find(attr_of->member_vars, ident_ast->ident->str);
+		}
+		
+		if(var_data == NULL){
+			char error_buff[512];
+			sprintf(error_buff, "Failed to find variable %s", ident_ast->ident->str);
+			panic(error_buff, tc);
+		}
+
+		target_class = find_class_data(pc, var_data->type);
+	}
+
+	if(ident_node->type == AST_FunctionCall){
+		struct FuncCallAST *func_call_ast = (struct FuncCallAST *) ident_node->ast;
+		struct FuncData *func_data = NULL;
+
+		if(attr_of == NULL){
+			func_data = find_func_data(pc, func_call_ast->func_name_tok->str);
+		} else {
+			func_data = (struct FuncData *) ht_find(attr_of->member_funcs, func_call_ast->func_name_tok->str);
+		}
+		
+		
+		if(func_data == NULL){
+			char error_buff[512];
+			sprintf(error_buff, "Failed to find function %s", func_call_ast->func_name_tok->str);
+			panic(error_buff, tc);
+		}
+
+		target_class = find_class_data(pc, func_data->return_type);
+	}
+
+	return target_class;
+}
+
+static struct Node *gen_ident_node(struct Token *first, struct ParserContext *pc, struct ClassData *attr_of, bool is_expr) {
 	struct TokenizerContext *tc = pc->tc;
 	struct Token *nt = peek(tc);
 
-	const char *ident_str = first->str;
-	struct IdentDataNode *ident_data_node = NULL;
-	enum IdentType ident_type = IT_None;
-
 	struct Node *result = NULL;
 
-	if (nt->type == TokLParen) {
-		ident_type = IT_Func;
+	if(nt->type == TokLParen){
 		result = gen_func_call_node(first, pc, is_expr);
-	}
-	else {
-		ident_type = IT_Var;
-
+	} else {
 		struct IdentifierAST *ident_ast = (struct IdentifierAST *)S_malloc(sizeof(struct IdentifierAST));
 		ident_ast->ident = first;
 
@@ -351,29 +334,16 @@ static struct Node *gen_ident_node(struct Token *first,
 	}
 
 	assert(result != NULL);
-	assert(ident_type != IT_None);
 
-	ident_data_node = gen_ident_data_node(ident_str, ident_type, attr_of);
+	if(peek(tc)->type == TokDot){
+		consume(tc, TokDot);
 
-	parse_attribute(pc, result, ident_data_node, is_expr);
-
-	get_first_node_type(pc, ident_str, ident_type, ident_data_node, attr_of);
-
-	switch (result->type) {
-	case AST_Identifier:
-		((struct IdentifierAST *)result->ast)->ident_data_node = ident_data_node;
-		break;
-
-	case AST_FunctionCall:
-		((struct FuncCallAST *)result->ast)->ident_data_node = ident_data_node;
-		break;
-
-	default:
-		panic("Unexpected identifier type. check parser.c", tc);
-		break;
+		attr_of = get_class_data_of_ident_node(pc, attr_of, result);
+		
+		parse_attribute(pc, attr_of, result, is_expr);
 	}
 
-	result = check_assign(pc, ident_data_node, attr_of, result);
+	result = check_assign(pc, result);
 
 	return result;
 }
@@ -382,9 +352,6 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
 	struct TokenizerContext *tc = pc->tc;
 	struct VarDeclBundleAST *result =
 		(struct VarDeclBundleAST *)S_malloc(sizeof(struct VarDeclBundleAST));
-	struct TypeCheckContext *tcc = pc->tcc;
-
-	assert(tcc != NULL);
 
 	result->var_count = 0;
 	result->var_decls = (struct Node **)S_malloc(sizeof(struct Node *));
@@ -405,7 +372,7 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
 		var_decl->var_name_tok = name_tok;
 		var_decl->var_type_tok = type_tok;
 
-		q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, type_tok->str));
+		//		q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, type_tok->str));
 
 		if (param_size + 1 >= capacity) {
 			capacity *= 2;
@@ -538,9 +505,8 @@ static struct Node *gen_func_decl_node(struct Token *first, struct ParserContext
 	consume(tc, TokColon);
 
 	struct Token *ret_type_tok = pull(tc);
-	struct TypeCheckContext *tcc = pc->tcc;
 
-	q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, ret_type_tok->str));
+	//	q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, ret_type_tok->str));
 
 	func_decl->func_name_tok = func_name_tok;
 	func_decl->ret_type_tok = ret_type_tok;
@@ -549,6 +515,7 @@ static struct Node *gen_func_decl_node(struct Token *first, struct ParserContext
 	struct Node *result = pack(AST_FunctionDeclaration, func_decl);
 
 	unsigned body_size = 0;
+	pc->current_func = find_func_data(pc, func_name_tok->str);
 	func_decl->body = gen_body(pc, &body_size);
 	pc->current_func = NULL;
 
@@ -628,7 +595,6 @@ static struct Node *gen_var_decl_node(struct Token *first,
 	struct TokenizerContext *tc = pc->tc;
 	struct VarDeclBundleAST *result =
 		(struct VarDeclBundleAST *)S_malloc(sizeof(struct VarDeclBundleAST));
-	struct TypeCheckContext *tcc = pc->tcc;
 
 	result->var_decls = (struct Node **)S_malloc(sizeof(struct Node *));
 
@@ -643,7 +609,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
 		consume(tc, TokColon);
 
 		struct Token *var_type_tok = pull(tc);
-		q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, var_type_tok->str));
+		//		q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, var_type_tok->str));
 
 		struct Token *cont_tok = peek(tc);
 
@@ -824,6 +790,7 @@ static struct ClassData *register_class_data(const char *class_name, const char 
 	struct ClassData *data =
 		(struct ClassData *)S_malloc(sizeof(struct ClassData));
 	data->id = pc->class_type_smtb->size + 1;
+	
 	data->class_name = class_name;
 	
 	data->parent_name = parent_name;
@@ -861,6 +828,8 @@ static struct Node *gen_class_decl_node(struct Token *first,
 	
 	// and parse body
 	unsigned body_size;
+	
+	pc->current_class = find_class_data(pc, name_tok->str);
 	class_ast->body = gen_body(pc, &body_size);
 	pc->current_class = NULL;
 
@@ -1084,7 +1053,7 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
 	}
 
 	case TokIdent: {
-		return gen_ident_node(first, pc, false, is_expr);
+		return gen_ident_node(first, pc, NULL, is_expr);
 	}
 
 	case TokReturn: {
