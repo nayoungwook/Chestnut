@@ -10,7 +10,7 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
 
 	switch (node->type) {
 	case AST_FunctionCall: {
-
+		
 		break;
 	}
 
@@ -78,5 +78,5 @@ struct Type *find_type(struct ParserContext *pc, const char *type_str) {
 
 
 bool check_type_existance(struct ParserContext *pc, const char *type) {
-	return find_type(pc, type) != NULL || strcmp(type, "void") == 0;
+	return find_type(pc, type) != NULL;
 }

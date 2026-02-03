@@ -2,10 +2,14 @@
 func main(): void {
 	var foo: Foo;
 
-	foo.bar.bar();
+	get_foo().bar.foo.bar.bar();
 
-	touch();
+	touch2();
+	
 }
 
-func touch(): void {
+func get_foo(): Foo {
+}
+
+func touch2(): void {
 }

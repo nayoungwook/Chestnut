@@ -1,5 +1,7 @@
 #include "token.h"
+#include "type.h"
 #include "util.h"
+
 #pragma warning(disable: 6011) // ignore posible NULL pointer reference.
 
 #include <parser.h>
@@ -127,21 +129,6 @@ static void parse_func_call_params(struct ParserContext *pc, struct FuncCallAST 
 	consume(tc, TokRParen);
 }
 
-static struct Node *gen_func_call_node(struct Token *first, struct ParserContext *pc, bool is_expr) {
-	struct FuncCallAST *func_call = (struct FuncCallAST *)S_malloc(sizeof(struct FuncCallAST));
-	struct TokenizerContext *tc = pc->tc;
-
-	parse_func_call_params(pc, func_call);
-
-	func_call->func_name_tok = first;
-
-	if (!is_expr) {
-		consume(tc, TokSemiColon);
-	}
-
-	return pack(AST_FunctionCall, func_call);
-}
-
 static struct VarData *find_var_data(struct ParserContext *pc, const char *var_name) {
 	struct VarData *result = NULL;
 
@@ -185,23 +172,28 @@ static struct FuncData *find_func_data(struct ParserContext *pc, const char *fun
 
 static struct ClassData *find_class_data(struct ParserContext *pc, const char *class_name){
 	struct Type *type = find_type(pc, class_name);
-
-	struct TokenizerContext *tc = pc->tc;
-	char error_buff[512];
 		
 	if(type == NULL){
-		sprintf(error_buff, "Failed to find type %s", class_name);
-		panic(error_buff, tc);
+		return NULL;
 	}
 	
 	if(type->data == NULL){
-		sprintf(error_buff, "%s is not class.", class_name);
-		panic(error_buff, tc);
+		return NULL;
 	}
 
 	struct ClassData *class_data = (struct ClassData *) type->data;
 
 	return class_data;
+}
+
+static struct Node *gen_func_call_node(struct Token *first, struct ParserContext *pc, bool is_expr) {
+	struct FuncCallAST *func_call = (struct FuncCallAST *)S_malloc(sizeof(struct FuncCallAST));
+
+	parse_func_call_params(pc, func_call);
+
+	func_call->func_name_tok = first;
+
+	return pack(AST_FunctionCall, func_call);
 }
 
 static struct Node *gen_ident_node(struct Token *first, struct ParserContext *pc, struct ClassData *attr_of,  bool is_expr);
@@ -279,7 +271,7 @@ static struct ClassData *get_class_data_of_ident_node(struct ParserContext *pc, 
 		struct IdentifierAST *ident_ast = (struct IdentifierAST *) ident_node->ast;
 
 		struct VarData *var_data = NULL;
-
+		
 		if(attr_of == NULL){
 			var_data = find_var_data(pc, ident_ast->ident->str);
 		} else {
@@ -288,7 +280,14 @@ static struct ClassData *get_class_data_of_ident_node(struct ParserContext *pc, 
 		
 		if(var_data == NULL){
 			char error_buff[512];
-			sprintf(error_buff, "Failed to find variable %s", ident_ast->ident->str);
+			if(attr_of == NULL){
+				sprintf(error_buff, "Failed to find variable %s", ident_ast->ident->str);
+			}
+
+			if(attr_of != NULL){
+				sprintf(error_buff, "Failed to find member variable %s of \"%s\"", ident_ast->ident->str, attr_of->class_name);
+			}
+			
 			panic(error_buff, tc);
 		}
 
@@ -305,6 +304,19 @@ static struct ClassData *get_class_data_of_ident_node(struct ParserContext *pc, 
 			func_data = (struct FuncData *) ht_find(attr_of->member_funcs, func_call_ast->func_name_tok->str);
 		}
 		
+		if(func_data == NULL){
+			char error_buff[512];
+			if(attr_of == NULL){
+				sprintf(error_buff, "Failed to find function %s", func_call_ast->func_name_tok->str);
+			}
+
+			if(attr_of != NULL){
+				sprintf(error_buff, "Failed to find member function %s of \"%s\"", func_call_ast->func_name_tok->str, attr_of->class_name);
+			}
+			
+			panic(error_buff, tc);
+		}
+
 		
 		if(func_data == NULL){
 			char error_buff[512];
@@ -335,15 +347,21 @@ static struct Node *gen_ident_node(struct Token *first, struct ParserContext *pc
 
 	assert(result != NULL);
 
+	bool is_end_of_statement = attr_of == NULL && !is_expr;
+	
+	attr_of = get_class_data_of_ident_node(pc, attr_of, result);
+
 	if(peek(tc)->type == TokDot){
 		consume(tc, TokDot);
 
-		attr_of = get_class_data_of_ident_node(pc, attr_of, result);
-		
 		parse_attribute(pc, attr_of, result, is_expr);
 	}
 
 	result = check_assign(pc, result);
+
+	if(is_end_of_statement){
+		consume(tc, TokSemiColon);
+	}
 
 	return result;
 }
@@ -372,7 +390,11 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
 		var_decl->var_name_tok = name_tok;
 		var_decl->var_type_tok = type_tok;
 
-		//		q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, type_tok->str));
+		if(!check_type_existance(pc, type_tok->str)){
+			char error_buff[512];
+			sprintf(error_buff, "Failed to find type %s", type_tok->str);
+			panic(error_buff, tc);
+		}
 
 		if (param_size + 1 >= capacity) {
 			capacity *= 2;
@@ -506,7 +528,11 @@ static struct Node *gen_func_decl_node(struct Token *first, struct ParserContext
 
 	struct Token *ret_type_tok = pull(tc);
 
-	//	q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, ret_type_tok->str));
+	if(!check_type_existance(pc, ret_type_tok->str)){
+		char error_buff[512];
+		sprintf(error_buff, "Failed to find type %s", ret_type_tok->str);
+		panic(error_buff, tc);
+	}
 
 	func_decl->func_name_tok = func_name_tok;
 	func_decl->ret_type_tok = ret_type_tok;
@@ -609,7 +635,12 @@ static struct Node *gen_var_decl_node(struct Token *first,
 		consume(tc, TokColon);
 
 		struct Token *var_type_tok = pull(tc);
-		//		q_push(tcc->tc_type_queue, gen_rawtype_tcqn(pc, var_type_tok->str));
+
+		if(!check_type_existance(pc, var_type_tok->str)){	
+			char error_buff[512];
+			sprintf(error_buff, "Failed to find type %s", var_type_tok->str);
+			panic(error_buff, tc);
+		}
 
 		struct Token *cont_tok = peek(tc);
 
