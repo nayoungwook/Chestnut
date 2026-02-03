@@ -1,15 +1,4 @@
 
 func main(): void {
-	var foo: Foo;
-
-	get_foo().bar.foo.bar.bar();
-
-	touch2();
-	
-}
-
-func get_foo(): Foo {
-}
-
-func touch2(): void {
+	print("Hello, World!\n");
 }

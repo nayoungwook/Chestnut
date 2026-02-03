@@ -1,61 +1,63 @@
 #define DEBUG
 
-#include <token.h>
-#include <parser.h>
-#include <util.h>
-#include <type.h>
 #include <ir.h>
+#include <parser.h>
+#include <token.h>
+#include <type.h>
+#include <util.h>
 
 #include <assert.h>
 #include <locale.h>
 
-static void resolve_first_pass_queue(struct ParserContext *pc){
-	while(pc->first_pass_queue->size != 0){
-		struct TokenizerContext *tc = q_pop(pc->first_pass_queue);
+static void resolve_first_pass_queue(struct ParserContext *pc) {
+    while (pc->first_pass_queue->size != 0) {
+        struct TokenizerContext *tc = q_pop(pc->first_pass_queue);
 
-		pc->tc = tc;
-		while(peek(tc)->type != TokEOF){
-			parse_structure(pc);
-		}
+        pc->tc = tc;
+        while (peek(tc)->type != TokEOF) {
+            parse_structure(pc);
+        }
 
-		init_tc(tc);
-		q_push(pc->second_pass_queue, tc);
-	}
+        init_tc(tc);
+        q_push(pc->second_pass_queue, tc);
+    }
 }
 
-static void resolve_second_pass_queue(struct ParserContext *pc){
-	while(pc->second_pass_queue->size != 0){
-		struct TokenizerContext *tc = q_pop(pc->second_pass_queue);
+static void resolve_second_pass_queue(struct ParserContext *pc) {
+    while (pc->second_pass_queue->size != 0) {
+        struct TokenizerContext *tc = q_pop(pc->second_pass_queue);
 
-		compile_file(pc, tc);
-	}
+        compile_file(pc, tc);
+
+        free_tc(tc);
+    }
 }
 
 int main(int arc, char *args[]) {
-	setlocale(LC_ALL, "");
+    setlocale(LC_ALL, "");
 
-	// front end  
-	struct ParserContext *pc = gen_pc();
+    // front end
+    struct ParserContext *pc = gen_pc();
 
-	q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
-	q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
+    q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
+    q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
 
-	resolve_first_pass_queue(pc);
+    resolve_first_pass_queue(pc);
 
-	debug_view_data(pc);
+    debug_view_data(pc);
 
-	resolve_second_pass_queue(pc);
-	
-	// back end
-	struct IRContext *irc = gen_irc();
+    resolve_second_pass_queue(pc);
 
-	init_irc(irc, NULL);
+    // back end
+    struct IRContext *irc = gen_irc();
 
-	// gen_ir(irc, pc);
+    init_irc(irc, NULL);
 
-	// write_file("test.cb", irc->byte_size, (const char*) get_bytes(irc));
-	
-	// print_bytes(irc);
+    // gen_ir(irc, pc);
 
-	return 0;
+    // write_file("test.cb", irc->byte_size, (const char*) get_bytes(irc));
+
+    // print_bytes(irc);
+
+    return 0;
 }

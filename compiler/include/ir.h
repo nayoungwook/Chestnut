@@ -10,9 +10,14 @@
 
 #define META_TERM 0x03
 
-#define META_CLASS 0x04 // META_CLASS class_id(uint) class_str(char*) [contents] META_TERM
-#define META_FUNC 0x05  // META_FUNC func_id(uint) func_str(char*) return_type(char*)
-#define META_VAR 0x06   // META_VAR var_id(uint) var_str(char*)
+// META_CLASS class_id(uint) class_str(char*) [contents] META_TERM
+#define META_CLASS 0x04
+
+// META_FUNC func_id(uint) func_str(char*) return_type(char*)
+#define META_FUNC 0x05
+
+// META_VAR var_id(uint) var_str(char*)
+#define META_VAR 0x06
 
 #define CODE_BEGIN 0x51 // begining of code section
 #define CODE_END 0x52
@@ -26,13 +31,12 @@
 #define OP_SP_PUSH 0x56 // sp_push amount(uint)
 #define OP_SP_POP 0x57  // sp_pop amount(uint)
 
-
 typedef unsigned char byte;
 
 struct IRContext {
-	byte *bytes;
-	struct Node *node;
-	unsigned byte_cnt, byte_size; // byte counter, byte size
+    byte *bytes;
+    struct Node *node;
+    unsigned byte_cnt, byte_size; // byte counter, byte size
 };
 
 struct IRContext *gen_irc();
