@@ -88,9 +88,8 @@ void compile_file(struct ParserContext *pc, struct TokenizerContext *tc) {
 
         pc->nodes[pc->node_size++] = node;
     }
-
+    
     pc->tc = NULL;
-    free(tc);
 }
 
 static struct Node *pack(enum ASTType type, void *ptr) {

@@ -13,6 +13,8 @@ static void resolve_first_pass_queue(struct ParserContext *pc) {
     while (pc->first_pass_queue->size != 0) {
         struct TokenizerContext *tc = q_pop(pc->first_pass_queue);
 
+	flush_tc(tc);
+	
         pc->tc = tc;
         while (peek(tc)->type != TokEOF) {
             parse_structure(pc);
@@ -29,7 +31,7 @@ static void resolve_second_pass_queue(struct ParserContext *pc) {
 
         compile_file(pc, tc);
 
-        free_tc(tc);
+	free_tc(tc);
     }
 }
 
