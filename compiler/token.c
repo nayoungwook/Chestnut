@@ -24,6 +24,16 @@ struct TokenizerContext *gen_tc(char *file) {
 
 void free_tc(struct TokenizerContext *tc) { free(tc); }
 
+void flush_tc(struct TokenizerContext *tc) {
+    while (peek(tc)->type != TokEOF) {
+        struct Token *tok = pull(tc);
+
+        printf("token : %s %d\n", tok->str, tok->type);
+    }
+
+    init_tc(tc);
+}
+
 static struct HTable *keyword_table;
 
 static struct KeywordEntry *gen_keyword(const char *keyword,

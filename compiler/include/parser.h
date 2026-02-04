@@ -201,6 +201,7 @@ struct FuncData {
     const char *return_type;
 
     const char **arg_types;
+    unsigned arg_count;
 
     bool varargs;
 };
@@ -238,10 +239,10 @@ struct ParserContext {
 
     struct HTable *syscall_smtb;
 
-    unsigned class_data_cnt;
+    unsigned class_data_count;
     struct ClassData *class_data[MAX_CLASS_COUNT];
 
-    unsigned func_data_cnt;
+    unsigned func_data_count;
     struct FuncData *func_data[MAX_FUNC_COUNT];
 
     struct Scope *current_scope;

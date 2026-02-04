@@ -104,6 +104,7 @@ struct Token *consume(struct TokenizerContext *tc, enum TokenType tt);
 struct Token *peek(struct TokenizerContext *tc);
 struct Token *pull(struct TokenizerContext *tc);
 
+void flush_tc(struct TokenizerContext *tc);
 void init_tc(struct TokenizerContext *tc);
 struct TokenizerContext *gen_tc(char *file);
 

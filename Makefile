@@ -9,9 +9,9 @@ OBJS = $(SRC:.c=.o)
 
 TARGET = chestnut
 
-all: $(TARGET)
+all: $(TARGET)$(EXE)
 
-$(TARGET): $(OBJS) $(COMPILER_OBJS)
+$(TARGET)$(EXE): $(OBJS) $(COMPILER_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 %.o: %.c
@@ -20,4 +20,4 @@ $(TARGET): $(OBJS) $(COMPILER_OBJS)
 .PHONY: clean
 
 clean:
-	rm -f $(OBJS) $(COMPILER_OBJS) $(TARGET)
+	$(RM) $(OBJS) $(COMPILER_OBJS) $(TARGET)$(EXE)

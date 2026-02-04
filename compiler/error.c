@@ -1,4 +1,5 @@
 #include <error.h>
+#include <stdarg.h>
 
 void panic(char *msg, struct TokenizerContext *tc) {
     printf("PANIC!\n");

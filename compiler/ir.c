@@ -117,7 +117,7 @@ static void gen_class_metadata(struct IRContext *irc, struct ParserContext *pc,
 
 static void gen_metadata(struct IRContext *irc, struct ParserContext *pc) {
     int i;
-    for (i = 0; i < pc->class_data_cnt; i++) {
+    for (i = 0; i < pc->class_data_count; i++) {
         struct ClassData *cd = pc->class_data[i];
 
         gen_class_metadata(irc, pc, cd);

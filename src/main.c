@@ -34,7 +34,6 @@ static void resolve_second_pass_queue(struct ParserContext *pc) {
 }
 
 int main(int arc, char *args[]) {
-    setlocale(LC_ALL, "");
 
     // front end
     struct ParserContext *pc = gen_pc();

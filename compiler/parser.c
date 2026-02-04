@@ -58,8 +58,8 @@ struct ParserContext *gen_pc() {
     pc->class_type_smtb = gen_htable();
     pc->primitive_type_smtb = gen_htable();
 
-    pc->class_data_cnt = 0;
-    pc->func_data_cnt = 0;
+    pc->class_data_count = 0;
+    pc->func_data_count = 0;
 
     pc->nodes = NULL;
     pc->node_size = 0;
@@ -294,82 +294,93 @@ static struct Node *check_assign(struct ParserContext *pc,
     return pack(AST_BinExpr, bin_expr_ast);
 }
 
+static struct ClassData *get_ident_class_data(struct ParserContext *pc,
+                                              struct ClassData *attr_of,
+                                              struct Node *ident_node) {
+    struct ClassData *target_class = NULL;
+    struct IdentifierAST *ident_ast = (struct IdentifierAST *)ident_node->ast;
+
+    struct VarData *var_data = NULL;
+    struct TokenizerContext *tc = pc->tc;
+
+    if (attr_of == NULL) {
+        var_data = find_var_data(pc, ident_ast->ident->str);
+    } else {
+        var_data = (struct VarData *)ht_find(attr_of->member_vars,
+                                             ident_ast->ident->str);
+    }
+
+    if (var_data == NULL) {
+        char error_buff[512];
+        if (attr_of == NULL) {
+            sprintf(error_buff, "Failed to find variable %s",
+                    ident_ast->ident->str);
+        }
+
+        if (attr_of != NULL) {
+            sprintf(error_buff,
+                    "Failed to find member variable %s of "
+                    "\"%s\"",
+                    ident_ast->ident->str, attr_of->class_name);
+        }
+
+        panic(error_buff, tc);
+    }
+
+    target_class = find_class_data(pc, var_data->type);
+
+    return target_class;
+}
+
+static struct ClassData *get_func_call_class_data(struct ParserContext *pc,
+                                                  struct ClassData *attr_of,
+                                                  struct Node *ident_node) {
+    struct FuncCallAST *func_call_ast = (struct FuncCallAST *)ident_node->ast;
+    struct FuncData *func_data = NULL;
+
+    struct ClassData *target_class = NULL;
+    struct TokenizerContext *tc = pc->tc;
+
+    if (attr_of == NULL) {
+        func_data = find_func_data(pc, func_call_ast->func_name_tok->str);
+    } else {
+        func_data = (struct FuncData *)ht_find(
+            attr_of->member_funcs, func_call_ast->func_name_tok->str);
+    }
+
+    if (func_data == NULL) {
+        char error_buff[512];
+        if (attr_of == NULL) {
+            sprintf(error_buff, "Failed to find function %s",
+                    func_call_ast->func_name_tok->str);
+        }
+
+        if (attr_of != NULL) {
+            sprintf(error_buff,
+                    "Failed to find member function %s of "
+                    "\"%s\"",
+                    func_call_ast->func_name_tok->str, attr_of->class_name);
+        }
+
+        panic(error_buff, tc);
+    }
+
+    target_class = find_class_data(pc, func_data->return_type);
+
+    return target_class;
+}
+
 static struct ClassData *get_class_data_of_ident_node(struct ParserContext *pc,
                                                       struct ClassData *attr_of,
                                                       struct Node *ident_node) {
     struct ClassData *target_class = NULL;
-    struct TokenizerContext *tc = pc->tc;
 
     if (ident_node->type == AST_Identifier) {
-        struct IdentifierAST *ident_ast =
-            (struct IdentifierAST *)ident_node->ast;
-
-        struct VarData *var_data = NULL;
-
-        if (attr_of == NULL) {
-            var_data = find_var_data(pc, ident_ast->ident->str);
-        } else {
-            var_data = (struct VarData *)ht_find(attr_of->member_vars,
-                                                 ident_ast->ident->str);
-        }
-
-        if (var_data == NULL) {
-            char error_buff[512];
-            if (attr_of == NULL) {
-                sprintf(error_buff, "Failed to find variable %s",
-                        ident_ast->ident->str);
-            }
-
-            if (attr_of != NULL) {
-                sprintf(error_buff,
-                        "Failed to find member variable %s of "
-                        "\"%s\"",
-                        ident_ast->ident->str, attr_of->class_name);
-            }
-
-            panic(error_buff, tc);
-        }
-
-        target_class = find_class_data(pc, var_data->type);
+        target_class = get_ident_class_data(pc, attr_of, ident_node);
     }
 
     if (ident_node->type == AST_FunctionCall) {
-        struct FuncCallAST *func_call_ast =
-            (struct FuncCallAST *)ident_node->ast;
-        struct FuncData *func_data = NULL;
-
-        if (attr_of == NULL) {
-            func_data = find_func_data(pc, func_call_ast->func_name_tok->str);
-        } else {
-            func_data = (struct FuncData *)ht_find(
-                attr_of->member_funcs, func_call_ast->func_name_tok->str);
-        }
-
-        if (func_data == NULL) {
-            char error_buff[512];
-            if (attr_of == NULL) {
-                sprintf(error_buff, "Failed to find function %s",
-                        func_call_ast->func_name_tok->str);
-            }
-
-            if (attr_of != NULL) {
-                sprintf(error_buff,
-                        "Failed to find member function %s of "
-                        "\"%s\"",
-                        func_call_ast->func_name_tok->str, attr_of->class_name);
-            }
-
-            panic(error_buff, tc);
-        }
-
-        if (func_data == NULL) {
-            char error_buff[512];
-            sprintf(error_buff, "Failed to find function %s",
-                    func_call_ast->func_name_tok->str);
-            panic(error_buff, tc);
-        }
-
-        target_class = find_class_data(pc, func_data->return_type);
+        target_class = get_func_call_class_data(pc, attr_of, ident_node);
     }
 
     return target_class;
@@ -562,7 +573,7 @@ static struct FuncData *register_func_data(const char *func_name,
         data->id = pc->glob_func_smtb->size + 1;
 
         ht_insert(pc->glob_func_smtb, func_name, data);
-        pc->func_data[pc->func_data_cnt++] = data;
+        pc->func_data[pc->func_data_count++] = data;
 
         return data;
     }
@@ -574,7 +585,6 @@ static struct Node *gen_func_decl_node(struct Token *first,
         (struct FuncDeclAST *)S_malloc(sizeof(struct FuncDeclAST));
 
     struct TokenizerContext *tc = pc->tc;
-    int i = 0;
     unsigned body_size = 0;
 
     // reset local var declaration.
@@ -588,9 +598,6 @@ static struct Node *gen_func_decl_node(struct Token *first,
     struct Node *params = gen_func_param_node(pc);
 
     assert(params->type == AST_VariableDeclarationBundle);
-
-    struct VarDeclBundleAST *params_ast =
-        (struct VarDeclBundleAST *)params->ast;
 
     consume(tc, TokColon);
 
@@ -609,15 +616,6 @@ static struct Node *gen_func_decl_node(struct Token *first,
     struct Node *result = pack(AST_FunctionDeclaration, func_decl);
 
     struct FuncData *func_data = find_func_data(pc, func_name_tok->str);
-
-    func_data->arg_types = S_malloc(params_ast->var_count * sizeof(char *));
-
-    for (i = 0; i < params_ast->var_count; i++) {
-        struct VarDeclAST *param =
-            (struct VarDeclAST *)params_ast->var_decls[i];
-
-        func_data->arg_types[i] = param->var_type_tok->str;
-    }
 
     pc->current_func = func_data;
     func_decl->body = gen_body(pc, &body_size);
@@ -916,7 +914,7 @@ static struct ClassData *register_class_data(const char *class_name,
     ht_insert(pc->class_type_smtb, class_name,
               gen_class_type(class_name, data));
 
-    pc->class_data[pc->class_data_cnt++] = data;
+    pc->class_data[pc->class_data_count++] = data;
 
     return data;
 }
@@ -985,18 +983,29 @@ static void parse_func_structure(struct ParserContext *pc) {
     struct TokenizerContext *tc = pc->tc;
 
     struct Token *func_name_tok = pull(tc);
+    int i;
+    struct Token *tok;
 
-    consume(tc, TokLParen);
-    struct Token *tok = NULL;
-
-    while ((tok = pull(tc))->type != TokRParen) {
-    }
+    struct Node *params = gen_func_param_node(pc);
+    struct VarDeclBundleAST *params_ast =
+        (struct VarDeclBundleAST *)params->ast;
 
     consume(tc, TokColon);
 
     struct Token *ret_type_tok = pull(tc);
 
-    register_func_data(func_name_tok->str, ret_type_tok->str, pc);
+    struct FuncData *func_data =
+        register_func_data(func_name_tok->str, ret_type_tok->str, pc);
+
+    func_data->arg_types = S_malloc(params_ast->var_count * sizeof(char *));
+    func_data->arg_count = params_ast->var_count;
+
+    for (i = 0; i < params_ast->var_count; i++) {
+        struct VarDeclAST *param =
+            (struct VarDeclAST *)params_ast->var_decls[i];
+
+        func_data->arg_types[i] = param->var_type_tok->str;
+    }
 
     // We will not parse content of function declaration.
     consume(tc, TokLBracket);
@@ -1074,15 +1083,22 @@ void parse_structure(struct ParserContext *pc) {
 }
 
 static void debug_view_func_smtb(struct HTable *htable) {
-    int i;
+    int i, j;
     for (i = 0; i < HTABLE_BUFF; i++) {
         struct DataNode *dn = htable->bucket[i];
 
         while (dn != NULL) {
             struct FuncData *fd = (struct FuncData *)dn->ptr;
 
-            printf("Function Data : %s(%d), ret type : %s\n", fd->func_name,
+            printf("Function Data : %s(%d), ret type : %s ", fd->func_name,
                    fd->id, fd->return_type);
+
+            printf("Arguments : ");
+            for (j = 0; j < fd->arg_count; j++) {
+                printf("%s,", fd->arg_types[j]);
+            }
+            printf("\n");
+
             dn = dn->next;
         }
     }
@@ -1107,7 +1123,7 @@ void debug_view_data(struct ParserContext *pc) {
     debug_view_func_smtb(pc->glob_func_smtb);
 
     int i;
-    for (i = 0; i < pc->class_data_cnt; i++) {
+    for (i = 0; i < pc->class_data_count; i++) {
         struct ClassData *cd = pc->class_data[i];
 
         printf("Class Data : %s(%d), parent : %s\n", cd->class_name, cd->id,
