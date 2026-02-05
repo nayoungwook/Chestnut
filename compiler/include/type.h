@@ -8,12 +8,12 @@
 #include <wchar.h>
 
 struct Type {
-    const char *type_str;
-    struct ClassData *data;
+        const char *type_str;
+        struct ClassData *data;
 
-    uint32_t nbyte;
-    unsigned rank;
-    bool is_signed;
+        uint32_t nbyte;
+        unsigned rank;
+        bool is_signed;
 };
 
 struct ParserContext;

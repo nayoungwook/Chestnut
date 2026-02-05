@@ -34,9 +34,9 @@
 typedef unsigned char byte;
 
 struct IRContext {
-    byte *bytes;
-    struct Node *node;
-    unsigned byte_cnt, byte_size; // byte counter, byte size
+        byte *bytes;
+        struct Node *node;
+        unsigned byte_cnt, byte_size; // byte counter, byte size
 };
 
 struct IRContext *gen_irc();
