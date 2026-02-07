@@ -31,6 +31,8 @@
 #define OP_SP_PUSH 0x56 // sp_push amount(uint)
 #define OP_SP_POP 0x57  // sp_pop amount(uint)
 
+#define OP_FUNC_CALL 0x58 // func_call id(uint) arg_cnt(uint)
+
 typedef unsigned char byte;
 
 struct IRContext {

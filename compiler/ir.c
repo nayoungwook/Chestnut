@@ -128,7 +128,7 @@ static void gen_metadata(struct IRContext *irc, struct ParserContext *pc) {
 void print_bytes(struct IRContext *irc) {
         int i;
         for (i = 0; i < irc->byte_size; i++) {
-                printf("%.2x", irc->bytes[i]);
+                printf("%.2x ", irc->bytes[i]);
 
                 if ((i + 1) % 16 == 0) {
                         printf("\n");
@@ -192,6 +192,26 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 break;
         }
 
+        case AST_FunctionCall: {
+
+                struct FuncCallAST *func_call_ast =
+                    (struct FuncCallAST *)node->ast;
+
+                struct FuncData *func_data = func_call_ast->func_data;
+
+                if (!func_data->varargs) {
+                        assert(func_data->arg_count ==
+                               func_call_ast->param_size);
+                }
+
+                emit_byte(irc, OP_FUNC_CALL);
+
+                emit_int(irc, func_data->id);
+                emit_int(irc, func_data->arg_count);
+
+                break;
+        }
+
         case AST_FunctionDeclaration: {
                 struct FuncDeclAST *func_decl_ast =
                     (struct FuncDeclAST *)node->ast;
@@ -215,8 +235,11 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 }
 
                 emit_byte(irc, OP_SP_POP);
-                emit_byte(irc, CODE_TERM);
                 emit_int(irc, total_stack_size);
+
+                emit_byte(irc, CODE_TERM);
+
+                break;
         }
 
         default: {
