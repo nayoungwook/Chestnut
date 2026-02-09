@@ -39,13 +39,12 @@ static void emit_str(struct IRContext *irc, const char *str) {
         // [0xFF 0xAA] [0xCD 0xEF] ... [0xDF 0xER]
 
         while ((ch = *(str + i)) != '\0') {
-                emit_byte(irc, ((ch) & 0xFF));
+                emit_byte(irc, ch);
 
                 i++;
         }
 
         // emit null character
-        emit_byte(irc, 0x00);
         emit_byte(irc, 0x00);
 }
 
@@ -117,12 +116,17 @@ static void gen_class_metadata(struct IRContext *irc, struct ParserContext *pc,
 }
 
 static void gen_metadata(struct IRContext *irc, struct ParserContext *pc) {
+
+        emit_byte(irc, META_BEGIN);
+
         int i;
         for (i = 0; i < pc->class_data_count; i++) {
                 struct ClassData *cd = pc->class_data[i];
 
                 gen_class_metadata(irc, pc, cd);
         }
+
+        emit_byte(irc, META_END);
 }
 
 void print_bytes(struct IRContext *irc) {

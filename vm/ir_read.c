@@ -1,10 +1,97 @@
 #include <ir_read.h>
 
-void debug_dump_ir(struct IRContext *irc) {
-        int i;
+struct IRReader *gen_ir_reader(struct IRContext *irc) {
+        struct IRReader *ir_reader =
+            (struct IRReader *)S_malloc(sizeof(struct IRReader));
 
-        for(i=0; i<irc->byte_cnt; i++){
-                irc->bytes[i];
+        ir_reader->bytes = irc->bytes;
+        ir_reader->irc = irc;
+        ir_reader->reader_cnt = 0;
+
+        return ir_reader;
+}
+
+static void dump_op(struct IRReader *ir_reader) {}
+
+static void consume_str(struct IRReader *ir_reader) {
+        printf("\"");
+
+        byte b;
+
+        while ((b = CONSUME_BYTE(ir_reader)) != '\0') {
+                printf("%c", b);
+        }
+
+        printf("\"");
+}
+
+static void consume_int(struct IRReader *ir_reader) {
+        int i, ac = 1, val = 0;
+
+        for (i = 0; i < 4; i++) {
+                val += (int)CONSUME_BYTE(ir_reader) * ac;
+                ac <<= 8;
+        }
+
+        printf("%d", val);
+}
+
+static void read_block_meta(struct IRReader *ir_reader) {
+        switch (CONSUME_BYTE(ir_reader)) {
+        case META_CLASS: {
+                printf("[class]");
+                consume_int(ir_reader);
+                printf(" ");
+                consume_str(ir_reader);
+                printf("\n{\n");
+
+                while (READ_BYTE(ir_reader) != META_TERM) {
+                        read_block_meta(ir_reader);
+                }
+
+                printf("}\n\n");
+
+                break;
+        }
+
+        case META_FUNC: {
+                printf("[function] ");
+                consume_int(ir_reader);
+                printf(" ");
+                consume_str(ir_reader);
+                printf(" ");
+                consume_str(ir_reader);
+                printf("\n");
+                break;
+        }
+
+        case META_VAR: {
+                printf("[variable] ");
+                consume_int(ir_reader);
+                printf(" ");
+                consume_str(ir_reader);
+                printf("\n");
+                break;
+        }
         }
 }
 
+static void debug_dump_meta(struct IRReader *ir_reader) {
+        printf("-----meta data-----\n");
+
+        while (READ_BYTE(ir_reader) != META_END) {
+                read_block_meta(ir_reader);
+        }
+
+        printf("\n-----meta end-----\n");
+}
+
+void debug_dump_ir(struct IRReader *ir_reader) {
+        assert(ir_reader != NULL);
+
+        switch (READ_BYTE(ir_reader)) {
+        case META_BEGIN:
+                debug_dump_meta(ir_reader);
+                break;
+        }
+}

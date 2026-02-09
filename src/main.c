@@ -6,6 +6,8 @@
 #include <type.h>
 #include <util.h>
 
+#include <ir_read.h>
+
 #include <assert.h>
 #include <locale.h>
 
@@ -56,7 +58,9 @@ int main(int arc, char *args[]) {
 
         write_file("test.cb", irc->byte_size, (const char *)get_bytes(irc));
 
-        print_bytes(irc);
+        // print_bytes(irc);
+
+        debug_dump_ir(gen_ir_reader(irc));
 
         return 0;
 }
