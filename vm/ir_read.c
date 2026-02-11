@@ -76,22 +76,41 @@ static void read_block_meta(struct IRReader *ir_reader) {
         }
 }
 
-static void debug_dump_meta(struct IRReader *ir_reader) {
-        printf("-----meta data-----\n");
+static void read_meta(struct IRReader *ir_reader) {
+        printf("----- meta begin -----\n");
 
         while (READ_BYTE(ir_reader) != META_END) {
                 read_block_meta(ir_reader);
         }
 
-        printf("\n-----meta end-----\n");
+        printf("\n----- meta end -----\n");
 }
 
-void debug_dump_ir(struct IRReader *ir_reader) {
+static void read_block_code(struct IRReader *ir_reader) {}
+
+static void read_code(struct IRReader *ir_reader) {
+
+        printf("---- code begin ----");
+
+        while (READ_BYTE(ir_reader) != CODE_END) {
+                read_block_code(ir_reader);
+        }
+
+        printf("---- code end ----");
+}
+
+void read_ir(struct IRReader *ir_reader) {
         assert(ir_reader != NULL);
 
-        switch (READ_BYTE(ir_reader)) {
-        case META_BEGIN:
-                debug_dump_meta(ir_reader);
-                break;
+        while (ir_reader->reader_cnt < ir_reader->irc->byte_cnt) {
+                switch (READ_BYTE(ir_reader)) {
+                case META_BEGIN:
+                        read_meta(ir_reader);
+                        break;
+
+                case CODE_BEGIN:
+                        read_code(ir_reader);
+                        break;
+                }
         }
 }

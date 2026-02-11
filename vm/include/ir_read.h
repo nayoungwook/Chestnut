@@ -16,6 +16,6 @@ struct IRReader {
 
 struct IRReader *gen_ir_reader(struct IRContext *irc);
 
-void debug_dump_ir(struct IRReader *ir_reader);
+void read_ir(struct IRReader *ir_reader);
 
 #endif
