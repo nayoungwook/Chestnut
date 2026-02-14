@@ -184,6 +184,7 @@ static struct FuncData *find_func_data(struct ParserContext *pc,
 
         // syscall
         if ((result = ht_find(pc->syscall_smtb, func_name)) != NULL) {
+                result->is_syscall = true;
                 return result;
         }
 
@@ -568,6 +569,7 @@ static struct FuncData *gen_func_data(const char *func_name,
         data->func_name = func_name;
         data->id = id;
         data->varargs = varargs;
+        data->is_syscall = false;
 
         return data;
 }

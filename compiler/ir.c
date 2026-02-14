@@ -10,6 +10,7 @@ struct IRContext *gen_irc() {
         irc->node = NULL;
         irc->byte_cnt = 0;
         irc->byte_size = 0;
+        irc->str_rodata = gen_queue();
 
         return irc;
 }
@@ -126,6 +127,12 @@ static void gen_metadata(struct IRContext *irc, struct ParserContext *pc) {
                 gen_class_metadata(irc, pc, cd);
         }
 
+        for (i = 0; i < pc->func_data_count; i++) {
+                struct FuncData *fd = pc->func_data[i];
+
+                gen_func_metadata(irc, pc, fd);
+        }
+
         emit_byte(irc, META_END);
 }
 
@@ -176,12 +183,45 @@ static unsigned get_total_stack_size_of_func(struct ParserContext *pc,
                 stack_offset += data_size;
         }
 
-        return 0;
+        return stack_offset;
+}
+
+static struct RODATA_Str *gen_str_rodata(unsigned id, const char *str) {
+        struct RODATA_Str *result =
+            (struct RODATA_Str *)S_malloc(sizeof(struct RODATA_Str));
+
+        result->id = id;
+        result->str = str;
+
+        return result;
+}
+
+static struct RODATA_Str *add_str_rodata(struct IRContext *irc,
+                                         const char *str) {
+        struct RODATA_Str *rodata_str =
+            gen_str_rodata(irc->str_rodata->size, str);
+
+        q_push(irc->str_rodata, rodata_str);
+
+        return rodata_str;
 }
 
 static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         struct Node *node) {
         switch (node->type) {
+
+        case AST_StringLiteral: {
+                struct StringLiteralAST *str_lit_ast =
+                    (struct StringLiteralAST *)node->ast;
+
+                struct RODATA_Str *rodata =
+                    add_str_rodata(irc, str_lit_ast->str_tok->str);
+
+                emit_byte(irc, OP_LOAD_STR);
+                emit_int(irc, rodata->id);
+
+                break;
+        }
 
         case AST_NumberLiteral: {
                 struct NumberLiteralAST *num_lit_ast =
@@ -208,10 +248,18 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                                func_call_ast->param_size);
                 }
 
-                emit_byte(irc, OP_FUNC_CALL);
+                int i;
+                for (i = 0; i < func_call_ast->param_size; i++) {
+                        gen_node_ir(irc, pc, func_call_ast->params[i]);
+                }
+
+                if (func_data->is_syscall)
+                        emit_byte(irc, OP_SYSCALL);
+                else
+                        emit_byte(irc, OP_CALL);
 
                 emit_int(irc, func_data->id);
-                emit_int(irc, func_data->arg_count);
+                emit_int(irc, func_call_ast->param_size);
 
                 break;
         }
@@ -228,8 +276,10 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 emit_byte(irc, CODE_FUNC);
                 emit_int(irc, func_data->id);
 
-                emit_byte(irc, OP_SP_PUSH);
-                emit_int(irc, total_stack_size);
+                if (total_stack_size != 0) {
+                        emit_byte(irc, OP_SP_PUSH);
+                        emit_int(irc, total_stack_size);
+                }
 
                 int i;
                 for (i = 0; i < func_decl_ast->body_size; i++) {
@@ -238,8 +288,12 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         gen_node_ir(irc, pc, body_node);
                 }
 
-                emit_byte(irc, OP_SP_POP);
-                emit_int(irc, total_stack_size);
+                if (total_stack_size != 0) {
+                        emit_byte(irc, OP_SP_POP);
+                        emit_int(irc, total_stack_size);
+                }
+
+                emit_byte(irc, OP_RET);
 
                 emit_byte(irc, CODE_TERM);
 
@@ -251,6 +305,20 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 break;
         }
         }
+}
+
+static void gen_rodata(struct IRContext *irc, struct ParserContext *pc) {
+        emit_byte(irc, RODATA_BEGIN);
+
+        while (irc->str_rodata->size != 0) {
+                struct RODATA_Str *rodata_str = q_pop(irc->str_rodata);
+
+                emit_byte(irc, RODATA_STR);
+                emit_int(irc, rodata_str->id);
+                emit_str(irc, rodata_str->str);
+        }
+
+        emit_byte(irc, RODATA_END);
 }
 
 void gen_ir(struct IRContext *irc, struct ParserContext *pc) {
@@ -266,4 +334,6 @@ void gen_ir(struct IRContext *irc, struct ParserContext *pc) {
         }
 
         emit_byte(irc, CODE_END);
+
+        gen_rodata(irc, pc);
 }

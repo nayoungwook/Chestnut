@@ -206,6 +206,7 @@ struct FuncData {
         unsigned arg_count;
 
         bool varargs;
+        bool is_syscall;
 };
 
 struct VarData {

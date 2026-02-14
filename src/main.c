@@ -60,7 +60,7 @@ int main(int arc, char *args[]) {
 
         // print_bytes(irc);
 
-        debug_dump_ir(gen_ir_reader(irc));
+        read_ir(gen_ir_reader(irc));
 
         return 0;
 }

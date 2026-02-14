@@ -28,17 +28,36 @@
 
 #define CODE_FUNC 0x55 // CODE_FUNC func_id(uint)
 
+#define RODATA_BEGIN 0x11
+#define RODATA_END 0x12
+
+#define RODATA_STR 0x13 // RODATA_STR id(uint) str(char*)
+
+// ops
+
 #define OP_SP_PUSH 0x56 // sp_push amount(uint)
 #define OP_SP_POP 0x57  // sp_pop amount(uint)
 
-#define OP_FUNC_CALL 0x58 // func_call id(uint) arg_cnt(uint)
+#define OP_SYSCALL 0x58 // syscall id(uint) arg_cnt(uint)
+#define OP_CALL 0x59    // call id(uint) arg_cnt(uint)
+
+#define OP_LOAD_STR 0x60 // load_str id(uint)
+
+#define OP_RET 0x70 // ret
 
 typedef unsigned char byte;
+
+struct RODATA_Str {
+        const char *str;
+        unsigned id;
+};
 
 struct IRContext {
         byte *bytes;
         struct Node *node;
         unsigned byte_cnt, byte_size; // byte counter, byte size
+
+        struct Queue *str_rodata;
 };
 
 struct IRContext *gen_irc();
