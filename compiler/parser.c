@@ -772,6 +772,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
                         comp = true;
                         if (!is_expr) // if it is statement, consume semicolon
                                 consume(tc, TokSemiColon);
+
                         break;
                 default:
                         panic("Unexpected token in variable declaration.", tc);
@@ -985,6 +986,10 @@ static struct Node *gen_class_decl_node(struct Token *first,
         return result;
 }
 
+//=======================================================================
+//      FIRST PASS OF COMPILER FOR CODE STRUCTURES AND BLOCKS.
+//=======================================================================
+
 static void parse_class_structure(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
 
@@ -1002,9 +1007,9 @@ static void parse_class_structure(struct ParserContext *pc) {
         struct ClassData *cd = register_class_data(class_name, parent_name, pc);
         pc->current_class = cd;
 
-        consume(tc, TokLBracket);
-
         struct Token *tok = NULL;
+
+        consume(tc, TokLBracket);
 
         while ((tok = peek(tc))->type != TokRBracket) {
                 parse_structure(pc);
@@ -1045,8 +1050,18 @@ static void parse_func_structure(struct ParserContext *pc) {
 
         // We will not parse content of function declaration.
         consume(tc, TokLBracket);
+        int bracket_counter = 1;
 
-        while ((tok = pull(tc))->type != TokRBracket) {
+        while ((tok = pull(tc))->type != TokEOF) {
+                if (tok->type == TokRBracket) {
+                        bracket_counter--;
+                }
+                if (tok->type == TokLBracket) {
+                        bracket_counter++;
+                }
+
+                if (bracket_counter == 0)
+                        break;
         }
 }
 
@@ -1065,7 +1080,7 @@ static void parse_var_structure(struct ParserContext *pc) {
 
                 struct Token *tok = NULL;
 
-                while ((tok = pull(tc)) != NULL) {
+                while ((tok = pull(tc))->type != TokEOF) {
                         if (tok->type == TokSemiColon) {
                                 comp = true;
                                 break;
@@ -1110,6 +1125,7 @@ void parse_structure(struct ParserContext *pc) {
         }
 
         default: {
+                printf("\n%d\n", first->type);
                 panic("Unexpected token, block of source code must begin with "
                       "class or "
                       "function.",

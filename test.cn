@@ -1,5 +1,6 @@
 
 func main(): void {
-	var a: int = 0;
-	print("Hello, World!!\n");
+	var foo: Foo = null;
+
+	foo = 3;
 }
