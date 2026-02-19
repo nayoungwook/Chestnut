@@ -256,6 +256,7 @@ static void parse_attribute(struct ParserContext *pc,
 
         if (!check_attr(target_class, attr)) {
                 const char *ident_str = "";
+
                 if (attr->type == AST_Identifier) {
                         ident_str =
                             ((struct IdentifierAST *)attr->ast)->ident->str;
@@ -287,7 +288,6 @@ static struct Node *check_assign(struct ParserContext *pc,
         consume(tc, TokAssign);
 
         struct Node *expr = parse_expression(pc);
-        consume(tc, TokSemiColon);
 
         struct BinExprAST *bin_expr_ast =
             (struct BinExprAST *)S_malloc(sizeof(struct BinExprAST));
@@ -427,6 +427,7 @@ static struct Node *gen_ident_node(struct Token *first,
 
         assert(result != NULL);
 
+        bool first_identifier = attr_of == NULL;
         bool is_end_of_statement = attr_of == NULL && !is_expr;
 
         attr_of = get_class_data_of_ident_node(pc, attr_of, result);
@@ -437,7 +438,9 @@ static struct Node *gen_ident_node(struct Token *first,
                 parse_attribute(pc, attr_of, result, is_expr);
         }
 
-        result = check_assign(pc, result);
+        if (first_identifier) {
+                result = check_assign(pc, result);
+        }
 
         if (is_end_of_statement) {
                 consume(tc, TokSemiColon);

@@ -1,6 +1,4 @@
 
 func main(): void {
 	var foo: Foo = null;
-
-	foo = 3;
 }
