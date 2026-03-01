@@ -194,63 +194,76 @@ static struct RODATA_Str *add_str_rodata(struct IRContext *irc,
 
 static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type){
 		byte op_byte = 0x00;
-		
-		switch(op_byte){
+
+		switch(op_type){
 		case OpADD:{
 			op_byte = OP_ADD;
 			break;
 		}
-			case OpSUB:{
-				op_byte = OP_SUB;
-				break;
-			}
-
+			
+		case OpSUB:{
+			op_byte = OP_SUB;
+			break;
+		}
 				
 		case OpMUL: {
 			op_byte = OP_MUL;
+			break;
 		}
 
 		case OpDIV:{
 			op_byte = OP_DIV;
+			break;
 		}
 			
 		case OpEQUAL: {
 			op_byte = OP_EQUAL;
+			break;
 		}
 
 		case OpNOTEQUAL: {
 			op_byte = OP_NOTEQUAL;
+			break;
 		}
 
 		case OpGREATER: {
 			op_byte = OP_GREATER;
+			break;
 		}
 			
 		case OpLESS: {
 			op_byte = OP_LESS;
+			break;
 		}
 			
 		case OpEQUALGREATER: {
 			op_byte = OP_EQUALGREATER;
+			break;
 		}
 
 		case OpEQUALLESS: {
 			op_byte = OP_EQUALLESS;
+			break;
 		}
 		case OpASSIGN: {
 			op_byte = OP_ASSIGN;
+			break;
 		}
 			
 		case OpOR: {
 			op_byte = OP_OR;
+			break;
 		}
 			 
 		case OpAND: {
 			op_byte = OP_AND;
+			break;
 		}
 			
-		default:
-			panic("Unknown op type", pc->tc);
+		default: {
+			panic("Unknown Op Type", pc->tc);
+			break;
+		}
 		}
 
 		assert(op_byte != 0x00);
@@ -289,6 +302,8 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 	case AST_VariableDeclaration: {
 		struct VarDeclAST *var_decl_ast = (struct VarDeclAST *) node->ast;
 
+		gen_node_ir(irc, pc, var_decl_ast->decl);
+		
 		// case for local var data
 		if(var_decl_ast->local_var_data != NULL){
 			struct VarData *var_data = var_decl_ast->local_var_data;

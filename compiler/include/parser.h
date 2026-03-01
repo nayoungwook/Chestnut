@@ -78,20 +78,20 @@ struct VarDeclBundleAST {
 };
 
 enum OperatorType {
-        OpNone,
-        OpADD,
-        OpSUB,
-        OpMUL,
-        OpDIV,
-        OpEQUAL,
-        OpNOTEQUAL,
-        OpGREATER,
-        OpLESS,
-        OpEQUALGREATER,
-        OpEQUALLESS,
-        OpASSIGN,
-        OpOR,
-        OpAND
+        OpNone = 0,
+        OpADD = 1,
+        OpSUB = 2,
+        OpMUL = 3,
+        OpDIV = 4,
+        OpEQUAL = 5,
+        OpNOTEQUAL = 6,
+        OpGREATER = 7,
+        OpLESS = 8,
+        OpEQUALGREATER = 9,
+        OpEQUALLESS = 10,
+        OpASSIGN = 11,
+        OpOR = 12,
+        OpAND = 13
 };
 
 struct BinExprAST {
