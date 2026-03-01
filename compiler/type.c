@@ -81,3 +81,18 @@ struct Type *find_type(struct ParserContext *pc, const char *type_str) {
 bool check_type_existance(struct ParserContext *pc, const char *type) {
         return find_type(pc, type) != NULL;
 }
+
+unsigned get_size_of_type(struct ParserContext *pc,
+                                 const char *type_str) {
+
+        struct Type *type = find_type(pc, type_str);
+
+        if (type != NULL) {
+                return type->nbyte;
+        }
+
+        panic("Failed to find type", pc->tc);
+
+        return 0;
+}
+

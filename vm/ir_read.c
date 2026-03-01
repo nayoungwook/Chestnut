@@ -91,6 +91,11 @@ static void read_func_ir(struct IRReader *ir_reader) {
 
         while ((b = READ_BYTE(ir_reader)) != CODE_TERM) {
                 switch (CONSUME_BYTE(ir_reader)) {
+
+		case OP_ADD:
+			printf("add");
+			break;
+			
                 case OP_SP_PUSH:
                         printf("sp_push ");
                         consume_int(ir_reader);
@@ -98,6 +103,18 @@ static void read_func_ir(struct IRReader *ir_reader) {
 
                 case OP_SP_POP:
                         printf("sp_pop ");
+                        consume_int(ir_reader);
+                        break;
+
+                case OP_SP_LOAD:
+                        printf("sp_load ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+
+                case OP_SP_SAVE:
+                        printf("sp_save ");
                         consume_int(ir_reader);
                         break;
 

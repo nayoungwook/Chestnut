@@ -237,6 +237,7 @@ struct Queue *gen_queue() {
 }
 
 void q_push(struct Queue *target_queue, void *ptr) {
+
         struct DataNode *node =
             (struct DataNode *)S_malloc(sizeof(struct DataNode));
         node->ptr = ptr;
@@ -259,6 +260,7 @@ void *q_pop(struct Queue *target_queue) {
         if (target_queue->size == 0)
                 return NULL;
 
+	assert(target_queue != NULL);
         assert(target_queue->tail != NULL);
 
         struct DataNode *result = target_queue->tail->next;

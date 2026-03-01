@@ -2,6 +2,7 @@
 #define IR_H
 
 #include <parser.h>
+#include <type.h>
 
 #define BYTE_CHUNK 1024
 
@@ -38,12 +39,33 @@
 #define OP_SP_PUSH 0x56 // sp_push amount(uint)
 #define OP_SP_POP 0x57  // sp_pop amount(uint)
 
-#define OP_SYSCALL 0x58 // syscall id(uint) arg_cnt(uint)
-#define OP_CALL 0x59    // call id(uint) arg_cnt(uint)
+#define OP_SP_LOAD 0x58 // sp_load offset(uint) size(uint)
+#define OP_SP_SAVE 0x59 // sp_save offset(uint) size(uint)
+
+#define OP_SYSCALL 0x5a // syscall id(uint) arg_cnt(uint)
+#define OP_CALL 0x5b    // call id(uint) arg_cnt(uint)
 
 #define OP_LOAD_STR 0x60 // load_str id(uint)
 
 #define OP_RET 0x70 // ret
+
+#define OP_PUSH_NUMBER 0x71
+
+// binary expression operation.
+#define OP_ADD 0x71
+#define OP_SUB 0x72
+#define OP_MUL 0x73
+#define OP_DIV 0x74
+#define OP_EQUAL 0x75
+#define OP_NOTEQUAL 0x76
+#define OP_GREATER 0x77
+#define OP_LESS 0x78
+#define OP_EQUALGREATER 0x79
+#define OP_EQUALLESS 0x7a
+#define OP_ASSIGN 0x7b
+#define OP_OR 0x7c
+#define OP_AND 0x7d
+
 
 typedef unsigned char byte;
 
@@ -58,6 +80,9 @@ struct IRContext {
         unsigned byte_cnt, byte_size; // byte counter, byte size
 
         struct Queue *str_rodata;
+
+	struct ClassData *current_class;
+	struct FuncData *current_func;
 };
 
 struct IRContext *gen_irc();

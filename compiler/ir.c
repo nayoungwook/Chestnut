@@ -149,20 +149,6 @@ void print_bytes(struct IRContext *irc) {
 
 const byte *get_bytes(struct IRContext *irc) { return irc->bytes; }
 
-static unsigned get_size_of_type(struct ParserContext *pc,
-                                 const char *type_str) {
-
-        struct Type *type = find_type(pc, type_str);
-
-        if (type != NULL) {
-                return type->nbyte;
-        }
-
-        panic("Failed to find type", pc->tc);
-
-        return 0;
-}
-
 static unsigned get_total_stack_size_of_func(struct ParserContext *pc,
                                              struct FuncDeclAST *func_decl) {
         int i;
@@ -171,7 +157,7 @@ static unsigned get_total_stack_size_of_func(struct ParserContext *pc,
         for (i = 0; i < func_decl->declared_var_count; i++) {
                 struct VarData *var_data = func_decl->declared_vars[i];
                 unsigned data_size = get_size_of_type(pc, var_data->type);
-
+		
                 var_data->offset = stack_offset;
 
                 printf("%s(%d) declared in %s, type : %s\n", var_data->var_name,
@@ -206,6 +192,72 @@ static struct RODATA_Str *add_str_rodata(struct IRContext *irc,
         return rodata_str;
 }
 
+static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type){
+		byte op_byte = 0x00;
+		
+		switch(op_byte){
+		case OpADD:{
+			op_byte = OP_ADD;
+			break;
+		}
+			case OpSUB:{
+				op_byte = OP_SUB;
+				break;
+			}
+
+				
+		case OpMUL: {
+			op_byte = OP_MUL;
+		}
+
+		case OpDIV:{
+			op_byte = OP_DIV;
+		}
+			
+		case OpEQUAL: {
+			op_byte = OP_EQUAL;
+		}
+
+		case OpNOTEQUAL: {
+			op_byte = OP_NOTEQUAL;
+		}
+
+		case OpGREATER: {
+			op_byte = OP_GREATER;
+		}
+			
+		case OpLESS: {
+			op_byte = OP_LESS;
+		}
+			
+		case OpEQUALGREATER: {
+			op_byte = OP_EQUALGREATER;
+		}
+
+		case OpEQUALLESS: {
+			op_byte = OP_EQUALLESS;
+		}
+		case OpASSIGN: {
+			op_byte = OP_ASSIGN;
+		}
+			
+		case OpOR: {
+			op_byte = OP_OR;
+		}
+			 
+		case OpAND: {
+			op_byte = OP_AND;
+		}
+			
+		default:
+			panic("Unknown op type", pc->tc);
+		}
+
+		assert(op_byte != 0x00);
+
+		return op_byte;
+}
+
 static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         struct Node *node) {
         switch (node->type) {
@@ -223,10 +275,50 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 break;
         }
 
+	case AST_VariableDeclarationBundle: {
+		struct VarDeclBundleAST *var_decl_bundle_ast = (struct VarDeclBundleAST *)node->ast;
+		
+		int i;
+		for(i=0; i<var_decl_bundle_ast->var_count; i++){
+			gen_node_ir(irc, pc, var_decl_bundle_ast->var_decls[i]);
+		}
+		
+		break;
+	}
+
+	case AST_VariableDeclaration: {
+		struct VarDeclAST *var_decl_ast = (struct VarDeclAST *) node->ast;
+
+		// case for local var data
+		if(var_decl_ast->local_var_data != NULL){
+			struct VarData *var_data = var_decl_ast->local_var_data;
+			
+			emit_byte(irc, OP_SP_SAVE); // stack point load
+			emit_int(irc, var_data->offset);
+
+			break;
+		}
+
+		// global or class attribute
+		
+		break;
+	}
+		
+	case AST_BinExpr: {
+		struct BinExprAST *bin_expr_ast = (struct BinExprAST *) node->ast;
+
+		gen_node_ir(irc, pc, bin_expr_ast->left);
+		gen_node_ir(irc, pc, bin_expr_ast->right);
+
+		byte op_byte = get_op_byte(pc, bin_expr_ast->opType);
+		emit_byte(irc, op_byte);
+		break;
+	}
+		
         case AST_NumberLiteral: {
                 struct NumberLiteralAST *num_lit_ast =
                     (struct NumberLiteralAST *)node->ast;
-                //		emit_byte(irc, OP_NUMBER_LITERAL);
+		emit_byte(irc, OP_PUSH_NUMBER);
 
                 if (num_lit_ast->is_integer) {
 
@@ -237,7 +329,6 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
         }
 
         case AST_FunctionCall: {
-
                 struct FuncCallAST *func_call_ast =
                     (struct FuncCallAST *)node->ast;
 
@@ -263,7 +354,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
                 break;
         }
-
+		
         case AST_FunctionDeclaration: {
                 struct FuncDeclAST *func_decl_ast =
                     (struct FuncDeclAST *)node->ast;
@@ -271,7 +362,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 struct FuncData *func_data = func_decl_ast->func_data;
 
                 unsigned total_stack_size =
-                    get_total_stack_size_of_func(pc, func_decl_ast);
+			get_total_stack_size_of_func(pc, func_decl_ast);
 
                 emit_byte(irc, CODE_FUNC);
                 emit_int(irc, func_data->id);

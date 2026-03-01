@@ -68,6 +68,7 @@ struct VarDeclAST {
         struct Token *var_name_tok;
         struct Token *var_type_tok;
         struct Node *decl;
+	struct VarData *local_var_data;
         int ac_mod;
 };
 

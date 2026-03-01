@@ -787,6 +787,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
                 var_decl->var_type_tok = var_type_tok;
                 var_decl->decl = decl;
                 var_decl->ac_mod = ACMOD_DEFAULT;
+		var_decl->local_var_data = NULL;
 
                 if (var_count + 1 >= capacity) {
                         capacity *= 2;
@@ -797,17 +798,19 @@ static struct Node *gen_var_decl_node(struct Token *first,
 
                 struct Node *node = pack(AST_VariableDeclaration, var_decl);
                 result->var_decls[var_count++] = node;
-
+		result->var_count = var_count;
+		
                 bool in_func = pc->current_func != NULL;
 
                 bool local = in_func;
 
                 if (local) {
-                        register_local_var_data(var_name_tok->str,
-                                                var_type_tok->str, pc);
+                        struct VarData *var_data = register_local_var_data(var_name_tok->str,
+									   var_type_tok->str, pc);
+			var_decl->local_var_data = var_data;
                 }
         }
-
+	
         return pack(AST_VariableDeclarationBundle, result);
 }
 
