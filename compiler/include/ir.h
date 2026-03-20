@@ -25,7 +25,7 @@
 
 #define CODE_TERM 0x53
 
-#define CODE_CLASS 0x54
+#define CODE_CLASS 0x54 // CODE_CLASS class_id(uint)
 
 #define CODE_FUNC 0x55 // CODE_FUNC func_id(uint)
 
@@ -49,23 +49,26 @@
 
 #define OP_RET 0x70 // ret
 
-#define OP_PUSH_NUMBER 0x71
-
 // binary expression operation.
-#define OP_ADD 0x71
-#define OP_SUB 0x72
-#define OP_MUL 0x73
-#define OP_DIV 0x74
-#define OP_EQUAL 0x75
-#define OP_NOTEQUAL 0x76
-#define OP_GREATER 0x77
-#define OP_LESS 0x78
-#define OP_EQUALGREATER 0x79
-#define OP_EQUALLESS 0x7a
-#define OP_ASSIGN 0x7b
-#define OP_OR 0x7c
-#define OP_AND 0x7d
+#define OP_EXPR_OP 0x71
 
+#define OP_ADD 0x01
+#define OP_SUB 0x02
+#define OP_MUL 0x03
+#define OP_DIV 0x04
+#define OP_EQUAL 0x05
+#define OP_NOTEQUAL 0x06
+#define OP_GREATER 0x07
+#define OP_LESS 0x08
+#define OP_EQUALGREATER 0x09
+#define OP_EQUALLESS 0x0a
+#define OP_ASSIGN 0x0b
+#define OP_OR 0x0c
+#define OP_AND 0x0d
+
+#define OP_LDC_I4 0x81 // load const integer 4byte
+#define OP_LDC_F4 0x82 // load const float 4byte
+#define OP_LDC_F8 0x83 // load const float 8byte
 
 typedef unsigned char byte;
 

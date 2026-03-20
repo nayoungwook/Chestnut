@@ -318,13 +318,14 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 		
 		break;
 	}
-		
+
 	case AST_BinExpr: {
 		struct BinExprAST *bin_expr_ast = (struct BinExprAST *) node->ast;
 
 		gen_node_ir(irc, pc, bin_expr_ast->left);
 		gen_node_ir(irc, pc, bin_expr_ast->right);
 
+		emit_byte(irc, OP_EXPR_OP);
 		byte op_byte = get_op_byte(pc, bin_expr_ast->opType);
 		emit_byte(irc, op_byte);
 		break;
@@ -333,13 +334,30 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
         case AST_NumberLiteral: {
                 struct NumberLiteralAST *num_lit_ast =
                     (struct NumberLiteralAST *)node->ast;
-		emit_byte(irc, OP_PUSH_NUMBER);
-
+		bool valid_number = false;
+		
                 if (num_lit_ast->is_integer) {
-
+			if(num_lit_ast->byte == 4){
+				emit_byte(irc, OP_LDC_I4);
+				valid_number = true;
+				emit_int(irc, atoi(num_lit_ast->num_tok->str));
+			}
                 } else { // floating point.
-                }
+			if(num_lit_ast->byte == 4){
+				emit_byte(irc, OP_LDC_F4);
+				valid_number = true;
+				emit_float(irc, atof(num_lit_ast->num_tok->str));
+			}
+			if(num_lit_ast->byte == 8){
+				emit_byte(irc, OP_LDC_F8);
+				valid_number = true;
+				// emit_double
+			}
+		}
 
+		if(!valid_number)
+			panic("Failed to load number literal, invalid type and size", pc->tc);
+		
                 break;
         }
 
@@ -369,7 +387,25 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
                 break;
         }
+
+	case AST_Class: {
+		struct ClassAST *class_ast = (struct ClassAST *)node->ast;
+		struct ClassData *class_data = class_ast->class_data;
 		
+		emit_byte(irc, CODE_CLASS);
+
+		emit_int(irc, class_data->id);
+
+		int i;
+		for(i=0; i<class_ast->body_size; i++){
+			gen_node_ir(irc, pc, class_ast->body[i]);
+		}
+		
+		emit_byte(irc, CODE_TERM);
+		
+		break;
+	}
+
         case AST_FunctionDeclaration: {
                 struct FuncDeclAST *func_decl_ast =
                     (struct FuncDeclAST *)node->ast;

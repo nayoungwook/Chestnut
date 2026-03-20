@@ -978,13 +978,13 @@ static struct Node *gen_class_decl_node(struct Token *first,
                 class_ast->parent_name_tok = parent_name_tok;
         }
 
-        // first register class data.
         struct Node *result = pack(AST_Class, class_ast);
 
-        // and parse body
         unsigned body_size;
+	struct ClassData *class_data = find_class_data(pc, name_tok->str);;
 
-        pc->current_class = find_class_data(pc, name_tok->str);
+	class_ast->class_data = class_data;
+        pc->current_class = class_data;
         class_ast->body = gen_body(pc, &body_size);
         class_ast->body_size = body_size;
         pc->current_class = NULL;
@@ -1196,6 +1196,39 @@ void debug_view_data(struct ParserContext *pc) {
         }
 }
 
+static bool is_number_literal_integer(const char *num_lit_str){
+	char *c = num_lit_str;
+
+	while(*c != '\0'){
+		if(*c == '.' || *c == 'f'){
+			return false;
+		}
+
+		c++;
+	}
+	
+	return true;
+}
+
+static short get_number_literal_byte(const char *num_lit_str){
+	short result = 0;
+
+	size_t len = strlen(num_lit_str);
+
+	bool is_float = num_lit_str[len - 1] == 'f';
+	bool is_integer = is_number_literal_integer(num_lit_str);
+
+	if(is_float || is_integer){ // int and float
+		result = 4;
+	}
+
+	if(!is_integer && !is_float){ // double
+		result = 8;
+	}
+	
+	return result;
+}
+
 struct Node *parse(struct ParserContext *pc, bool is_expr) {
 
         struct TokenizerContext *tc = pc->tc;
@@ -1209,8 +1242,11 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
                 struct NumberLiteralAST *num =
                     (struct NumberLiteralAST *)S_malloc(
                         sizeof(struct NumberLiteralAST));
+		
                 num->num_tok = first;
-
+		num->is_integer = is_number_literal_integer(num->num_tok->str);
+		num->byte = get_number_literal_byte(num->num_tok->str);
+		
                 return pack(AST_NumberLiteral, num);
         }
 

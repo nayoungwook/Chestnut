@@ -164,7 +164,8 @@ struct ConstructorAST {
 struct ClassAST {
         struct Node *initializer;
         struct Node *constructor;
-
+	struct ClassData *class_data;
+	
         struct Node **body;
         unsigned body_size;
 

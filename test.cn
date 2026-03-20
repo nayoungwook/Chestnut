@@ -1,4 +1,4 @@
 
 func main(): void {
-	var a: int = 5 + 4;
+	var a: int = 14.5f;
 }

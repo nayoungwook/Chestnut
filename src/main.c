@@ -45,7 +45,7 @@ int main(int arc, char *args[]) {
 
         resolve_first_pass_queue(pc);
 
-        debug_view_data(pc);
+	//        debug_view_data(pc);
 
         resolve_second_pass_queue(pc);
 
@@ -58,9 +58,9 @@ int main(int arc, char *args[]) {
 
         write_file("test.cb", irc->byte_size, (const char *)get_bytes(irc));
 
-        // print_bytes(irc);
+	//	print_bytes(irc);
 
-        read_ir(gen_ir_reader(irc));
+	read_ir(gen_ir_reader(irc));
 
         return 0;
 }

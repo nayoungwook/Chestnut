@@ -85,11 +85,11 @@ void init_tc(struct TokenizerContext *tc) {
 }
 
 static bool is_sc(const char wc) {
-        if (wc == L'_')
+        if (wc == '_')
                 return false;
 
-        if ((wc >= L'!' && wc <= L'/') || (wc >= L':' && wc <= L'@') ||
-            (wc >= L'[' && wc <= L'`') || (wc >= L'{' && wc <= L'~')) {
+        if ((wc >= '!' && wc <= '/') || (wc >= ':' && wc <= '@') ||
+            (wc >= '[' && wc <= '`') || (wc >= '{' && wc <= '~')) {
                 return true;
         }
         return false;
@@ -100,7 +100,7 @@ static struct Token *gen_num_token(struct TokenizerContext *tc) {
         unsigned str_len = 0;
         unsigned dot_count = 0;
 
-        while (iswdigit(*tc->cur_ch) || *tc->cur_ch == L'.') {
+        while (iswdigit(*tc->cur_ch) || *tc->cur_ch == '.' || *tc->cur_ch == 'f') {
                 str[str_len++] = *tc->cur_ch;
 
                 if (str_len >= MAX_TOKEN_STR - 1)
@@ -108,15 +108,15 @@ static struct Token *gen_num_token(struct TokenizerContext *tc) {
 
                 tc->cur_ch++;
 
-                if (*tc->cur_ch == L'.') {
+                if (*tc->cur_ch == '.') {
                         dot_count++;
                 }
                 if (dot_count >= 2) {
                         panic("Invalid numeric type.", tc);
                 }
         }
-        str[str_len] = L'\0';
-
+        str[str_len] = '\0';
+	
         struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
 
         tok->length = str_len;
@@ -140,7 +140,7 @@ static struct Token *gen_ident_token(struct TokenizerContext *tc) {
         char *str = (char *)S_malloc(MAX_TOKEN_STR * sizeof(char));
         unsigned str_len = 0;
 
-        while (iswalnum(*tc->cur_ch) || *tc->cur_ch == L'_') {
+        while (iswalnum(*tc->cur_ch) || *tc->cur_ch == '_') {
                 str[str_len++] = *tc->cur_ch;
 
                 if (str_len >= MAX_TOKEN_STR - 1)
@@ -148,7 +148,7 @@ static struct Token *gen_ident_token(struct TokenizerContext *tc) {
 
                 tc->cur_ch++;
         }
-        str[str_len] = L'\0';
+        str[str_len] = '\0';
 
         enum TokenType type = check_ident_type(str);
 
@@ -164,10 +164,10 @@ static void get_str_literal(struct TokenizerContext *tc, char *str,
 
         while (true) {
                 char ch = *(tc->cur_ch);
-                if (ch == L'\0') {
+                if (ch == '\0') {
                         panic("Unterminaled string literal", tc);
                 }
-                if (ch == L'\"') {
+                if (ch == '\"') {
                         tc->cur_ch++;
                         break;
                 }
@@ -178,7 +178,7 @@ static void get_str_literal(struct TokenizerContext *tc, char *str,
                 tc->cur_ch++;
         }
 
-        str[(*str_len)++] = L'\"';
+        str[(*str_len)++] = '\"';
 }
 
 static struct Token *gen_sc_token(struct TokenizerContext *tc) {

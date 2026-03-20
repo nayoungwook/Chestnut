@@ -26,10 +26,21 @@ static void consume_int(struct IRReader *ir_reader) {
 
         for (i = 0; i < 4; i++) {
                 val += (int)CONSUME_BYTE(ir_reader) * ac;
-                ac <<= 8;
+                ac <<= 8; // push one byte.
         }
 
         printf("%d", val);
+}
+
+static void consume_float(struct IRReader *ir_reader){
+	int i, byte = 0;
+
+        for (i = 0; i < 4; i++) {
+                byte |= (int)CONSUME_BYTE(ir_reader);
+		byte <<= 8;
+        }
+
+        printf("%x", byte);	
 }
 
 static void read_block_meta(struct IRReader *ir_reader) {
@@ -82,6 +93,17 @@ static void read_meta(struct IRReader *ir_reader) {
         printf("----- meta end -----\n\n");
 }
 
+static void read_expr_op_ir(byte expr_op_byte){
+	switch(expr_op_byte){
+	case OP_ADD:
+		printf("add");
+		break;
+
+	default:
+		printf("Unknown Expr op byte : %d\n", expr_op_byte);
+	}
+}
+
 static void read_func_ir(struct IRReader *ir_reader) {
         printf("func ");
         consume_int(ir_reader);
@@ -92,9 +114,11 @@ static void read_func_ir(struct IRReader *ir_reader) {
         while ((b = READ_BYTE(ir_reader)) != CODE_TERM) {
                 switch (CONSUME_BYTE(ir_reader)) {
 
-		case OP_ADD:
-			printf("add");
+		case OP_EXPR_OP:{
+			byte expr_op_byte = CONSUME_BYTE(ir_reader);
+			read_expr_op_ir(expr_op_byte);
 			break;
+		}
 			
                 case OP_SP_PUSH:
                         printf("sp_push ");
@@ -141,6 +165,16 @@ static void read_func_ir(struct IRReader *ir_reader) {
                         printf("ret");
                         break;
 
+		case OP_LDC_I4:
+			printf("ldc_i4 ");
+                        consume_int(ir_reader);
+			break;
+
+		case  OP_LDC_F4:
+			printf("ldc_f4 ");
+                        consume_float(ir_reader);
+			break;
+
                 default:
                         printf("nop : %2x", b);
                         break;
@@ -148,9 +182,15 @@ static void read_func_ir(struct IRReader *ir_reader) {
 
                 printf("\n");
         }
+
+	printf("\n");
 }
 
 static void read_class_ir(struct IRReader *ir_reader) {
+        printf("class ");
+        consume_int(ir_reader);
+        printf(":\n");
+	
         while (READ_BYTE(ir_reader) != CODE_TERM) {
                 switch (CONSUME_BYTE(ir_reader)) {
                 case CODE_FUNC:
@@ -158,6 +198,8 @@ static void read_class_ir(struct IRReader *ir_reader) {
                         break;
                 }
         }
+
+	printf("\n");
 }
 
 static void read_block_code(struct IRReader *ir_reader) {
@@ -180,7 +222,7 @@ static void read_code(struct IRReader *ir_reader) {
                 read_block_code(ir_reader);
         }
 
-        CONSUME_BYTE(ir_reader);
+        NEXT_BYTE(ir_reader);
 
         printf("---- code end ----\n\n");
 }
