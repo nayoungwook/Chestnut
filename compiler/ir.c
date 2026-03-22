@@ -54,7 +54,7 @@ static void emit_int(struct IRContext *irc, int si) {
         int i;
         for (i = 0; i < sizeof(int); i++) {
                 emit_byte(irc, (si & 0xFF));
-                si >>= 4;
+                si >>= 8;
         }
 }
 
@@ -64,7 +64,7 @@ static void emit_float(struct IRContext *irc, float f) {
         int i;
         for (i = 0; i < sizeof(float); i++) {
                 emit_byte(irc, (fb & 0xFF));
-                fb >>= 4;
+                fb >>= 8;
         }
 }
 
