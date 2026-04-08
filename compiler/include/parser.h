@@ -12,8 +12,8 @@
 #define ACMOD_PROTECTED 3
 #define ACMOD_DEFAULT 4
 
-#define MAX_CLASS_COUNT 512
-#define MAX_FUNC_COUNT 512
+#define MAX_CLASS_COUNT 1024
+#define MAX_FUNC_COUNT 1024
 
 enum ASTType {
         AST_NumberLiteral = 0,
@@ -96,7 +96,7 @@ enum OperatorType {
 
 struct BinExprAST {
         struct Node *left, *right;
-        enum OperatorType opType;
+        enum OperatorType op_type;
 };
 
 struct UnaryExprAST {

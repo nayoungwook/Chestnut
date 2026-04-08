@@ -1,4 +1,6 @@
 
 func main(): void {
-	var a: int = 120000000;
+	var a: int = 120000000, b: int = 0;
+	
+	a = 30;
 }

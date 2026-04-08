@@ -70,6 +70,8 @@
 #define OP_LDC_F4 0x82 // load const float 4byte
 #define OP_LDC_F8 0x83 // load const float 8byte
 
+#define OP_PUSH_NULL 0x84 // push null
+
 typedef unsigned char byte;
 
 struct RODATA_Str {

@@ -5,7 +5,7 @@
 
 struct IRContext *gen_irc() {
         struct IRContext *irc =
-            (struct IRContext *)S_malloc(sizeof(struct IRContext));
+		(struct IRContext *)S_malloc(sizeof(struct IRContext));
 
         irc->node = NULL;
         irc->byte_cnt = 0;
@@ -174,7 +174,7 @@ static unsigned get_total_stack_size_of_func(struct ParserContext *pc,
 
 static struct RODATA_Str *gen_str_rodata(unsigned id, const char *str) {
         struct RODATA_Str *result =
-            (struct RODATA_Str *)S_malloc(sizeof(struct RODATA_Str));
+		(struct RODATA_Str *)S_malloc(sizeof(struct RODATA_Str));
 
         result->id = id;
         result->str = str;
@@ -185,7 +185,7 @@ static struct RODATA_Str *gen_str_rodata(unsigned id, const char *str) {
 static struct RODATA_Str *add_str_rodata(struct IRContext *irc,
                                          const char *str) {
         struct RODATA_Str *rodata_str =
-            gen_str_rodata(irc->str_rodata->size, str);
+		gen_str_rodata(irc->str_rodata->size, str);
 
         q_push(irc->str_rodata, rodata_str);
 
@@ -193,94 +193,100 @@ static struct RODATA_Str *add_str_rodata(struct IRContext *irc,
 }
 
 static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type){
-		byte op_byte = 0x00;
+	byte op_byte = 0x00;
 
-		switch(op_type){
-		case OpADD:{
-			op_byte = OP_ADD;
-			break;
-		}
+	switch(op_type){
+	case OpADD:{
+		op_byte = OP_ADD;
+		break;
+	}
 			
-		case OpSUB:{
-			op_byte = OP_SUB;
-			break;
-		}
+	case OpSUB:{
+		op_byte = OP_SUB;
+		break;
+	}
 				
-		case OpMUL: {
-			op_byte = OP_MUL;
-			break;
-		}
+	case OpMUL: {
+		op_byte = OP_MUL;
+		break;
+	}
 
-		case OpDIV:{
-			op_byte = OP_DIV;
-			break;
-		}
+	case OpDIV:{
+		op_byte = OP_DIV;
+		break;
+	}
 			
-		case OpEQUAL: {
-			op_byte = OP_EQUAL;
-			break;
-		}
+	case OpEQUAL: {
+		op_byte = OP_EQUAL;
+		break;
+	}
 
-		case OpNOTEQUAL: {
-			op_byte = OP_NOTEQUAL;
-			break;
-		}
+	case OpNOTEQUAL: {
+		op_byte = OP_NOTEQUAL;
+		break;
+	}
 
-		case OpGREATER: {
-			op_byte = OP_GREATER;
-			break;
-		}
+	case OpGREATER: {
+		op_byte = OP_GREATER;
+		break;
+	}
 			
-		case OpLESS: {
-			op_byte = OP_LESS;
-			break;
-		}
+	case OpLESS: {
+		op_byte = OP_LESS;
+		break;
+	}
 			
-		case OpEQUALGREATER: {
-			op_byte = OP_EQUALGREATER;
-			break;
-		}
+	case OpEQUALGREATER: {
+		op_byte = OP_EQUALGREATER;
+		break;
+	}
 
-		case OpEQUALLESS: {
-			op_byte = OP_EQUALLESS;
-			break;
-		}
-		case OpASSIGN: {
-			op_byte = OP_ASSIGN;
-			break;
-		}
+	case OpEQUALLESS: {
+		op_byte = OP_EQUALLESS;
+		break;
+	}
+	case OpASSIGN: {
+		op_byte = OP_ASSIGN;
+		break;
+	}
 			
-		case OpOR: {
-			op_byte = OP_OR;
-			break;
-		}
+	case OpOR: {
+		op_byte = OP_OR;
+		break;
+	}
 			 
-		case OpAND: {
-			op_byte = OP_AND;
-			break;
-		}
+	case OpAND: {
+		op_byte = OP_AND;
+		break;
+	}
 			
-		default: {
-			panic("Unknown Op Type", pc->tc);
-			break;
-		}
-		}
+	default: {
+		panic("Unknown Op Type", pc->tc);
+		break;
+	}
+	}
 
-		assert(op_byte != 0x00);
+	assert(op_byte != 0x00);
 
-		return op_byte;
+	return op_byte;
 }
 
 static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         struct Node *node) {
         switch (node->type) {
 
+	case AST_Null: {
+		emit_byte(irc, OP_PUSH_NULL);
+		
+		break;
+	}
+
         case AST_StringLiteral: {
                 struct StringLiteralAST *str_lit_ast =
-                    (struct StringLiteralAST *)node->ast;
+			(struct StringLiteralAST *)node->ast;
 
                 struct RODATA_Str *rodata =
-                    add_str_rodata(irc, str_lit_ast->str_tok->str);
+			add_str_rodata(irc, str_lit_ast->str_tok->str);
 
                 emit_byte(irc, OP_LOAD_STR);
                 emit_int(irc, rodata->id);
@@ -318,22 +324,26 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 		
 		break;
 	}
-
+		
 	case AST_BinExpr: {
 		struct BinExprAST *bin_expr_ast = (struct BinExprAST *) node->ast;
 
-		gen_node_ir(irc, pc, bin_expr_ast->left);
-		gen_node_ir(irc, pc, bin_expr_ast->right);
-
-		emit_byte(irc, OP_EXPR_OP);
-		byte op_byte = get_op_byte(pc, bin_expr_ast->opType);
-		emit_byte(irc, op_byte);
+		if(bin_expr_ast->op_type == OpASSIGN){
+			
+		}else{
+			gen_node_ir(irc, pc, bin_expr_ast->left);
+			gen_node_ir(irc, pc, bin_expr_ast->right);
+		
+			emit_byte(irc, OP_EXPR_OP);
+			byte op_byte = get_op_byte(pc, bin_expr_ast->op_type);
+			emit_byte(irc, op_byte);
+		}
 		break;
 	}
 		
         case AST_NumberLiteral: {
                 struct NumberLiteralAST *num_lit_ast =
-                    (struct NumberLiteralAST *)node->ast;
+			(struct NumberLiteralAST *)node->ast;
 		bool valid_number = false;
 		
                 if (num_lit_ast->is_integer) {
@@ -363,7 +373,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
         case AST_FunctionCall: {
                 struct FuncCallAST *func_call_ast =
-                    (struct FuncCallAST *)node->ast;
+			(struct FuncCallAST *)node->ast;
 
                 struct FuncData *func_data = func_call_ast->func_data;
 
@@ -408,7 +418,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
         case AST_FunctionDeclaration: {
                 struct FuncDeclAST *func_decl_ast =
-                    (struct FuncDeclAST *)node->ast;
+			(struct FuncDeclAST *)node->ast;
 
                 struct FuncData *func_data = func_decl_ast->func_data;
 

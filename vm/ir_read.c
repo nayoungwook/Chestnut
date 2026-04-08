@@ -112,8 +112,13 @@ static void read_func_ir(struct IRReader *ir_reader) {
         byte b;
 
         while ((b = READ_BYTE(ir_reader)) != CODE_TERM) {
-                switch (CONSUME_BYTE(ir_reader)) {
+		switch (CONSUME_BYTE(ir_reader)) {
 
+		case OP_PUSH_NULL: {
+			printf("push_null ");
+			break;
+		}
+			
 		case OP_EXPR_OP:{
 			byte expr_op_byte = CONSUME_BYTE(ir_reader);
 			read_expr_op_ir(expr_op_byte);
@@ -174,7 +179,7 @@ static void read_func_ir(struct IRReader *ir_reader) {
 			printf("ldc_f4 ");
                         consume_float(ir_reader);
 			break;
-
+			
                 default:
                         printf("nop : %2x", b);
                         break;

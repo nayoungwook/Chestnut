@@ -293,7 +293,7 @@ static struct Node *check_assign(struct ParserContext *pc,
             (struct BinExprAST *)S_malloc(sizeof(struct BinExprAST));
 
         bin_expr_ast->left = result;
-        bin_expr_ast->opType = OpASSIGN;
+        bin_expr_ast->op_type = OpASSIGN;
         bin_expr_ast->right = expr;
 
         //	q_push(tcc->tc_assign_queue, gen_assign_tcqn(pc,
@@ -1332,7 +1332,7 @@ static struct Node *parse_term(struct ParserContext *pc) {
 
                 bin_expr->left = node;
                 bin_expr->right = right;
-                bin_expr->opType = op_type;
+                bin_expr->op_type = op_type;
 
                 node = pack(AST_BinExpr, bin_expr);
         }
@@ -1356,7 +1356,7 @@ static struct Node *parse_simple_expression(struct ParserContext *pc) {
 
                 bin_expr->left = node;
                 bin_expr->right = right;
-                bin_expr->opType = op_type;
+                bin_expr->op_type = op_type;
 
                 node = pack(AST_BinExpr, bin_expr);
         }
@@ -1424,7 +1424,7 @@ static struct Node *parse_compare_expression(struct ParserContext *pc) {
                 bin_expr->left = node;
                 bin_expr->right = right;
 
-                bin_expr->opType = op_type;
+                bin_expr->op_type = op_type;
 
                 node = pack(AST_BinExpr, bin_expr);
         }
@@ -1458,7 +1458,7 @@ static struct Node *parse_expression(struct ParserContext *pc) {
 
                 bin_expr->left = node;
                 bin_expr->right = right;
-                bin_expr->opType = op_type;
+                bin_expr->op_type = op_type;
 
                 node = pack(AST_BinExpr, bin_expr);
         }
