@@ -272,6 +272,48 @@ static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type){
 }
 
 static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
+                        struct Node *node);
+	
+static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc, struct Node *node){
+	struct IdentifierAST *ident_ast = (struct IdentifierAST *) node->ast;
+
+	struct VarData *var_data = ident_ast->var_data;
+	
+	assert(var_data != NULL);
+
+	unsigned size = get_size_of_type(pc, var_data->type);
+	unsigned offset = var_data->offset;
+	
+	switch(var_data->scope_data){
+	case ScopeLocal:
+		emit_byte(irc, OP_SP_LOAD);
+		emit_int(irc, offset);
+		emit_int(irc, size);
+		break;
+
+	case ScopeGlobal:
+		emit_byte(irc, OP_LOAD_GLOBAL);
+		emit_int(irc, offset);
+		emit_int(irc, size);
+		break;
+
+	case ScopeClass:
+		emit_byte(irc, OP_LOAD_CLASS);
+		emit_int(irc, offset);
+		emit_int(irc, size);
+		break;
+
+	default:
+		panic("Wrong scope of variable!", pc->tc);
+		break;
+	}
+	
+	if(node->attr != NULL){
+		gen_node_ir(irc, pc, node->attr);
+	}
+}
+
+static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         struct Node *node) {
         switch (node->type) {
 
@@ -281,6 +323,12 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 		break;
 	}
 
+	case AST_Identifier : {
+		gen_ident_ir(irc, pc, node);
+		
+		break;
+	}
+		
         case AST_StringLiteral: {
                 struct StringLiteralAST *str_lit_ast =
 			(struct StringLiteralAST *)node->ast;
@@ -387,11 +435,14 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         gen_node_ir(irc, pc, func_call_ast->params[i]);
                 }
 
-                if (func_data->is_syscall)
+                if (func_data->is_syscall) { // syscall
                         emit_byte(irc, OP_SYSCALL);
-                else
+		} else if (func_data->is_attr) { // attr call => foo.bar();
+			emit_byte(irc, OP_CALL_ATTR);
+		} else { // global call => foo();
                         emit_byte(irc, OP_CALL);
-
+		}
+		
                 emit_int(irc, func_data->id);
                 emit_int(irc, func_call_ast->param_size);
 

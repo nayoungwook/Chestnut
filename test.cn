@@ -1,6 +1,12 @@
 
+func test(): void {
+}
+
 func main(): void {
-	var a: int = 120000000, b: int = 0;
+	var bar: Bar = null;
+	var a: int = 120000000, b: int = 8;
 	
-	a = 30;
+	bar.test();
+
+	print(b + 3);
 }

@@ -15,6 +15,32 @@
 #define MAX_CLASS_COUNT 1024
 #define MAX_FUNC_COUNT 1024
 
+/*
+  AST_NumberLiteral = 
+  AST_Identifier = 
+  AST_VariableDeclaration = 
+  AST_VariableDeclarationBundle = 
+  AST_BinExpr = 
+  AST_IfStatement = 
+  AST_UnaryExpr = 
+  AST_FunctionDeclaration = 
+  AST_FunctionCall = 
+  AST_StringLiteral = Done
+  AST_ForStatement = 
+  AST_IdentIncrease = 
+  AST_IdentDecrease = 
+  AST_Return = 
+  AST_Class = 
+  AST_Constructor = 
+  AST_New = 
+  AST_Null = Done
+  AST_ArrayDeclaration = 
+  AST_ArrayAccess = 
+  AST_BoolLiteral = 
+  AST_Negative = 
+*/
+
+
 enum ASTType {
         AST_NumberLiteral = 0,
         AST_Identifier = 1,
@@ -58,6 +84,7 @@ struct StringLiteralAST {
 
 struct IdentifierAST {
         struct Token *ident;
+	struct VarData *var_data;
 };
 
 struct BoolLiteralAST {
@@ -209,6 +236,11 @@ struct FuncData {
 
         bool varargs;
         bool is_syscall;
+	bool is_attr;
+};
+
+enum ScopeData {
+	ScopeNone, ScopeLocal, ScopeGlobal, ScopeClass,
 };
 
 struct VarData {
@@ -216,6 +248,8 @@ struct VarData {
         unsigned offset; // offset data from stack pointer or class
         const char *var_name;
         const char *type;
+
+	enum ScopeData scope_data;
 };
 
 struct ClassData {

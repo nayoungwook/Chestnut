@@ -11,4 +11,7 @@ class Bar {
 	func bar(): void {
 		print("asdf");
 	}
+
+	func test(): void {
+	}
 }

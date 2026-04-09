@@ -142,6 +142,20 @@ static void read_func_ir(struct IRReader *ir_reader) {
 			consume_int(ir_reader);
                         break;
 
+                case OP_LOAD_GLOBAL:
+                        printf("load_global ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+
+                case OP_LOAD_CLASS:
+                        printf("load_class ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+
                 case OP_SP_SAVE:
                         printf("sp_save ");
                         consume_int(ir_reader);
@@ -149,6 +163,13 @@ static void read_func_ir(struct IRReader *ir_reader) {
 
                 case OP_CALL:
                         printf("call ");
+                        consume_int(ir_reader);
+                        printf(" ");
+                        consume_int(ir_reader);
+                        break;
+
+                case OP_CALL_ATTR:
+                        printf("call_attr ");
                         consume_int(ir_reader);
                         printf(" ");
                         consume_int(ir_reader);

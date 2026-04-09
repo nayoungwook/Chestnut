@@ -6,6 +6,10 @@
 
 #define BYTE_CHUNK 1024
 
+// --------------------------
+// ** MetaData **
+// --------------------------
+
 #define META_BEGIN 0x01 // begining of metadata section
 #define META_END 0x02   // end of metadata section
 
@@ -34,7 +38,9 @@
 
 #define RODATA_STR 0x13 // RODATA_STR id(uint) str(char*)
 
-// ops
+// --------------------------
+// ** Operations **
+// --------------------------
 
 #define OP_SP_PUSH 0x56 // sp_push amount(uint)
 #define OP_SP_POP 0x57  // sp_pop amount(uint)
@@ -44,12 +50,16 @@
 
 #define OP_SYSCALL 0x5a // syscall id(uint) arg_cnt(uint)
 #define OP_CALL 0x5b    // call id(uint) arg_cnt(uint)
+#define OP_CALL_ATTR 0x5c // call_attr id(uint) arg_cnt(uint)
 
 #define OP_LOAD_STR 0x60 // load_str id(uint)
 
 #define OP_RET 0x70 // ret
 
-// binary expression operation.
+// --------------------------
+// ** Binary expression **
+// --------------------------
+
 #define OP_EXPR_OP 0x71
 
 #define OP_ADD 0x01
@@ -66,11 +76,17 @@
 #define OP_OR 0x0c
 #define OP_AND 0x0d
 
+// --------------------------
+// ** Load and push data **
+// --------------------------
+
 #define OP_LDC_I4 0x81 // load const integer 4byte
 #define OP_LDC_F4 0x82 // load const float 4byte
 #define OP_LDC_F8 0x83 // load const float 8byte
 
 #define OP_PUSH_NULL 0x84 // push null
+#define OP_LOAD_CLASS 0x85 // load_class offset(uint) size(uint) # load from current class and push into stack.
+#define OP_LOAD_GLOBAL 0x86 // load_global offset(uint) sizeof(uint) # load from global and push into stack.
 
 typedef unsigned char byte;
 

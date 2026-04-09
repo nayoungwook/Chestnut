@@ -150,16 +150,25 @@ static struct VarData *find_var_data(struct ParserContext *pc,
 
                         scope_searcher = scope_searcher->prev_scope;
                 }
+
+
+		result->scope_data = ScopeLocal;
         }
 
         if (result == NULL && pc->current_class != NULL) { // and find in class
                 result = (struct VarData *)ht_find(
                     pc->current_class->member_vars, var_name);
+
+		result->scope_data = ScopeClass;
         }
 
         if (result == NULL) {
                 result = ht_find(pc->glob_var_smtb, var_name);
+		
+		result->scope_data = ScopeGlobal;
         }
+
+	assert(!(result != NULL && result->scope_data == ScopeNone));
 
         return result;
 }
@@ -303,10 +312,9 @@ static struct Node *check_assign(struct ParserContext *pc,
         return pack(AST_BinExpr, bin_expr_ast);
 }
 
-static struct ClassData *get_ident_class_data(struct ParserContext *pc,
+static struct VarData *get_ident_var_data(struct ParserContext *pc,
                                               struct ClassData *attr_of,
                                               struct Node *ident_node) {
-        struct ClassData *target_class = NULL;
         struct IdentifierAST *ident_ast =
             (struct IdentifierAST *)ident_node->ast;
 
@@ -341,27 +349,28 @@ static struct ClassData *get_ident_class_data(struct ParserContext *pc,
                 panic(error_buff, tc);
         }
 
-        target_class = find_class_data(pc, var_data->type);
-
-        return target_class;
+	ident_ast->var_data = var_data;
+	
+	return var_data;	
 }
 
-static struct ClassData *get_func_call_class_data(struct ParserContext *pc,
+static struct FuncData *get_func_call_func_data(struct ParserContext *pc,
                                                   struct ClassData *attr_of,
                                                   struct Node *ident_node) {
         struct FuncCallAST *func_call_ast =
             (struct FuncCallAST *)ident_node->ast;
         struct FuncData *func_data = NULL;
 
-        struct ClassData *target_class = NULL;
         struct TokenizerContext *tc = pc->tc;
 
-        if (attr_of == NULL) {
-                func_data =
-                    find_func_data(pc, func_call_ast->func_name_tok->str);
+	bool is_attr = attr_of != NULL;
+	
+        if (is_attr) {
+		func_data = (struct FuncData *)ht_find(
+						       attr_of->member_funcs, func_call_ast->func_name_tok->str);
         } else {
-                func_data = (struct FuncData *)ht_find(
-                    attr_of->member_funcs, func_call_ast->func_name_tok->str);
+		func_data =
+			find_func_data(pc, func_call_ast->func_name_tok->str);
         }
 
         if (func_data == NULL) {
@@ -382,11 +391,12 @@ static struct ClassData *get_func_call_class_data(struct ParserContext *pc,
                 panic(error_buff, tc);
         }
 
-        func_call_ast->func_data = func_data;
+	func_data->is_attr = is_attr;
+	func_call_ast->func_data = func_data;
 
-        target_class = find_class_data(pc, func_data->return_type);
+	assert(!(is_attr && func_data->is_syscall));
 
-        return target_class;
+	return func_data;
 }
 
 static struct ClassData *get_class_data_of_ident_node(struct ParserContext *pc,
@@ -395,12 +405,14 @@ static struct ClassData *get_class_data_of_ident_node(struct ParserContext *pc,
         struct ClassData *target_class = NULL;
 
         if (ident_node->type == AST_Identifier) {
-                target_class = get_ident_class_data(pc, attr_of, ident_node);
+		struct VarData *var_data = get_ident_var_data(pc, attr_of, ident_node);
+		target_class = find_class_data(pc, var_data->type);
         }
 
         if (ident_node->type == AST_FunctionCall) {
-                target_class =
-                    get_func_call_class_data(pc, attr_of, ident_node);
+                struct FuncData *func_data =
+			get_func_call_func_data(pc, attr_of, ident_node);
+		target_class = find_class_data(pc, func_data->return_type);
         }
 
         return target_class;
