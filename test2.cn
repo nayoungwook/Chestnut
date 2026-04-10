@@ -1,6 +1,8 @@
 
 class Foo {
 	var bar: Bar = null;
+	var num: int = 0;
+			
 	func foo(): void {
 
 	}
@@ -8,6 +10,7 @@ class Foo {
 
 class Bar {
 	var foo: Foo = null;
+
 	func bar(): void {
 		print("asdf");
 	}

@@ -312,6 +312,54 @@ static struct Node *check_assign(struct ParserContext *pc,
         return pack(AST_BinExpr, bin_expr_ast);
 }
 
+// return incre | decre ast node if it is increase or decrease operation.
+static struct Node *check_incre_decre(struct ParserContext *pc,
+					 struct Node *result){
+	struct TokenizerContext *tc = pc->tc;
+	struct Token *nt = peek(tc);
+
+	if(!(nt->type == TokIncrease || nt->type == TokDecrease)){
+		return result;
+	}
+
+	enum ASTType last_ast_type;
+	struct Node *searcher = result;
+
+	while(searcher->attr != NULL){
+		searcher = searcher->attr;
+	}
+
+	last_ast_type = searcher->type;
+	
+	if(last_ast_type != AST_Identifier){
+		if(nt->type == TokIncrease){
+			panic("Increasement (++) must be used with identifier!", tc);
+		}
+		
+		if(nt->type == TokDecrease){
+			panic("Decreasement (--) must be used with identifier!", tc);
+		}
+	}
+	
+	if(nt->type == TokIncrease){
+		consume(tc, TokIncrease);
+		struct IdentIncreAST *incre_ast = (struct IdentIncreAST *) S_malloc(sizeof(struct IdentIncreAST*));
+		incre_ast->ident_node = result;
+
+		return pack(AST_IdentIncrease, incre_ast);
+	}
+
+	if(nt->type == TokDecrease){
+		consume(tc, TokIncrease);
+		struct IdentDecreAST *decre_ast = (struct IdentDecreAST *) S_malloc(sizeof(struct IdentDecreAST*));
+		decre_ast->ident_node = result;
+
+		return pack(AST_IdentDecrease, decre_ast);
+	}
+
+	return NULL;
+}
+
 static struct VarData *get_ident_var_data(struct ParserContext *pc,
                                               struct ClassData *attr_of,
                                               struct Node *ident_node) {
@@ -449,9 +497,10 @@ static struct Node *gen_ident_node(struct Token *first,
 
                 parse_attribute(pc, attr_of, result, is_expr);
         }
-
+                
         if (first_identifier) {
-                result = check_assign(pc, result);
+		result = check_incre_decre(pc, result);
+		result = check_assign(pc, result);
         }
 
         if (is_end_of_statement) {
@@ -1272,6 +1321,34 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
                 return pack(AST_StringLiteral, str);
         }
 
+	case TokIncrease: {
+		struct IdentIncreAST *incre = (struct IdentIncreAST *) S_malloc(sizeof(struct IdentIncreAST));
+
+		struct Node *node = parse(pc, is_expr);
+
+		if(node->type != AST_Identifier){
+			panic("Increasement (++) must be used with identifier!", pc->tc);
+		}
+		
+		incre->ident_node = node;
+		
+		return pack(AST_IdentDecrease, incre);
+	}
+
+	case TokDecrease: {
+		struct IdentDecreAST *decre = (struct IdentDecreAST *) S_malloc(sizeof(struct IdentDecreAST));
+
+		struct Node *node = parse(pc, is_expr);
+
+		if(node->type != AST_Identifier){
+			panic("Decreasement (--) must be used with identifier!", pc->tc);
+		}
+		
+		decre->ident_node = node;
+		
+		return pack(AST_IdentDecrease, decre);
+	}
+		
         case TokNull: {
                 struct NullAST *null =
                     (struct NullAST *)S_malloc(sizeof(struct NullAST *));

@@ -332,7 +332,11 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
 
                         str[str_len++] = *tc->cur_ch;
                         tc->cur_ch++;
-                } else if (*(tc->cur_ch) == '+') {
+                }
+
+		bool is_incre = *(tc->cur_ch) == '+';
+		bool is_add_and_incre = *(tc->cur_ch) == '+' && *(tc->cur_ch + 1) == '+'; // if +++ we have to tokenize it into + ++
+		if (is_incre && !is_add_and_incre) {
                         type = TokIncrease;
 
                         str[str_len++] = *tc->cur_ch;
@@ -349,7 +353,11 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
 
                         str[str_len++] = *tc->cur_ch;
                         tc->cur_ch++;
-                } else if (*(tc->cur_ch) == '-') {
+                }
+
+		bool is_decre = *(tc->cur_ch) == '-';
+		bool is_sub_and_decre = *(tc->cur_ch) == '-' && *(tc->cur_ch + 1) == '-'; // if --- we have to tokenize it into - --
+		if (is_decre && !is_sub_and_decre) {
                         type = TokDecrease;
 
                         str[str_len++] = *tc->cur_ch;

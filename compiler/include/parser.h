@@ -162,11 +162,11 @@ struct FuncCallAST {
 };
 
 struct IdentIncreAST {
-        struct Token *identifier;
+	struct Node *ident_node;
 };
 
 struct IdentDecreAST {
-        struct Token *identifier;
+        struct Node *ident_node;
 };
 
 struct ForStmtAST {

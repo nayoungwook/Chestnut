@@ -21,7 +21,7 @@ static void resolve_first_pass_queue(struct ParserContext *pc) {
                 }
 
                 init_tc(tc);
-                q_push(pc->second_pass_queue, tc);
+		q_push(pc->second_pass_queue, tc);
         }
 }
 
@@ -42,7 +42,7 @@ int main(int arc, char *args[]) {
 
         q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
         q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
-
+	
         resolve_first_pass_queue(pc);
 
 	//        debug_view_data(pc);

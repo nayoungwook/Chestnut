@@ -1,12 +1,13 @@
 
-func test(): void {
+func foo(): void{
 }
 
 func main(): void {
-	var bar: Bar = null;
-	var a: int = 120000000, b: int = 8;
-	
-	bar.test();
+	var a: int = 3;
+	for(var i:int =0; i<10; i++){
+	}
 
-	print(b + 3);
+	var foo: Foo = null;
+
+	
 }
