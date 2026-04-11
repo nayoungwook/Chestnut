@@ -1,13 +1,16 @@
 
 func foo(): void{
+	return 3;
 }
 
 func main(): void {
-	var a: int = 3;
+	
 	for(var i:int =0; i<10; i++){
 	}
 
-	var foo: Foo = null;
-
+	var bar: Bar = new Bar();
 	
+	bar.foo();
+	
+	var a: int = bar;
 }

@@ -62,7 +62,7 @@ struct ParserContext *gen_pc() {
         pc->func_data_count = 0;
 
         pc->nodes = NULL;
-        pc->node_size = 0;
+        pc->node_count = 0;
         pc->node_capacity = 1;
 
         pc->syscall_smtb = gen_htable();
@@ -80,14 +80,14 @@ void compile_file(struct ParserContext *pc, struct TokenizerContext *tc) {
         pc->tc = tc;
 
         while ((node = parse(pc, false)) != NULL) {
-                if (pc->node_size + 1 >= pc->node_capacity) {
+                if (pc->node_count + 1 >= pc->node_capacity) {
                         pc->node_capacity *= 2;
                         pc->nodes = (struct Node **)S_realloc(
                             pc->nodes,
                             sizeof(struct Node *) * pc->node_capacity);
                 }
 
-                pc->nodes[pc->node_size++] = node;
+                pc->nodes[pc->node_count++] = node;
         }
 
         pc->tc = NULL;
@@ -102,11 +102,11 @@ static struct Node *pack(enum ASTType type, void *ptr) {
         return result;
 }
 
-static void parse_func_call_params(struct ParserContext *pc,
-                                   struct FuncCallAST *func_call) {
+static struct ParamData parse_func_call_params(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
-
-        unsigned capacity = 1, size = 0;
+	struct ParamData param_data = {0, };
+	
+        unsigned capacity = 1, count = 0;
         struct Node **params =
             (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
 
@@ -115,23 +115,25 @@ static void parse_func_call_params(struct ParserContext *pc,
         while (peek(tc)->type != TokRParen) {
                 struct Node *expr = parse_expression(pc);
 
-                if (size + 1 >= capacity) {
+                if (count + 1 >= capacity) {
                         capacity *= 2;
                         params = (struct Node **)S_realloc(
                             params, sizeof(struct Node *) * capacity);
                 }
 
-                params[size++] = expr;
+                params[count++] = expr;
 
                 if (peek(tc)->type == TokComma) {
                         consume(tc, TokComma);
                 }
         }
 
-        func_call->params = params;
-        func_call->param_size = size;
+	param_data.params = params;
+	param_data.param_count = count;
 
         consume(tc, TokRParen);
+
+	return param_data;
 }
 
 static struct VarData *find_var_data(struct ParserContext *pc,
@@ -222,8 +224,10 @@ static struct Node *gen_func_call_node(struct Token *first,
         struct FuncCallAST *func_call =
             (struct FuncCallAST *)S_malloc(sizeof(struct FuncCallAST));
 
-        parse_func_call_params(pc, func_call);
+        struct ParamData param_data = parse_func_call_params(pc);
 
+	func_call->params = param_data.params;
+	func_call->param_count = param_data.param_count;
         func_call->func_name_tok = first;
 
         return pack(AST_FunctionCall, func_call);
@@ -233,24 +237,34 @@ static struct Node *gen_ident_node(struct Token *first,
                                    struct ParserContext *pc,
                                    struct ClassData *attr_of, bool is_expr);
 
-static bool check_attr(struct ClassData *class_data, struct Node *node) {
+static bool check_attr(struct ParserContext *pc, struct ClassData *class_data, struct Node *node) {
+	bool result = false;
+	
         if (node->type == AST_Identifier) {
                 struct IdentifierAST *ident_ast =
                     (struct IdentifierAST *)node->ast;
 
-                return ht_find(class_data->member_vars,
-                               ident_ast->ident->str) != NULL;
+		if(ht_find(class_data->member_vars,
+			   ident_ast->ident->str) != NULL){
+			result = true;
+		}
         }
 
         if (node->type == AST_FunctionCall) {
                 struct FuncCallAST *func_call_ast =
                     (struct FuncCallAST *)node->ast;
 
-                return ht_find(class_data->member_funcs,
-                               func_call_ast->func_name_tok->str) != NULL;
+                if(ht_find(class_data->member_funcs,
+			   func_call_ast->func_name_tok->str) != NULL){
+			result = true;
+		}
         }
 
-        return false;
+	if(!result && strcmp(class_data->parent_name, "") != 0){
+		return check_attr(pc, find_class_data(pc, class_data->parent_name), node);
+	}
+
+	return result;
 }
 
 static void parse_attribute(struct ParserContext *pc,
@@ -263,7 +277,7 @@ static void parse_attribute(struct ParserContext *pc,
         struct Node *attr = gen_ident_node(pull(tc), pc, target_class, is_expr);
         ident_node->attr = attr;
 
-        if (!check_attr(target_class, attr)) {
+        if (!check_attr(pc, target_class, attr)) {
                 const char *ident_str = "";
 
                 if (attr->type == AST_Identifier) {
@@ -369,15 +383,29 @@ static struct VarData *get_ident_var_data(struct ParserContext *pc,
         struct VarData *var_data = NULL;
         struct TokenizerContext *tc = pc->tc;
 
-        if (attr_of == NULL) {
+	bool is_attr = attr_of != NULL;
+
+        if (is_attr) {
+		// if attr_of is not null, it means we have to check attribute
+                // of attr_of so find htable of member_vars
+
+		struct ClassData *searcher = attr_of;
+		while(searcher != NULL){
+			var_data = (struct VarData *)ht_find(searcher->member_vars,
+							     ident_ast->ident->str);
+
+			searcher = find_class_data(pc, attr_of->parent_name);
+
+			if(var_data != NULL){
+				break;
+			}
+		}
+
+
+	} else {
                 // if attr_of is null, we can directly access to variable so
                 // find_var_data
                 var_data = find_var_data(pc, ident_ast->ident->str);
-        } else {
-                // if attr_of is not null, it means we have to check attribute
-                // of attr_of so find htable of member_vars
-                var_data = (struct VarData *)ht_find(attr_of->member_vars,
-                                                     ident_ast->ident->str);
         }
 
         if (var_data == NULL) {
@@ -414,8 +442,16 @@ static struct FuncData *get_func_call_func_data(struct ParserContext *pc,
 	bool is_attr = attr_of != NULL;
 	
         if (is_attr) {
-		func_data = (struct FuncData *)ht_find(
-						       attr_of->member_funcs, func_call_ast->func_name_tok->str);
+		struct ClassData *searcher = attr_of;
+		while(searcher != NULL) {
+			func_data = (struct FuncData *)ht_find(
+							       searcher->member_funcs, func_call_ast->func_name_tok->str);
+			searcher = find_class_data(pc, attr_of->parent_name);
+
+			if(func_data != NULL){
+				break;
+			}
+		}
         } else {
 		func_data =
 			find_func_data(pc, func_call_ast->func_name_tok->str);
@@ -629,6 +665,8 @@ static struct FuncData *gen_func_data(const char *func_name,
                                       bool varargs) {
         struct FuncData *data =
             (struct FuncData *)S_malloc(sizeof(struct FuncData));
+
+	data->is_constructor = false;
         data->return_type = ret_type;
         data->func_name = func_name;
         data->id = id;
@@ -636,6 +674,30 @@ static struct FuncData *gen_func_data(const char *func_name,
         data->is_syscall = false;
 
         return data;
+}
+
+static struct FuncData *register_constructor_data(const char *func_name,
+                                           struct ParserContext *pc) {
+
+        // id is -1 in this code but we will assign id after.
+        struct FuncData *data = gen_func_data(func_name, "void", -1, false);
+
+	data->is_constructor = true;
+	
+        // id assign.
+        if (pc->current_class) {
+                // register in class member.
+                struct ClassData *current_class = pc->current_class;
+
+                data->id = current_class->member_funcs->size + 1;
+
+                ht_insert(current_class->member_funcs, func_name, data);
+
+                return data;
+        }
+
+	panic("Constructor must be declared in class!", pc->tc);
+	return NULL;
 }
 
 static struct FuncData *register_func_data(const char *func_name,
@@ -666,13 +728,56 @@ static struct FuncData *register_func_data(const char *func_name,
         }
 }
 
+static struct Node *gen_constructor_node(struct Token *first,
+					 struct ParserContext *pc){
+	struct ConstructorAST *constructor = (struct ConstructorAST *) S_malloc(sizeof(struct ConstructorAST));
+        struct TokenizerContext *tc = pc->tc;
+        unsigned body_count = 0;
+
+        // reset local var declaration.
+        pc->declared_local_var_count = 0;
+        pc->declared_local_var_capacity = 1;
+        pc->declared_local_vars =
+            (struct VarData **)S_malloc(sizeof(struct VarData *));
+
+        struct Token *class_name_tok = pull(tc);
+
+        struct Node *params = gen_func_param_node(pc);
+
+        assert(params->type == AST_VariableDeclarationBundle);
+
+	constructor->params = params;
+
+        struct Node *result = pack(AST_Constructor, constructor);
+
+        struct FuncData *func_data = find_func_data(pc, class_name_tok->str);
+	struct ClassData *class_data = find_class_data(pc, class_name_tok->str);
+
+	class_data->constructor = func_data;
+	
+        constructor->func_data = func_data;
+	constructor->class_data = class_data;
+
+        pc->current_func = func_data;
+        constructor->body = gen_body(pc, &body_count);
+        pc->current_func = NULL;
+
+        constructor->body_count = body_count;
+
+        // register local var data to calcaulte stack size after.
+        constructor->declared_var_count = pc->declared_local_var_count;
+        constructor->declared_vars = pc->declared_local_vars;
+
+        return result;
+}
+
 static struct Node *gen_func_decl_node(struct Token *first,
                                        struct ParserContext *pc) {
         struct FuncDeclAST *func_decl =
             (struct FuncDeclAST *)S_malloc(sizeof(struct FuncDeclAST));
 
         struct TokenizerContext *tc = pc->tc;
-        unsigned body_size = 0;
+        unsigned body_count = 0;
 
         // reset local var declaration.
         pc->declared_local_var_count = 0;
@@ -708,10 +813,10 @@ static struct Node *gen_func_decl_node(struct Token *first,
         func_decl->func_data = func_data;
 
         pc->current_func = func_data;
-        func_decl->body = gen_body(pc, &body_size);
+        func_decl->body = gen_body(pc, &body_count);
         pc->current_func = NULL;
 
-        func_decl->body_size = body_size;
+        func_decl->body_count = body_count;
 
         // register local var data to calcaulte stack size after.
         func_decl->declared_var_count = pc->declared_local_var_count;
@@ -943,12 +1048,12 @@ static struct Node *gen_if_stmt_node(struct Token *first,
                 consume(tc, TokRParen);
         }
 
-        unsigned body_size = 0;
-        struct Node **body = gen_body(pc, &body_size);
+        unsigned body_count = 0;
+        struct Node **body = gen_body(pc, &body_count);
 
         result->cond = cond;
         result->body = body;
-        result->body_size = body_size;
+        result->body_count = body_count;
         result->stmt_type = stmt_type;
 
         // gen next if stmt
@@ -976,14 +1081,14 @@ static struct Node *gen_for_stmt_node(struct Token *first,
 
         consume(tc, TokRParen);
 
-        unsigned body_size = 0;
-        struct Node **body = gen_body(pc, &body_size);
+        unsigned body_count = 0;
+        struct Node **body = gen_body(pc, &body_count);
 
         result->init = init;
         result->cond = cond;
         result->step = step;
         result->body = body;
-        result->body_size = body_size;
+        result->body_count = body_count;
 
         return pack(AST_ForStatement, result);
 }
@@ -996,6 +1101,8 @@ static struct Node *gen_ret_node(struct Token *first,
 
         ret_ast->expr = expr;
 
+	consume(pc->tc, TokSemiColon);
+	
         return pack(AST_Return, ret_ast);
 }
 
@@ -1013,7 +1120,8 @@ static struct ClassData *register_class_data(const char *class_name,
 
         data->member_funcs = gen_htable();
         data->member_vars = gen_htable();
-
+	data->constructor = NULL;
+	
         ht_insert(pc->class_type_smtb, class_name,
                   gen_class_type(class_name, data));
 
@@ -1042,15 +1150,40 @@ static struct Node *gen_class_decl_node(struct Token *first,
         struct Node *result = pack(AST_Class, class_ast);
 
         unsigned body_size;
-	struct ClassData *class_data = find_class_data(pc, name_tok->str);;
+	struct ClassData *class_data = find_class_data(pc, name_tok->str);
 
 	class_ast->class_data = class_data;
         pc->current_class = class_data;
         class_ast->body = gen_body(pc, &body_size);
-        class_ast->body_size = body_size;
+        class_ast->body_count = body_size;
         pc->current_class = NULL;
 
         return result;
+}
+
+static struct Node *gen_new_node(struct Token *first,
+				 struct ParserContext *pc){
+
+	struct TokenizerContext *tc = pc->tc;
+	struct Token *class_name_tok = consume(tc, TokIdent);
+	struct ParamData param_data = parse_func_call_params(pc);
+
+	struct ClassData *class_data = find_class_data(pc, class_name_tok->str);
+
+	if(class_data == NULL){
+		char err_buff[512];
+		sprintf(err_buff, "Failed to find class %s", class_name_tok->str);
+		panic(err_buff, tc);
+	}
+	
+	struct NewAST *new_ast = (struct NewAST *) S_malloc(sizeof(struct NewAST));
+
+	new_ast->class_data = class_data;
+	new_ast->name_tok = class_name_tok;
+	new_ast->params = param_data.params;
+	new_ast->param_count = param_data.param_count;
+	
+	return pack(AST_New, new_ast);
 }
 
 //=======================================================================
@@ -1087,12 +1220,31 @@ static void parse_class_structure(struct ParserContext *pc) {
         pc->current_class = NULL;
 }
 
+static void pass_body(struct ParserContext *pc){
+	struct TokenizerContext *tc = pc->tc;
+	struct Token *tok;
+	
+	consume(tc, TokLBracket);
+        int bracket_counter = 1;
+
+        while ((tok = pull(tc))->type != TokEOF) {
+                if (tok->type == TokRBracket) {
+                        bracket_counter--;
+                }
+                if (tok->type == TokLBracket) {
+                        bracket_counter++;
+                }
+
+                if (bracket_counter == 0)
+                        break;
+        }
+}
+
 static void parse_func_structure(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
 
         struct Token *func_name_tok = pull(tc);
         int i;
-        struct Token *tok;
 
         struct Node *params = gen_func_param_node(pc);
         struct VarDeclBundleAST *params_ast =
@@ -1116,20 +1268,34 @@ static void parse_func_structure(struct ParserContext *pc) {
         }
 
         // We will not parse content of function declaration.
-        consume(tc, TokLBracket);
-        int bracket_counter = 1;
+	pass_body(pc);
+}
 
-        while ((tok = pull(tc))->type != TokEOF) {
-                if (tok->type == TokRBracket) {
-                        bracket_counter--;
-                }
-                if (tok->type == TokLBracket) {
-                        bracket_counter++;
-                }
+static void parse_constructor_structure(struct ParserContext *pc) {
+        struct TokenizerContext *tc = pc->tc;
 
-                if (bracket_counter == 0)
-                        break;
+        struct Token *func_name_tok = pull(tc);
+        int i;
+
+        struct Node *params = gen_func_param_node(pc);
+        struct VarDeclBundleAST *params_ast =
+            (struct VarDeclBundleAST *)params->ast;
+
+        struct FuncData *func_data =
+		register_constructor_data(func_name_tok->str, pc);
+	
+        func_data->arg_types = S_malloc(params_ast->var_count * sizeof(char *));
+        func_data->arg_count = params_ast->var_count;
+
+        for (i = 0; i < params_ast->var_count; i++) {
+                struct VarDeclAST *param =
+                    (struct VarDeclAST *)params_ast->var_decls[i];
+
+                func_data->arg_types[i] = param->var_type_tok->str;
         }
+
+        // We will not parse content of function declaration.
+	pass_body(pc);
 }
 
 static void parse_var_structure(struct ParserContext *pc) {
@@ -1191,6 +1357,11 @@ void parse_structure(struct ParserContext *pc) {
                 break;
         }
 
+	case TokConstructor: {
+		parse_constructor_structure(pc);
+		break;
+	}
+		
         default: {
                 printf("\n%d\n", first->type);
                 panic("Unexpected token, block of source code must begin with "
@@ -1258,7 +1429,7 @@ void debug_view_data(struct ParserContext *pc) {
 }
 
 static bool is_number_literal_integer(const char *num_lit_str){
-	char *c = num_lit_str;
+	char *c = (char *) num_lit_str;
 
 	while(*c != '\0'){
 		if(*c == '.' || *c == 'f'){
@@ -1369,6 +1540,10 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
                 return gen_func_decl_node(first, pc);
         }
 
+	case TokConstructor: {
+		return gen_constructor_node(first, pc);
+	}
+		
         case TokVar: {
                 return gen_var_decl_node(first, pc, is_expr);
         }
@@ -1377,10 +1552,14 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
                 return gen_class_decl_node(first, pc);
         }
 
+	case TokNew: {
+		return gen_new_node(first, pc);
+	}
+
         case TokIdent: {
                 return gen_ident_node(first, pc, NULL, is_expr);
         }
-
+		
         case TokReturn: {
                 return gen_ret_node(first, pc);
         }

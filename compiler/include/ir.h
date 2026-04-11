@@ -1,6 +1,7 @@
 #ifndef IR_H
 #define IR_H
 
+#include "util.h"
 #include <parser.h>
 #include <type.h>
 
@@ -23,6 +24,9 @@
 
 // META_VAR var_id(uint) var_str(char*)
 #define META_VAR 0x06
+
+// META_CONSTRUCTOR func_id(uint) func_str(char*)
+#define META_CONSTRUCTOR 0X07
 
 #define CODE_BEGIN 0x51 // begining of code section
 #define CODE_END 0x52
@@ -55,12 +59,13 @@
 #define OP_LOAD_STR 0x60 // load_str id(uint)
 
 #define OP_RET 0x70 // ret
+#define OP_RET_VAL 0x71 // ret with value. store return value from top of the stack into ret register 
 
 // --------------------------
 // ** Binary expression **
 // --------------------------
 
-#define OP_EXPR_OP 0x71
+#define OP_EXPR_OP 0x72
 
 #define OP_ADD 0x01
 #define OP_SUB 0x02
@@ -100,7 +105,7 @@ struct IRContext {
         struct Node *node;
         unsigned byte_cnt, byte_size; // byte counter, byte size
 
-        struct Queue *str_rodata;
+        struct HTable *str_rodata;
 
 	struct ClassData *current_class;
 	struct FuncData *current_func;

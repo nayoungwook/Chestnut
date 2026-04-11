@@ -137,7 +137,7 @@ struct IfStmtAST {
         struct Node *cond;
         struct Node *next_stmt;
         struct Node **body;
-        unsigned body_size;
+        unsigned body_count;
 };
 
 struct FuncDeclAST {
@@ -150,15 +150,20 @@ struct FuncDeclAST {
         struct VarData **declared_vars;
         unsigned declared_var_count;
 
-        unsigned body_size;
+        unsigned body_count;
         int ac_mod;
+};
+
+struct ParamData {
+	struct Node **params;
+        int param_count;
 };
 
 struct FuncCallAST {
         struct Token *func_name_tok;
         struct Node **params;
         struct FuncData *func_data;
-        int param_size;
+        int param_count;
 };
 
 struct IdentIncreAST {
@@ -174,7 +179,7 @@ struct ForStmtAST {
         struct Node *cond;
         struct Node *step;
         struct Node **body;
-        unsigned body_size;
+        unsigned body_count;
 };
 
 struct ReturnAST {
@@ -182,9 +187,15 @@ struct ReturnAST {
 };
 
 struct ConstructorAST {
-        struct Node *parameters;
+        struct Node *params;
         struct Node **body;
-        unsigned body_size;
+	struct ClassData *class_data;
+	struct FuncData *func_data;
+
+	struct VarData **declared_vars;
+        unsigned declared_var_count;
+
+	unsigned body_count;
         int ac_mod;
 };
 
@@ -194,7 +205,7 @@ struct ClassAST {
 	struct ClassData *class_data;
 	
         struct Node **body;
-        unsigned body_size;
+        unsigned body_count;
 
         struct Token *name_tok;
         struct Token *parent_name_tok;
@@ -202,8 +213,9 @@ struct ClassAST {
 
 struct NewAST {
         struct Token *name_tok;
-        struct Node **parameters;
-        int parameter_count;
+        struct Node **params;
+	struct ClassData *class_data;
+        int param_count;
 };
 
 struct NullAST {
@@ -234,6 +246,8 @@ struct FuncData {
         const char **arg_types;
         unsigned arg_count;
 
+	bool is_constructor;
+	
         bool varargs;
         bool is_syscall;
 	bool is_attr;
@@ -257,6 +271,8 @@ struct ClassData {
         const char *class_name, *parent_name;
         struct HTable *member_vars;
         struct HTable *member_funcs;
+
+	struct FuncData *constructor;
 };
 
 struct Scope {
@@ -293,7 +309,7 @@ struct ParserContext {
         unsigned declared_local_var_count, declared_local_var_capacity;
 
         struct Node **nodes;
-        unsigned node_size, node_capacity;
+        unsigned node_count, node_capacity;
 };
 
 struct ParserContext *gen_pc();

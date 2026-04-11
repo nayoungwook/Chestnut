@@ -2,13 +2,17 @@
 class Foo {
 	var bar: Bar = null;
 	var num: int = 0;
-			
+
+	constructor Foo(){
+		
+	}
+	
 	func foo(): void {
 
 	}
 }
 
-class Bar {
+class Bar extends Foo {
 	var foo: Foo = null;
 
 	func bar(): void {

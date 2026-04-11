@@ -72,6 +72,15 @@ static void read_block_meta(struct IRReader *ir_reader) {
                 break;
         }
 
+        case META_CONSTRUCTOR: {
+                printf("[constructor] ");
+                consume_int(ir_reader);
+                printf(" ");
+                consume_str(ir_reader);
+                printf("\n");
+                break;
+        }
+
         case META_VAR: {
                 printf("[variable] ");
                 consume_int(ir_reader);
@@ -189,6 +198,10 @@ static void read_func_ir(struct IRReader *ir_reader) {
 
                 case OP_RET:
                         printf("ret");
+                        break;
+
+                case OP_RET_VAL:
+                        printf("ret_val");
                         break;
 
 		case OP_LDC_I4:
