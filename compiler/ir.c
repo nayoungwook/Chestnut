@@ -10,6 +10,7 @@ struct IRContext *gen_irc() {
         irc->node = NULL;
         irc->byte_cnt = 0;
         irc->byte_size = 0;
+	irc->label_id = 0;
         irc->str_rodata = gen_htable();
 
         return irc;
@@ -167,12 +168,6 @@ static unsigned get_total_stack_size_of_func(struct ParserContext *pc,
 		
                 var_data->offset = stack_offset;
 
-                printf("%s(%d) declared in %s, type : %s\n", var_data->var_name,
-                       var_data->id, func_decl->func_name_tok->str,
-                       var_data->type);
-                printf("stack offset : %d, size of variable : %d\n\n",
-                       stack_offset, data_size);
-
                 stack_offset += data_size;
         }
 
@@ -283,39 +278,162 @@ static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type){
 
 static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         struct Node *node);
-	
-static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc, struct Node *node){
-	struct IdentifierAST *ident_ast = (struct IdentifierAST *) node->ast;
 
-	struct VarData *var_data = ident_ast->var_data;
-	
-	assert(var_data != NULL);
-
-	unsigned size = get_size_of_type(pc, var_data->type);
-	unsigned offset = var_data->offset;
-	
-	switch(var_data->scope_data){
+static void gen_ident_load_ir(struct IRContext *irc, struct ParserContext *pc, enum ScopeData scope_data, unsigned offset, unsigned size) {
+	switch(scope_data){
 	case ScopeLocal:
 		emit_byte(irc, OP_SP_LOAD);
-		emit_int(irc, offset);
-		emit_int(irc, size);
 		break;
 
 	case ScopeGlobal:
 		emit_byte(irc, OP_LOAD_GLOBAL);
-		emit_int(irc, offset);
-		emit_int(irc, size);
 		break;
 
 	case ScopeClass:
 		emit_byte(irc, OP_LOAD_CLASS);
-		emit_int(irc, offset);
-		emit_int(irc, size);
 		break;
 
 	default:
 		panic("Wrong scope of variable!", pc->tc);
 		break;
+	}
+	
+	emit_int(irc, offset);
+	emit_int(irc, size);
+}
+
+static void gen_ident_incre_ir(struct IRContext *irc, struct ParserContext *pc, enum ScopeData scope_data, unsigned offset, unsigned size) {
+	switch(scope_data){
+	case ScopeLocal:
+		emit_byte(irc, OP_SP_INCRE);
+		break;
+
+	case ScopeGlobal:
+		emit_byte(irc, OP_INCRE_GLOBAL);
+		break;
+
+	case ScopeClass:
+		emit_byte(irc, OP_INCRE_CLASS);
+		break;
+
+	default:
+		panic("Wrong scope of variable!", pc->tc);
+		break;
+	}
+	
+	emit_int(irc, offset);
+	emit_int(irc, size);
+}
+
+static void gen_ident_decre_ir(struct IRContext *irc, struct ParserContext *pc, enum ScopeData scope_data, unsigned offset, unsigned size) {
+	switch(scope_data){
+	case ScopeLocal:
+		emit_byte(irc, OP_SP_DECRE);
+		break;
+
+	case ScopeGlobal:
+		emit_byte(irc, OP_DECRE_GLOBAL);
+		break;
+
+	case ScopeClass:
+		emit_byte(irc, OP_DECRE_CLASS);
+		break;
+
+	default:
+		panic("Wrong scope of variable!", pc->tc);
+		break;
+	}
+
+	emit_int(irc, offset);
+	emit_int(irc, size);
+}
+
+static void gen_attr_load_ir(struct IRContext *irc, struct ParserContext *pc, unsigned offset, unsigned size){
+	emit_byte(irc, OP_LOAD_ATTR);
+	emit_int(irc, offset);
+	emit_int(irc, size);
+}
+
+static void gen_attr_incre_ir(struct IRContext *irc, struct ParserContext *pc, unsigned offset, unsigned size){
+	emit_byte(irc, OP_INCRE_ATTR);
+	emit_int(irc, offset);
+	emit_int(irc, size);
+}
+
+static void gen_attr_decre_ir(struct IRContext *irc, struct ParserContext *pc, unsigned offset, unsigned size){
+	emit_byte(irc, OP_DECRE_ATTR);
+	emit_int(irc, offset);
+	emit_int(irc, size);
+}
+
+static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc, struct Node *node){
+
+	struct IdentifierAST *ident_ast = NULL;
+
+	switch(node->type){
+	case AST_Identifier:{
+		ident_ast = ((struct IdentifierAST *) node->ast);
+		break;
+	}
+
+	case AST_IdentIncrease:{
+		struct IdentIncreAST *ident_incre_ast = ((struct IdentIncreAST *) node->ast);
+		ident_ast = (struct IdentifierAST *) ident_incre_ast->ident_node->ast;
+		break;
+	}
+
+	case AST_IdentDecrease:{
+		struct IdentDecreAST *ident_decre_ast = ((struct IdentDecreAST *) node->ast);
+		ident_ast = (struct IdentifierAST *) ident_decre_ast->ident_node->ast;
+		break;
+	}
+
+	default:{
+	}
+	}
+
+	assert(ident_ast != NULL);
+
+	struct VarData *var_data = ident_ast->var_data;
+	assert(var_data != NULL);
+	
+	unsigned size = get_size_of_type(pc, var_data->type);
+	unsigned offset = var_data->offset;
+	
+	switch(node->type){
+	case AST_Identifier:{
+		
+		if(ident_ast->is_attr){
+			gen_attr_load_ir(irc, pc, offset, size);
+		} else {
+			gen_ident_load_ir(irc, pc, var_data->scope_data, offset, size);
+		}
+		break;
+	}
+
+	case AST_IdentIncrease:{
+		
+		
+		if(ident_ast->is_attr){
+			gen_attr_incre_ir(irc, pc, offset, size);
+		} else {
+			gen_ident_incre_ir(irc, pc, var_data->scope_data, offset, size);
+		}
+		break;
+	}
+
+	case AST_IdentDecrease:{
+		if(ident_ast->is_attr){
+			gen_attr_decre_ir(irc, pc, offset, size);
+		} else {
+			gen_ident_decre_ir(irc, pc, var_data->scope_data, offset, size);
+		}
+		break;
+	}
+
+	default:{
+		panic("in gen_ident_ir function, this node is not identifier.", pc->tc);
+	}
 	}
 	
 	if(node->attr != NULL){
@@ -333,7 +451,9 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 		break;
 	}
 
-	case AST_Identifier : {
+	case AST_Identifier:
+	case AST_IdentIncrease:
+	case AST_IdentDecrease:{
 		gen_ident_ir(irc, pc, node);
 		
 		break;
@@ -429,6 +549,40 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 break;
         }
 
+	case AST_ForStatement: {
+		struct ForStmtAST *for_stmt_ast = (struct ForStmtAST *) node->ast;
+
+		gen_node_ir(irc, pc, for_stmt_ast->init);
+
+		irc->label_id++;
+		int end_label_id = irc->label_id;
+		irc->label_id++;
+		int begin_label_id = irc->label_id;
+
+		emit_byte(irc, OP_GOTO);
+		emit_int(irc, end_label_id);
+
+		emit_byte(irc, OP_LABEL);
+		emit_int(irc, begin_label_id);
+
+		int i;
+		for(i=0; i<for_stmt_ast->body_count; i++){
+			gen_node_ir(irc, pc, for_stmt_ast->body[i]);
+		}
+
+		gen_node_ir(irc, pc, for_stmt_ast->step);
+
+		emit_byte(irc, OP_LABEL);
+		emit_int(irc, end_label_id);
+
+		gen_node_ir(irc, pc, for_stmt_ast->cond);
+
+		emit_byte(irc, OP_JE);
+		emit_int(irc, begin_label_id);
+
+		break;
+	}
+		
         case AST_FunctionCall: {
                 struct FuncCallAST *func_call_ast =
 			(struct FuncCallAST *)node->ast;
@@ -445,12 +599,28 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         gen_node_ir(irc, pc, func_call_ast->params[i]);
                 }
 
-                if (func_data->is_syscall) { // syscall
-                        emit_byte(irc, OP_SYSCALL);
-		} else if (func_data->is_attr) { // attr call => foo.bar();
+		enum ScopeData scope_data = func_data->scope_data;
+		
+		if(func_call_ast->is_attr){
 			emit_byte(irc, OP_CALL_ATTR);
-		} else { // global call => foo();
-                        emit_byte(irc, OP_CALL);
+		}else{
+		switch(scope_data){
+		case ScopeGlobal:
+			emit_byte(irc, OP_CALL_GLOBAL);
+			break;
+
+		case ScopeClass:
+			emit_byte(irc, OP_CALL_CLASS);
+			break;
+			
+		case ScopeSyscall:
+			emit_byte(irc, OP_SYSCALL);
+			break;
+
+		default:
+			panic("Wrong scope of variable!", pc->tc);
+			break;
+		}
 		}
 		
                 emit_int(irc, func_data->id);

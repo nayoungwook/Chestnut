@@ -85,6 +85,7 @@ struct StringLiteralAST {
 struct IdentifierAST {
         struct Token *ident;
 	struct VarData *var_data;
+	bool is_attr;
 };
 
 struct BoolLiteralAST {
@@ -164,14 +165,17 @@ struct FuncCallAST {
         struct Node **params;
         struct FuncData *func_data;
         int param_count;
+	bool is_attr;
 };
 
 struct IdentIncreAST {
 	struct Node *ident_node;
+	bool is_attr;
 };
 
 struct IdentDecreAST {
         struct Node *ident_node;
+	bool is_attr;
 };
 
 struct ForStmtAST {
@@ -238,6 +242,10 @@ struct NegAST {
         struct Node *ast;
 };
 
+enum ScopeData {
+	ScopeNone, ScopeLocal, ScopeGlobal, ScopeClass, ScopeSyscall
+};
+
 struct FuncData {
         unsigned id;
         const char *func_name;
@@ -249,12 +257,8 @@ struct FuncData {
 	bool is_constructor;
 	
         bool varargs;
-        bool is_syscall;
-	bool is_attr;
-};
 
-enum ScopeData {
-	ScopeNone, ScopeLocal, ScopeGlobal, ScopeClass,
+	enum ScopeData scope_data;
 };
 
 struct VarData {

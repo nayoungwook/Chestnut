@@ -108,6 +108,50 @@ static void read_expr_op_ir(byte expr_op_byte){
 		printf("add");
 		break;
 
+	case OP_SUB:
+		printf("sub");
+		break;
+		
+	case OP_MUL:
+		printf("mul");
+		break;
+		
+	case OP_DIV:
+		printf("div");
+		break;
+		
+	case OP_EQUAL:
+		printf("equal");
+		break;
+		
+	case OP_NOTEQUAL:
+		printf("notequal");
+		break;
+		
+	case OP_GREATER:
+		printf("greater");
+		break;
+		
+	case OP_LESS:
+		printf("less");
+		break;
+		
+	case OP_EQUALGREATER:
+		printf("eqgreater");
+		break;
+		
+	case OP_EQUALLESS:
+		printf("eqless");
+		break;
+		
+	case OP_OR:
+		printf("or");
+		break;
+		
+	case OP_AND:
+		printf("and");
+		break;
+
 	default:
 		printf("Unknown Expr op byte : %d\n", expr_op_byte);
 	}
@@ -151,13 +195,48 @@ static void read_func_ir(struct IRReader *ir_reader) {
 			consume_int(ir_reader);
                         break;
 
+                case OP_SP_INCRE:
+                        printf("sp_incre ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+
+                case OP_SP_DECRE:
+                        printf("sp_decre ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+			
                 case OP_LOAD_GLOBAL:
                         printf("load_global ");
                         consume_int(ir_reader);
 			printf(" ");
 			consume_int(ir_reader);
                         break;
-
+			
+                case OP_LOAD_ATTR:
+                        printf("load_attr ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+			
+                case OP_INCRE_GLOBAL:
+                        printf("incre_global ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+			
+                case OP_DECRE_GLOBAL:
+                        printf("decre_global ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+			
                 case OP_LOAD_CLASS:
                         printf("load_class ");
                         consume_int(ir_reader);
@@ -165,6 +244,34 @@ static void read_func_ir(struct IRReader *ir_reader) {
 			consume_int(ir_reader);
                         break;
 
+                case OP_INCRE_CLASS:
+                        printf("incre_class ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+
+		case OP_DECRE_CLASS:
+                        printf("decre_class ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+                
+                case OP_INCRE_ATTR:
+                        printf("incre_attr ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+
+		case OP_DECRE_ATTR:
+                        printf("decre_attr ");
+                        consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                        break;
+                
                 case OP_SP_SAVE:
                         printf("sp_save ");
                         consume_int(ir_reader);
@@ -195,6 +302,26 @@ static void read_func_ir(struct IRReader *ir_reader) {
                         printf("load_str ");
                         consume_int(ir_reader);
                         break;
+
+		case OP_GOTO:
+			printf("goto ");
+			consume_int(ir_reader);
+			break;
+
+		case OP_LABEL:
+			printf("label ");
+			consume_int(ir_reader);
+			break;
+
+		case OP_JE:
+			printf("je ");
+			consume_int(ir_reader);
+			break;
+
+		case OP_JNE:
+			printf("jne ");
+			consume_int(ir_reader);
+			break;
 
                 case OP_RET:
                         printf("ret");

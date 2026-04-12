@@ -51,15 +51,24 @@
 
 #define OP_SP_LOAD 0x58 // sp_load offset(uint) size(uint)
 #define OP_SP_SAVE 0x59 // sp_save offset(uint) size(uint)
+#define OP_SP_INCRE 0x5a // sp_incre offset(uint) size(uint)
+#define OP_SP_DECRE 0x5b // sp_decre offset(uint) size(uint)
 
-#define OP_SYSCALL 0x5a // syscall id(uint) arg_cnt(uint)
-#define OP_CALL 0x5b    // call id(uint) arg_cnt(uint)
-#define OP_CALL_ATTR 0x5c // call_attr id(uint) arg_cnt(uint)
+#define OP_SYSCALL 0x5c // syscall id(uint) arg_cnt(uint)
+#define OP_CALL 0x5d    // call id(uint) arg_cnt(uint)
+#define OP_CALL_ATTR 0x5e // call_attr id(uint) arg_cnt(uint)
+#define OP_CALL_CLASS 0x5e // call_class id(uint) arg_cnt(uint)
+#define OP_CALL_GLOBAL 0x5e // call_global id(uint) arg_cnt(uint)
 
 #define OP_LOAD_STR 0x60 // load_str id(uint)
 
 #define OP_RET 0x70 // ret
 #define OP_RET_VAL 0x71 // ret with value. store return value from top of the stack into ret register 
+
+#define OP_GOTO 0x73 // goto label(uint)
+#define OP_LABEL 0x74 // label(uint)
+#define OP_JE 0x75   // je label(uint)
+#define OP_JNE 0x76  // jne label(uint)
 
 // --------------------------
 // ** Binary expression **
@@ -91,7 +100,17 @@
 
 #define OP_PUSH_NULL 0x84 // push null
 #define OP_LOAD_CLASS 0x85 // load_class offset(uint) size(uint) # load from current class and push into stack.
-#define OP_LOAD_GLOBAL 0x86 // load_global offset(uint) sizeof(uint) # load from global and push into stack.
+#define OP_INCRE_CLASS 0x8a // incre_global offset(uint) size(uint) # increase from current class
+#define OP_DECRE_CLASS 0x8b // decre_global offset(uint) size(uint) # decrease from current class
+
+#define OP_LOAD_GLOBAL 0x8c // load_global offset(uint) sizeof(uint) # load from global and push into stack.
+#define OP_INCRE_GLOBAL 0x8d // incre_global offset(uint) sizeof(uint) # increase from global
+#define OP_DECRE_GLOBAL 0x8e // decre_global offset(uint) sizeof(uint) # decrease from global
+
+#define OP_LOAD_ATTR 0x8f // load_attr offset(uint) size(uint) # load from data from top of the stack.
+
+#define OP_INCRE_ATTR 0x90 // incre_attr offset(uint) size(uint) # increase from data from top of the stack.
+#define OP_DECRE_ATTR 0x91 // decre_attr offset(uint) size(uint) # decrease from data from top of the stack.
 
 typedef unsigned char byte;
 
@@ -104,7 +123,8 @@ struct IRContext {
         byte *bytes;
         struct Node *node;
         unsigned byte_cnt, byte_size; // byte counter, byte size
-
+	unsigned label_id;
+	
         struct HTable *str_rodata;
 
 	struct ClassData *current_class;

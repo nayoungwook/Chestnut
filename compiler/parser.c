@@ -185,17 +185,19 @@ static struct FuncData *find_func_data(struct ParserContext *pc,
         if (current_class != NULL &&
             (result = ht_find(current_class->member_funcs, func_name)) !=
                 NULL) {
+		result->scope_data = ScopeClass;
                 return result;
         }
 
         // find in global
         if ((result = ht_find(pc->glob_func_smtb, func_name)) != NULL) {
+		result->scope_data = ScopeGlobal;
                 return result;
         }
 
         // syscall
         if ((result = ht_find(pc->syscall_smtb, func_name)) != NULL) {
-                result->is_syscall = true;
+		result->scope_data = ScopeSyscall;
                 return result;
         }
 
@@ -269,7 +271,7 @@ static bool check_attr(struct ParserContext *pc, struct ClassData *class_data, s
 
 static void parse_attribute(struct ParserContext *pc,
                             struct ClassData *target_class,
-                            struct Node *ident_node, bool is_expr) {
+                            struct Node *ident_node, struct ClassData *attr_of, bool is_expr) {
         struct TokenizerContext *tc = pc->tc;
 
         assert(target_class != NULL);
@@ -277,18 +279,58 @@ static void parse_attribute(struct ParserContext *pc,
         struct Node *attr = gen_ident_node(pull(tc), pc, target_class, is_expr);
         ident_node->attr = attr;
 
+	bool is_attr = attr_of != NULL;
+
+	const char *ident_str = "";
+
+	switch(attr->type){
+	case AST_Identifier: {
+		struct IdentifierAST *ident_ast = (struct IdentifierAST *)attr->ast;
+		ident_str =
+			ident_ast->ident->str;
+		ident_ast->is_attr = is_attr;
+		break;
+	}
+
+	case AST_FunctionCall: {
+		struct FuncCallAST *func_call_ast =  (struct FuncCallAST *)attr->ast;
+		ident_str =
+			func_call_ast->func_name_tok->str;
+		func_call_ast->is_attr = is_attr;
+		break;
+	}
+
+	case AST_IdentIncrease: {
+		struct IdentIncreAST *ident_incre_ast =  (struct IdentIncreAST *)attr->ast;
+		assert(ident_incre_ast->ident_node->type == AST_Identifier);
+
+		struct IdentifierAST *identifier_ast = ((struct IdentifierAST *)ident_incre_ast->ident_node->ast);
+		ident_str =
+			identifier_ast->ident->str;
+		
+		ident_incre_ast->is_attr = is_attr;
+		break;
+	}
+
+	case AST_IdentDecrease: {
+		struct IdentDecreAST *ident_decre_ast =  (struct IdentDecreAST *)attr->ast;
+		assert(ident_decre_ast->ident_node->type == AST_Identifier);
+
+		struct IdentifierAST *identifier_ast = ((struct IdentifierAST *)ident_decre_ast->ident_node->ast);
+		ident_str =
+			identifier_ast->ident->str;
+		
+		ident_decre_ast->is_attr = is_attr;
+		break;
+	}
+		
+	default:
+		panic("this node is not appropriate for attribute node!", tc);
+	}
+	
+	assert(strcmp(ident_str, "") != 0);
+	
         if (!check_attr(pc, target_class, attr)) {
-                const char *ident_str = "";
-
-                if (attr->type == AST_Identifier) {
-                        ident_str =
-                            ((struct IdentifierAST *)attr->ast)->ident->str;
-                }
-
-                if (attr->type == AST_FunctionCall) {
-                        ident_str = ((struct FuncCallAST *)attr->ast)
-                                        ->func_name_tok->str;
-                }
 
                 char error_buff[512];
                 sprintf(error_buff,
@@ -331,7 +373,7 @@ static struct Node *check_incre_decre(struct ParserContext *pc,
 					 struct Node *result){
 	struct TokenizerContext *tc = pc->tc;
 	struct Token *nt = peek(tc);
-
+	
 	if(!(nt->type == TokIncrease || nt->type == TokDecrease)){
 		return result;
 	}
@@ -384,7 +426,7 @@ static struct VarData *get_ident_var_data(struct ParserContext *pc,
         struct TokenizerContext *tc = pc->tc;
 
 	bool is_attr = attr_of != NULL;
-
+	
         if (is_attr) {
 		// if attr_of is not null, it means we have to check attribute
                 // of attr_of so find htable of member_vars
@@ -475,10 +517,9 @@ static struct FuncData *get_func_call_func_data(struct ParserContext *pc,
                 panic(error_buff, tc);
         }
 
-	func_data->is_attr = is_attr;
 	func_call_ast->func_data = func_data;
 
-	assert(!(is_attr && func_data->is_syscall));
+	assert(!(is_attr && func_data->scope_data == ScopeSyscall));
 
 	return func_data;
 }
@@ -530,8 +571,8 @@ static struct Node *gen_ident_node(struct Token *first,
 
         if (peek(tc)->type == TokDot) {
                 consume(tc, TokDot);
-
-                parse_attribute(pc, attr_of, result, is_expr);
+		
+                parse_attribute(pc, attr_of, result, attr_of, is_expr);
         }
                 
         if (first_identifier) {
@@ -671,7 +712,6 @@ static struct FuncData *gen_func_data(const char *func_name,
         data->func_name = func_name;
         data->id = id;
         data->varargs = varargs;
-        data->is_syscall = false;
 
         return data;
 }
@@ -1496,7 +1536,7 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
 		struct IdentIncreAST *incre = (struct IdentIncreAST *) S_malloc(sizeof(struct IdentIncreAST));
 
 		struct Node *node = parse(pc, is_expr);
-
+		
 		if(node->type != AST_Identifier){
 			panic("Increasement (++) must be used with identifier!", pc->tc);
 		}
