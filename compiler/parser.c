@@ -41,7 +41,7 @@ static void init_syscall(struct ParserContext *pc) {
 
 struct ParserContext *gen_pc() {
         struct ParserContext *pc =
-            (struct ParserContext *)S_malloc(sizeof(struct ParserContext));
+		(struct ParserContext *)S_malloc(sizeof(struct ParserContext));
 
         pc->tc = NULL;
 
@@ -83,8 +83,8 @@ void compile_file(struct ParserContext *pc, struct TokenizerContext *tc) {
                 if (pc->node_count + 1 >= pc->node_capacity) {
                         pc->node_capacity *= 2;
                         pc->nodes = (struct Node **)S_realloc(
-                            pc->nodes,
-                            sizeof(struct Node *) * pc->node_capacity);
+							      pc->nodes,
+							      sizeof(struct Node *) * pc->node_capacity);
                 }
 
                 pc->nodes[pc->node_count++] = node;
@@ -108,7 +108,7 @@ static struct ParamData parse_func_call_params(struct ParserContext *pc) {
 	
         unsigned capacity = 1, count = 0;
         struct Node **params =
-            (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
+		(struct Node **)S_malloc(sizeof(struct Node *) * capacity);
 
         consume(tc, TokLParen);
 
@@ -118,7 +118,7 @@ static struct ParamData parse_func_call_params(struct ParserContext *pc) {
                 if (count + 1 >= capacity) {
                         capacity *= 2;
                         params = (struct Node **)S_realloc(
-                            params, sizeof(struct Node *) * capacity);
+							   params, sizeof(struct Node *) * capacity);
                 }
 
                 params[count++] = expr;
@@ -145,7 +145,7 @@ static struct VarData *find_var_data(struct ParserContext *pc,
 
                 while (scope_searcher != NULL) {
                         result = (struct VarData *)ht_find(
-                            scope_searcher->local_var_smtb, var_name);
+							   scope_searcher->local_var_smtb, var_name);
 
                         if (result != NULL)
                                 break;
@@ -159,7 +159,7 @@ static struct VarData *find_var_data(struct ParserContext *pc,
 
         if (result == NULL && pc->current_class != NULL) { // and find in class
                 result = (struct VarData *)ht_find(
-                    pc->current_class->member_vars, var_name);
+						   pc->current_class->member_vars, var_name);
 
 		result->scope_data = ScopeClass;
         }
@@ -184,7 +184,7 @@ static struct FuncData *find_func_data(struct ParserContext *pc,
         // TODO : find parent class.
         if (current_class != NULL &&
             (result = ht_find(current_class->member_funcs, func_name)) !=
-                NULL) {
+	    NULL) {
 		result->scope_data = ScopeClass;
                 return result;
         }
@@ -224,7 +224,7 @@ static struct ClassData *find_class_data(struct ParserContext *pc,
 static struct Node *gen_func_call_node(struct Token *first,
                                        struct ParserContext *pc, bool is_expr) {
         struct FuncCallAST *func_call =
-            (struct FuncCallAST *)S_malloc(sizeof(struct FuncCallAST));
+		(struct FuncCallAST *)S_malloc(sizeof(struct FuncCallAST));
 
         struct ParamData param_data = parse_func_call_params(pc);
 
@@ -244,7 +244,7 @@ static bool check_attr(struct ParserContext *pc, struct ClassData *class_data, s
 	
         if (node->type == AST_Identifier) {
                 struct IdentifierAST *ident_ast =
-                    (struct IdentifierAST *)node->ast;
+			(struct IdentifierAST *)node->ast;
 
 		if(ht_find(class_data->member_vars,
 			   ident_ast->ident->str) != NULL){
@@ -254,7 +254,7 @@ static bool check_attr(struct ParserContext *pc, struct ClassData *class_data, s
 
         if (node->type == AST_FunctionCall) {
                 struct FuncCallAST *func_call_ast =
-                    (struct FuncCallAST *)node->ast;
+			(struct FuncCallAST *)node->ast;
 
                 if(ht_find(class_data->member_funcs,
 			   func_call_ast->func_name_tok->str) != NULL){
@@ -355,7 +355,7 @@ static struct Node *check_assign(struct ParserContext *pc,
         struct Node *expr = parse_expression(pc);
 
         struct BinExprAST *bin_expr_ast =
-            (struct BinExprAST *)S_malloc(sizeof(struct BinExprAST));
+		(struct BinExprAST *)S_malloc(sizeof(struct BinExprAST));
 
         bin_expr_ast->left = result;
         bin_expr_ast->op_type = OpASSIGN;
@@ -370,7 +370,7 @@ static struct Node *check_assign(struct ParserContext *pc,
 
 // return incre | decre ast node if it is increase or decrease operation.
 static struct Node *check_incre_decre(struct ParserContext *pc,
-					 struct Node *result){
+				      struct Node *result){
 	struct TokenizerContext *tc = pc->tc;
 	struct Token *nt = peek(tc);
 	
@@ -417,10 +417,10 @@ static struct Node *check_incre_decre(struct ParserContext *pc,
 }
 
 static struct VarData *get_ident_var_data(struct ParserContext *pc,
-                                              struct ClassData *attr_of,
-                                              struct Node *ident_node) {
+					  struct ClassData *attr_of,
+					  struct Node *ident_node) {
         struct IdentifierAST *ident_ast =
-            (struct IdentifierAST *)ident_node->ast;
+		(struct IdentifierAST *)ident_node->ast;
 
         struct VarData *var_data = NULL;
         struct TokenizerContext *tc = pc->tc;
@@ -473,10 +473,10 @@ static struct VarData *get_ident_var_data(struct ParserContext *pc,
 }
 
 static struct FuncData *get_func_call_func_data(struct ParserContext *pc,
-                                                  struct ClassData *attr_of,
-                                                  struct Node *ident_node) {
+						struct ClassData *attr_of,
+						struct Node *ident_node) {
         struct FuncCallAST *func_call_ast =
-            (struct FuncCallAST *)ident_node->ast;
+		(struct FuncCallAST *)ident_node->ast;
         struct FuncData *func_data = NULL;
 
         struct TokenizerContext *tc = pc->tc;
@@ -555,8 +555,8 @@ static struct Node *gen_ident_node(struct Token *first,
                 result = gen_func_call_node(first, pc, is_expr);
         } else {
                 struct IdentifierAST *ident_ast =
-                    (struct IdentifierAST *)S_malloc(
-                        sizeof(struct IdentifierAST));
+			(struct IdentifierAST *)S_malloc(
+							 sizeof(struct IdentifierAST));
                 ident_ast->ident = first;
 
                 result = pack(AST_Identifier, ident_ast);
@@ -591,7 +591,7 @@ static struct Node *gen_ident_node(struct Token *first,
 static struct Node *gen_func_param_node(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
         struct VarDeclBundleAST *result = (struct VarDeclBundleAST *)S_malloc(
-            sizeof(struct VarDeclBundleAST));
+									      sizeof(struct VarDeclBundleAST));
 
         result->var_count = 0;
         result->var_decls = (struct Node **)S_malloc(sizeof(struct Node *));
@@ -608,7 +608,7 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
 
                 struct Token *type_tok = pull(tc);
                 struct VarDeclAST *var_decl =
-                    (struct VarDeclAST *)S_malloc(sizeof(struct VarDeclAST));
+			(struct VarDeclAST *)S_malloc(sizeof(struct VarDeclAST));
                 var_decl->decl = NULL;
                 var_decl->var_name_tok = name_tok;
                 var_decl->var_type_tok = type_tok;
@@ -623,12 +623,12 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
                 if (param_size + 1 >= capacity) {
                         capacity *= 2;
                         result->var_decls = S_realloc(
-                            result->var_decls,
-                            sizeof(struct VarDeclBundleAST *) * capacity);
+						      result->var_decls,
+						      sizeof(struct VarDeclBundleAST *) * capacity);
                 }
 
                 result->var_decls[param_size++] =
-                    pack(AST_VariableDeclaration, var_decl);
+			pack(AST_VariableDeclaration, var_decl);
 
                 struct Token *nt = peek(tc);
                 if (nt->type == TokRParen)
@@ -678,7 +678,7 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
 
         unsigned size = 0, capacity = 1;
         struct Node **result =
-            (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
+		(struct Node **)S_malloc(sizeof(struct Node *) * capacity);
 
         while (peek(tc)->type != TokRBracket) {
                 void *element = parse(pc, false);
@@ -687,7 +687,7 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
                 if (size + 1 >= capacity) {
                         capacity *= 2;
                         result = (struct Node **)S_realloc(
-                            result, sizeof(struct Node *) * capacity);
+							   result, sizeof(struct Node *) * capacity);
                 }
 
                 result[size++] = element;
@@ -705,7 +705,7 @@ static struct FuncData *gen_func_data(const char *func_name,
                                       const char *ret_type, unsigned id,
                                       bool varargs) {
         struct FuncData *data =
-            (struct FuncData *)S_malloc(sizeof(struct FuncData));
+		(struct FuncData *)S_malloc(sizeof(struct FuncData));
 
 	data->is_constructor = false;
         data->return_type = ret_type;
@@ -717,7 +717,7 @@ static struct FuncData *gen_func_data(const char *func_name,
 }
 
 static struct FuncData *register_constructor_data(const char *func_name,
-                                           struct ParserContext *pc) {
+						  struct ParserContext *pc) {
 
         // id is -1 in this code but we will assign id after.
         struct FuncData *data = gen_func_data(func_name, "void", -1, false);
@@ -778,7 +778,7 @@ static struct Node *gen_constructor_node(struct Token *first,
         pc->declared_local_var_count = 0;
         pc->declared_local_var_capacity = 1;
         pc->declared_local_vars =
-            (struct VarData **)S_malloc(sizeof(struct VarData *));
+		(struct VarData **)S_malloc(sizeof(struct VarData *));
 
         struct Token *class_name_tok = pull(tc);
 
@@ -814,7 +814,7 @@ static struct Node *gen_constructor_node(struct Token *first,
 static struct Node *gen_func_decl_node(struct Token *first,
                                        struct ParserContext *pc) {
         struct FuncDeclAST *func_decl =
-            (struct FuncDeclAST *)S_malloc(sizeof(struct FuncDeclAST));
+		(struct FuncDeclAST *)S_malloc(sizeof(struct FuncDeclAST));
 
         struct TokenizerContext *tc = pc->tc;
         unsigned body_count = 0;
@@ -823,7 +823,7 @@ static struct Node *gen_func_decl_node(struct Token *first,
         pc->declared_local_var_count = 0;
         pc->declared_local_var_capacity = 1;
         pc->declared_local_vars =
-            (struct VarData **)S_malloc(sizeof(struct VarData *));
+		(struct VarData **)S_malloc(sizeof(struct VarData *));
 
         struct Token *func_name_tok = pull(tc);
 
@@ -869,7 +869,7 @@ static struct VarData *register_local_var_data(const char *name,
                                                const char *type,
                                                struct ParserContext *pc) {
         struct VarData *data =
-            (struct VarData *)S_malloc(sizeof(struct VarData));
+		(struct VarData *)S_malloc(sizeof(struct VarData));
         data->type = type;
         data->var_name = name;
 
@@ -880,9 +880,9 @@ static struct VarData *register_local_var_data(const char *name,
             pc->declared_local_var_count + 1) {
                 pc->declared_local_var_capacity *= 2;
                 pc->declared_local_vars = (struct VarData **)S_realloc(
-                    pc->declared_local_vars,
-                    sizeof(struct VarData **) *
-                        pc->declared_local_var_capacity);
+								       pc->declared_local_vars,
+								       sizeof(struct VarData **) *
+								       pc->declared_local_var_capacity);
         }
 
         pc->declared_local_vars[pc->declared_local_var_count++] = data;
@@ -910,7 +910,7 @@ static struct VarData *register_var_data(const char *name, const char *type,
         bool local = in_func;
 
         struct VarData *data =
-            (struct VarData *)S_malloc(sizeof(struct VarData));
+		(struct VarData *)S_malloc(sizeof(struct VarData));
         data->type = type;
         data->var_name = name;
 

@@ -2,7 +2,7 @@
 
 struct IRReader *gen_ir_reader(struct IRContext *irc) {
         struct IRReader *ir_reader =
-            (struct IRReader *)S_malloc(sizeof(struct IRReader));
+		(struct IRReader *)S_malloc(sizeof(struct IRReader));
 
         ir_reader->bytes = irc->bytes;
         ir_reader->irc = irc;
@@ -273,8 +273,11 @@ static void read_func_ir(struct IRReader *ir_reader) {
                         break;
                 
                 case OP_SP_SAVE:
-                        printf("sp_save ");
-                        consume_int(ir_reader);
+			printf("sp_save ");
+			consume_int(ir_reader);
+			printf(" ");
+			consume_int(ir_reader);
+                  
                         break;
 
                 case OP_CALL:

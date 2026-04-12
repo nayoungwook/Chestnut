@@ -13,4 +13,6 @@ func main(): void {
 	bar.foo();
 	
 	var a: int = bar;
+
+	a = 34;
 }

@@ -491,9 +491,13 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 		// case for local var data
 		if(var_decl_ast->local_var_data != NULL){
 			struct VarData *var_data = var_decl_ast->local_var_data;
-			
+
+                        unsigned offset = var_data->offset;
+			unsigned size = get_size_of_type(pc, var_data->type);
+                        
 			emit_byte(irc, OP_SP_SAVE); // stack point load
-			emit_int(irc, var_data->offset);
+			emit_int(irc, offset);
+			emit_int(irc, size);
 
 			break;
 		}
