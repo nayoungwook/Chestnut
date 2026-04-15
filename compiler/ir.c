@@ -607,23 +607,23 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 		if(func_call_ast->is_attr){
 			emit_byte(irc, OP_CALL_ATTR);
 		}else{
-		switch(scope_data){
-		case ScopeGlobal:
-			emit_byte(irc, OP_CALL_GLOBAL);
-			break;
+			switch(scope_data){
+			case ScopeGlobal:
+				emit_byte(irc, OP_CALL_GLOBAL);
+				break;
 
-		case ScopeClass:
-			emit_byte(irc, OP_CALL_CLASS);
-			break;
+			case ScopeClass:
+				emit_byte(irc, OP_CALL_CLASS);
+				break;
 			
-		case ScopeSyscall:
-			emit_byte(irc, OP_SYSCALL);
-			break;
+			case ScopeSyscall:
+				emit_byte(irc, OP_SYSCALL);
+				break;
 
-		default:
-			panic("Wrong scope of variable!", pc->tc);
-			break;
-		}
+			default:
+				panic("Wrong scope of variable!", pc->tc);
+				break;
+			}
 		}
 		
                 emit_int(irc, func_data->id);
@@ -631,7 +631,6 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
                 break;
         }
-
 	case AST_Class: {
 		struct ClassAST *class_ast = (struct ClassAST *)node->ast;
 		struct ClassData *class_data = class_ast->class_data;
@@ -658,7 +657,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 		emit_byte(irc, OP_RET_VAL);
 		break;
 	}
-		
+
         case AST_FunctionDeclaration: {
                 struct FuncDeclAST *func_decl_ast =
 			(struct FuncDeclAST *)node->ast;
