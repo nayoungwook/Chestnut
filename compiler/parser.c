@@ -15,23 +15,31 @@ static struct FuncData *gen_func_data(const char *func_name,
                                       const char *ret_type, unsigned id,
                                       bool varargs);
 
+static void add_primitive_numeric(struct ParserContext *pc, const char *name, unsigned nbyte, unsigned rank, bool is_signed, bool is_integer){
+	struct Type *numeric_type = gen_numeric_type(name, nbyte, gen_numeric_data(rank, is_signed, is_integer));
+	ht_insert(pc->primitive_type_smtb, name, numeric_type);
+
+	pc->numeric_type_array[pc->numeric_type_count++] = numeric_type;
+
+	if(pc->numeric_type_count >= pc->numeric_type_capacity){
+		pc->numeric_type_capacity *= 2;
+		pc->numeric_type_array = (struct Type **) S_realloc(pc->numeric_type_array, sizeof(struct Type *) * pc->numeric_type_capacity);
+	}
+}
+
 static void init_primitive(struct ParserContext *pc) {
         // char < int < uint < float < double
-        ht_insert(pc->primitive_type_smtb, "int",
-                  gen_primitive_type("int", 4, 2, true));
+	add_primitive_numeric(pc, "int", 4, 5, true, true);
+	add_primitive_numeric(pc, "float", 4, 6, true, false);
+	add_primitive_numeric(pc, "double", 4, 7, true, false);
 
         ht_insert(pc->primitive_type_smtb, "char",
-                  gen_primitive_type("char", 2, 1, false));
-
-        ht_insert(pc->primitive_type_smtb, "float",
-                  gen_primitive_type("float", 4, 4, true));
-        ht_insert(pc->primitive_type_smtb, "double",
-                  gen_primitive_type("double", 8, 5, true));
-
+                  gen_primitive_type("char", 2));
+	
         ht_insert(pc->primitive_type_smtb, "bool",
-                  gen_primitive_type("bool", 1, -1, false));
+                  gen_primitive_type("bool", 1));
         ht_insert(pc->primitive_type_smtb, "void",
-                  gen_primitive_type("void", 0, -1, false));
+                  gen_primitive_type("void", 0));
 }
 
 static void init_syscall(struct ParserContext *pc) {
@@ -58,6 +66,10 @@ struct ParserContext *gen_pc() {
         pc->class_type_smtb = gen_htable();
         pc->primitive_type_smtb = gen_htable();
 
+	pc->numeric_type_array = (struct Type **) S_malloc(sizeof(struct Type *));
+	pc->numeric_type_count = 0;
+	pc->numeric_type_capacity = 1;
+	
         pc->class_data_count = 0;
         pc->func_data_count = 0;
 
@@ -212,12 +224,12 @@ static struct ClassData *find_class_data(struct ParserContext *pc,
                 return NULL;
         }
 
-        if (type->data == NULL) {
+        if (type->type_kind != TK_Class) {
                 return NULL;
         }
 
-        struct ClassData *class_data = (struct ClassData *)type->data;
-
+        struct ClassData *class_data = (struct ClassData *)type->data.class_data;
+	
         return class_data;
 }
 
@@ -1164,7 +1176,7 @@ static struct ClassData *register_class_data(const char *class_name,
 	
         ht_insert(pc->class_type_smtb, class_name,
                   gen_class_type(class_name, data));
-
+	
         pc->class_data[pc->class_data_count++] = data;
 
         return data;
@@ -1501,6 +1513,21 @@ static short get_number_literal_byte(const char *num_lit_str){
 	return result;
 }
 
+static struct Type *find_numeric_type(struct ParserContext *pc, unsigned nbyte, bool is_integer, bool is_signed){
+	int i;
+	for(i=0; i < pc->numeric_type_count; i++){
+		struct Type *numeric_type = pc->numeric_type_array[i];
+		assert(numeric_type->type_kind == TK_Numeric);
+		struct NumericData *numeric_data = numeric_type->data.numeric_data;
+
+		if(numeric_data->is_integer == is_integer && numeric_data->is_signed == is_signed && numeric_type->nbyte == nbyte){
+			return numeric_type;
+		}
+	}
+
+	return NULL;
+}
+
 struct Node *parse(struct ParserContext *pc, bool is_expr) {
 
         struct TokenizerContext *tc = pc->tc;
@@ -1516,8 +1543,18 @@ struct Node *parse(struct ParserContext *pc, bool is_expr) {
                         sizeof(struct NumberLiteralAST));
 		
                 num->num_tok = first;
-		num->is_integer = is_number_literal_integer(num->num_tok->str);
-		num->byte = get_number_literal_byte(num->num_tok->str);
+		
+		bool is_integer = is_number_literal_integer(num->num_tok->str);
+		bool is_signed = true;
+		unsigned nbyte = get_number_literal_byte(num->num_tok->str);
+
+		struct Type *numeric_type = find_numeric_type(pc, nbyte, is_integer, is_signed);
+
+		if(numeric_type == NULL){
+			panic("This number literal is not supported in this compiler.", pc->tc);
+		}
+
+		num->type = numeric_type;
 		
                 return pack(AST_NumberLiteral, num);
         }

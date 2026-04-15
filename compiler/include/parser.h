@@ -74,8 +74,7 @@ struct Node {
 
 struct NumberLiteralAST {
         struct Token *num_tok;
-        short byte;
-        bool is_integer;
+	struct Type *type;
 };
 
 struct StringLiteralAST {
@@ -296,6 +295,9 @@ struct ParserContext {
         struct HTable *class_type_smtb;     // Type will be stored.
         struct HTable *primitive_type_smtb; // Type will be stored.
 
+	struct Type **numeric_type_array;
+	unsigned numeric_type_count, numeric_type_capacity;
+		
         struct HTable *syscall_smtb;
 
         unsigned class_data_count;

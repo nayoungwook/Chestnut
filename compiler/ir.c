@@ -526,29 +526,28 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
         case AST_NumberLiteral: {
                 struct NumberLiteralAST *num_lit_ast =
 			(struct NumberLiteralAST *)node->ast;
-		bool valid_number = false;
-		
-                if (num_lit_ast->is_integer) {
-			if(num_lit_ast->byte == 4){
+		struct Type *numeric_type = num_lit_ast->type;
+		struct NumericData *numeric_data = numeric_type->data.numeric_data;
+
+		assert(numeric_type != NULL && numeric_data != NULL);
+
+		if(numeric_data->is_integer){
+			if(numeric_type->nbyte == 4){
 				emit_byte(irc, OP_LDC_I4);
-				valid_number = true;
 				emit_int(irc, atoi(num_lit_ast->num_tok->str));
 			}
-                } else { // floating point.
-			if(num_lit_ast->byte == 4){
+		} else {
+			if(numeric_type->nbyte == 4){
 				emit_byte(irc, OP_LDC_F4);
-				valid_number = true;
 				emit_float(irc, atof(num_lit_ast->num_tok->str));
 			}
-			if(num_lit_ast->byte == 8){
+
+			if(strcmp(numeric_type->type_str, "double") == 0){
 				emit_byte(irc, OP_LDC_F8);
-				valid_number = true;
 				// emit_double
 			}
 		}
 
-		if(!valid_number)
-			panic("Failed to load number literal, invalid type and size", pc->tc);
 		
                 break;
         }
