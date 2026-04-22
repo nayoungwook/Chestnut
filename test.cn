@@ -1,16 +1,15 @@
 
-func foo(num: int): void{
-	return 3 + num;
+func foo(str: string): void{
+     print(str);
 }
 
 func main(): void {
-	
 	for(var i:int =0; i<10; i++){
 	}
 
 	var bar: Bar = new Bar();
-	
-	print(bar.bar.asdf);
-
+		
 	var a: int = 3 + 5;
+
+	var b: int = a + bar;
 }

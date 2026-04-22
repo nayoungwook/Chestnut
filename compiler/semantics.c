@@ -1,4 +1,4 @@
-#include "type.h"
+#include <type.h>
 #include <semantics.h>
 #include <parser.h>
 #include <error.h>
@@ -84,7 +84,7 @@ struct VarData *register_local_var_data(const char *name,
         struct HTable *target_smtb = NULL;
 
         // register in pc->declared_local_vars to calcaulte total size of stack
-        if (pc->declared_local_var_capacity >=
+        if (pc->declared_local_var_capacity <=
             pc->declared_local_var_count + 1) {
                 pc->declared_local_var_capacity *= 2;
                 pc->declared_local_vars = (struct VarData **)S_realloc(
@@ -173,6 +173,55 @@ struct ClassData *register_class_data(const char *class_name,
 //     DATA FIND
 //------------------
 
+static struct VarData *find_member_var_data(struct ParserContext *pc, struct ClassData *attr_of, const char *key){
+	struct VarData *var_data = NULL;
+	while(attr_of != NULL){
+		
+		if(attr_of->class_type->type_kind != TK_Class){
+			panic("This type is not class. WTF", pc->tc);
+		}
+		
+		var_data = ht_find(attr_of->member_vars, key);
+
+		if(var_data != NULL){
+			break;
+		}
+
+		if(attr_of->parent_type == NULL){
+			break;
+		}
+
+		attr_of = attr_of->parent_type->data.class_data;
+	}
+
+	return var_data;
+}
+
+static struct FuncData *find_member_func_data(struct ParserContext *pc, struct ClassData *attr_of, const char *key){
+	struct FuncData *func_data = NULL;
+	
+	while(attr_of != NULL){
+		
+		if(attr_of->class_type->type_kind != TK_Class){
+			panic("This type is not class. WTF", pc->tc);
+		}
+		
+		func_data = ht_find(attr_of->member_funcs, key);
+
+		if(func_data != NULL){
+			break;
+		}
+
+		if(attr_of->parent_type == NULL){
+			break;
+		}
+		
+		attr_of = attr_of->parent_type->data.class_data;
+	}
+
+	return func_data;
+}
+
 struct FuncData *find_func_data(struct ParserContext *pc,
                                        const char *func_name) {
         struct ClassData *current_class = pc->current_class;
@@ -181,7 +230,7 @@ struct FuncData *find_func_data(struct ParserContext *pc,
         // find in current class
         // TODO : find parent class.
         if (current_class != NULL &&
-            (result = ht_find(current_class->member_funcs, func_name)) !=
+            (result = find_member_func_data(pc, current_class, func_name)) !=
 	    NULL) {
                 return result;
         }
@@ -232,15 +281,12 @@ static struct VarData *find_var_data(struct ParserContext *pc, const char *var_n
         }
 
         if (result == NULL && pc->current_class != NULL) { // and find in class
-                result = (struct VarData *)ht_find(
-						   pc->current_class->member_vars, var_name);
+                result = find_member_var_data(pc, pc->current_class, var_name);
         }
 
         if (result == NULL) {
                 result = ht_find(pc->glob_var_smtb, var_name);
         }
-
-	assert(!(result == NULL || result->scope_data == ScopeNone));
 
         return result;
 }
@@ -283,50 +329,6 @@ static void check_semantics_body(struct ParserContext *pc, struct Node **body, u
 	}
 }
 
-static struct VarData *get_member_var_data(struct ParserContext *pc, struct ClassData *attr_of, const char *key){
-	struct VarData *var_data = NULL;
-	while(attr_of != NULL){
-		
-		if(attr_of->class_type->type_kind != TK_Class){
-			panic("This type is not class. WTF", pc->tc);
-		}
-		
-		var_data = ht_find(attr_of->member_vars, key);
-
-		if(var_data != NULL){
-			break;
-		}
-
-		if(attr_of->parent_type == NULL){
-			break;
-		}
-
-		attr_of = attr_of->parent_type->data.class_data;
-	}
-
-	return var_data;
-}
-
-static struct FuncData *get_member_func_data(struct ParserContext *pc, struct ClassData *attr_of, const char *key){
-	struct FuncData *func_data = NULL;
-	
-	while(attr_of != NULL){
-		func_data = ht_find(attr_of->member_vars, key);
-
-		if(func_data != NULL){
-			break;
-		}
-
-		if(attr_of->parent_type->type_kind != TK_Class){
-			panic("This parent type is not class. WTF", pc->tc);
-		}
-		
-		attr_of = attr_of->parent_type->data.class_data;
-	}
-
-	return func_data;
-}
-
 static void resolve_attr(struct ParserContext *pc, struct Type *type_of_node, struct Node *node);
 
 // check semantics of attribute node.
@@ -340,7 +342,7 @@ static void check_attr_semantics(struct ParserContext *pc, struct ClassData *att
 		struct IdentifierAST *ident_ast = (struct IdentifierAST *) node->ast;
 		const char *key = ident_ast->ident->str;
 
-		struct VarData *var_data = get_member_var_data(pc, attr_of, key);
+		struct VarData *var_data = find_member_var_data(pc, attr_of, key);
 		
 		if(var_data == NULL){
 			printf("%s\n", key);
@@ -355,7 +357,7 @@ static void check_attr_semantics(struct ParserContext *pc, struct ClassData *att
 	case AST_FunctionCall: {
 		struct FuncCallAST *func_call_ast = (struct FuncCallAST *) node->ast;
 		const char *key = func_call_ast->func_name_tok->str;
-		struct FuncData *func_data = get_member_func_data(pc, attr_of, key);
+		struct FuncData *func_data = find_member_func_data(pc, attr_of, key);
 		
 		if(func_data == NULL){
 			printf("%s\n", key);
@@ -427,6 +429,10 @@ static void check_var_decl_bundle_semantics(struct ParserContext *pc, struct Var
 static void check_var_decl_semantics(struct ParserContext *pc, struct VarDeclAST *var_decl_ast){
 	struct VarData *var_data = register_local_var_data(var_decl_ast->var_name_tok->str, var_decl_ast->var_type, pc);
 	var_decl_ast->var_data = var_data;
+
+	if(var_decl_ast->decl != NULL){
+		check_semantics(pc, var_decl_ast->decl);
+	}
 }
 
 static void check_ident_semantics(struct ParserContext *pc, struct Node *node, struct IdentifierAST *ident_ast){		
@@ -443,6 +449,14 @@ static void check_ident_semantics(struct ParserContext *pc, struct Node *node, s
 	resolve_attr(pc, type, node);
 }
 
+static void check_parameter_type(struct ParserContext *pc, struct Type *arg_type, struct Node *param){
+	struct Type *param_type = infer_type(pc, param);
+	
+	if(!is_castable(arg_type, param_type)){
+		panic("Wrong type consumed to function!", pc->tc);
+	}
+}
+
 static void check_func_call_semantics(struct ParserContext *pc, struct Node *node, struct FuncCallAST *func_call_ast){
 	struct FuncData *func_data = func_call_ast->func_data;
 
@@ -452,9 +466,19 @@ static void check_func_call_semantics(struct ParserContext *pc, struct Node *nod
 		
 	struct Type *ret_type = func_data->return_type;
 
+	if(!func_data->varargs){
+		if(func_data->arg_count != func_call_ast->param_count){
+			panic("Wrong parameter count of function!", pc->tc);
+		}
+	}
+
 	int i;
 	for(i=0; i<func_call_ast->param_count; i++){
 		check_semantics(pc, func_call_ast->params[i]);
+		
+		if(!func_data->varargs){
+			check_parameter_type(pc, func_data->arg_types[i], func_call_ast->params[i]);
+		}
 	}
 		
 	resolve_attr(pc, ret_type, node);
@@ -519,6 +543,8 @@ void check_semantics(struct ParserContext *pc, struct Node *node){
 
 		check_semantics(pc, bin_expr_ast->left);
 		check_semantics(pc, bin_expr_ast->right);
+
+	        infer_type(pc, node);
 		
 		break;
 	}

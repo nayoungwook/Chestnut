@@ -43,5 +43,6 @@ bool check_type_existance(struct ParserContext *pc, const char *type);
 unsigned get_size_of_type(struct ParserContext *pc,
 			  struct Type *type);
 struct Type *find_type(struct ParserContext *pc, const char *type_str);
+bool is_castable(struct Type *from, struct Type *to);
 
 #endif

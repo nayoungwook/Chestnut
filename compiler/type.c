@@ -2,6 +2,53 @@
 #include <parser.h>
 #include <type.h>
 
+bool is_castable(struct Type *from, struct Type *to){
+	bool result = false;
+
+	if(from == to) return true;
+	
+	if(from->type_kind != to->type_kind){
+		return false;
+	}
+
+	switch(from->type_kind){
+	case TK_Class: {
+		struct ClassData *class_data = from->data.class_data;
+		struct ClassData *to_class_data = to->data.class_data;
+		
+		// check parents and compare with 'to' type.
+		while(class_data != NULL){
+			if(class_data == to_class_data){
+				result = true;
+				break;
+			}
+			
+			struct Type *parent_type = class_data->parent_type;
+
+			if(parent_type == NULL) {
+				break;
+			}
+			
+			assert(parent_type->type_kind == TK_Class);
+			class_data = parent_type->data.class_data;
+		}
+		break;
+	}
+	
+	case TK_Numeric:{
+		result = true;
+		break;
+	}
+
+	case TK_Primitive:{
+		result = from == to;
+		break;
+	}
+	}
+
+	return result;
+}
+
 struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
         struct Type *result = NULL;
         const char *ident = "";
@@ -12,13 +59,20 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
 
 	case AST_NumberLiteral: {
 		struct NumberLiteralAST *num_lit_ast = (struct NumberLiteralAST *) node->ast;
+		result = num_lit_ast->type;
 		
+		break;
+	}
+
+
+	case AST_StringLiteral: {
+		result = find_type(pc, "string");
 		break;
 	}
 		
         case AST_FunctionCall: {
 		struct FuncCallAST *func_call_ast = (struct FuncCallAST *) node->ast;
-		result = find_type(pc, func_call_ast->func_name_tok->str);
+		result = func_call_ast->func_data->return_type;
 		
                 break;
         }
@@ -27,11 +81,46 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
 		struct IdentifierAST *ident_ast = (struct IdentifierAST *) node->ast;
 		struct VarData *var_data = ident_ast->var_data;
 
-		result = find_type(pc, var_data->var_name);
+		result = var_data->type;
 		
                 break;
         }
 
+	case AST_IdentIncrease: {
+		struct IdentIncreAST *ident_incre = (struct IdentIncreAST *) node->ast;
+		result = infer_type(pc, ident_incre->ident_node);
+		
+		break;
+	}
+		
+	case AST_IdentDecrease: {
+		struct IdentDecreAST *ident_decre = (struct IdentDecreAST *) node->ast;
+		result = infer_type(pc, ident_decre->ident_node);
+		
+		break;
+	}
+
+	case AST_BinExpr: {
+		struct BinExprAST *bin_expr_ast = (struct BinExprAST *) node->ast;
+		struct Type *left_type = infer_type(pc, bin_expr_ast->left);
+		struct Type *right_type = infer_type(pc, bin_expr_ast->right);
+
+		if(left_type != right_type){
+			panic("In binary expression, failed to math left and right expression", pc->tc);
+		}
+
+		result = left_type;
+		break;
+	}
+
+	case AST_UnaryExpr: {
+		struct UnaryExprAST *unary_expr_ast = (struct UnaryExprAST *) node->ast;
+
+		result = infer_type(pc, unary_expr_ast->expr);
+		
+		break;
+	}
+		
         default:{
 		char err_buf[512];
 		sprintf(err_buf, "Failed to inference type %d", node->type);

@@ -48,6 +48,9 @@ static void init_primitive(struct ParserContext *pc) {
                   gen_primitive_type("bool", 1));
         ht_insert(pc->primitive_type_smtb, "void",
                   gen_primitive_type("void", 0));
+
+	ht_insert(pc->primitive_type_smtb, "string",
+                  gen_primitive_type("string", 8));
 }
 
 static void register_syscall(struct ParserContext *pc, const char *func_name, const char *ret_type, unsigned id, bool is_varargs){
@@ -327,7 +330,7 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
                         capacity *= 2;
                         result->var_decls = S_realloc(
 						      result->var_decls,
-						      sizeof(struct VarDeclBundleAST *) * capacity);
+						      sizeof(struct Node *) * capacity);
                 }
 
                 result->var_decls[param_size++] =
@@ -393,11 +396,12 @@ static struct Node *gen_constructor_node(struct Token *first,
         struct Node *params = gen_func_param_node(pc);
         assert(params->type == AST_VariableDeclarationBundle);
 
+	struct VarDeclBundleAST *params_ast = (struct VarDeclBundleAST *) params->ast;
+	
 	constructor->params = params;
 
         struct Node *result = pack(AST_Constructor, constructor);
 
-        // register local var data to calcaulte stack size after.
         constructor->declared_var_count = pc->declared_local_var_count;
         constructor->declared_vars = pc->declared_local_vars;
 	
@@ -406,7 +410,21 @@ static struct Node *gen_constructor_node(struct Token *first,
 	}
 
 	constructor->class_data = pc->current_class;
-	constructor->func_data = find_func_data(pc, func_name->str);
+
+	struct FuncData *func_data = register_constructor_data(func_name->str, pc);
+	
+	constructor->func_data = func_data;
+
+        func_data->arg_types = S_malloc(params_ast->var_count * sizeof(char *));
+        func_data->arg_count = params_ast->var_count;
+
+	int i;
+        for (i = 0; i < params_ast->var_count; i++) {
+                struct VarDeclAST *param_ast =
+			(struct VarDeclAST *) (params_ast->var_decls[i]->ast);
+
+                func_data->arg_types[i] = param_ast->var_type;
+        }
 
 	pc->current_func = constructor->func_data;
         constructor->body = gen_body(pc, &body_count);
@@ -459,10 +477,10 @@ static struct Node *gen_func_decl_node(struct Token *first,
         func_data->arg_count = params_ast->var_count;
 
         for (i = 0; i < params_ast->var_count; i++) {
-                struct VarDeclAST *param =
-                    (struct VarDeclAST *)params_ast->var_decls[i];
+                struct VarDeclAST *param_ast =
+			(struct VarDeclAST *) (params_ast->var_decls[i]->ast);
 
-                func_data->arg_types[i] = param->var_type;
+                func_data->arg_types[i] = param_ast->var_type;
         }
 
         // register local var data to calcaulte stack size after.
@@ -763,6 +781,26 @@ static void pass_body(struct ParserContext *pc){
         }
 }
 
+static void pass_func_param(struct ParserContext *pc){
+	struct TokenizerContext *tc = pc->tc;
+	struct Token *tok;
+	
+	consume(tc, TokLParen);
+        int paren_counter = 1;
+
+        while ((tok = pull(tc))->type != TokEOF) {
+                if (tok->type == TokRParen) {
+                        paren_counter--;
+                }
+                if (tok->type == TokLParen) {
+                        paren_counter++;
+                }
+
+                if (paren_counter == 0)
+                        break;
+        }
+}
+
 static void parse_class_structure(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
 
@@ -788,7 +826,7 @@ static void parse_func_structure(struct ParserContext *pc) {
 
         consume(tc, TokIdent);
 
-        gen_func_param_node(pc);
+	pass_func_param(pc);
 
         consume(tc, TokColon);
 
@@ -801,26 +839,9 @@ static void parse_func_structure(struct ParserContext *pc) {
 static void parse_constructor_structure(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
 
-        struct Token *func_name_tok = pull(tc);
-        int i;
+	consume(tc, TokIdent);
 
-        struct Node *params = gen_func_param_node(pc);
-        struct VarDeclBundleAST *params_ast =
-            (struct VarDeclBundleAST *)params->ast;
-
-        struct FuncData *func_data =
-		register_constructor_data(func_name_tok->str, pc);
-	
-        func_data->arg_types = S_malloc(params_ast->var_count * sizeof(char *));
-        func_data->arg_count = params_ast->var_count;
-
-        for (i = 0; i < params_ast->var_count; i++) {
-                struct VarDeclAST *param =
-                    (struct VarDeclAST *)params_ast->var_decls[i];
-
-                func_data->arg_types[i] = param->var_type;
-        }
-
+	pass_func_param(pc);
         // We will not parse content of function declaration.
 	pass_body(pc);
 }

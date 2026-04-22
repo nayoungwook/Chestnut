@@ -186,7 +186,7 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
         unsigned str_len = 0;
 
         enum TokenType type;
-
+	
         char ch = *tc->cur_ch;
         str[str_len++] = ch;
         tc->cur_ch++;
@@ -404,6 +404,7 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
         struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
         tok->str = str;
         tok->type = type;
+	tok->length = str_len;
 
         return tok;
 }
@@ -450,6 +451,7 @@ struct Token *pull(struct TokenizerContext *tc) {
         struct Token *eof_token =
             (struct Token *)S_malloc(sizeof(struct Token));
         eof_token->str = "EOF";
+	eof_token->length = 0;
         eof_token->type = TokEOF;
 
         return eof_token;
