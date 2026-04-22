@@ -81,7 +81,7 @@ static void gen_func_metadata(struct IRContext *irc, struct ParserContext *pc,
         emit_str(irc, fd->func_name);
 
 	if(!fd->is_constructor){
-		emit_str(irc, fd->return_type);
+		emit_str(irc, fd->return_type->type_str);
 	}
 }
 
@@ -91,15 +91,15 @@ static void gen_var_metadata(struct IRContext *irc, struct ParserContext *pc,
 
         emit_int(irc, vd->id);
         emit_str(irc, vd->var_name);
-        emit_str(irc, vd->type);
+        emit_str(irc, vd->type->type_str);
 }
 
 static void gen_class_metadata(struct IRContext *irc, struct ParserContext *pc,
                                struct ClassData *cd) {
         emit_byte(irc, META_CLASS);
-
+	
         emit_int(irc, cd->id);
-        emit_str(irc, cd->class_name);
+        emit_str(irc, cd->class_type->type_str);
 
         int i;
         for (i = 0; i < HTABLE_BUFF; i++) {
@@ -412,8 +412,6 @@ static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc, struct
 	}
 
 	case AST_IdentIncrease:{
-		
-		
 		if(ident_ast->is_attr){
 			gen_attr_incre_ir(irc, pc, offset, size);
 		} else {
@@ -489,8 +487,8 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 		gen_node_ir(irc, pc, var_decl_ast->decl);
 		
 		// case for local var data
-		if(var_decl_ast->local_var_data != NULL){
-			struct VarData *var_data = var_decl_ast->local_var_data;
+		if(var_decl_ast->var_data != NULL){
+			struct VarData *var_data = var_decl_ast->var_data;
 
                         unsigned offset = var_data->offset;
 			unsigned size = get_size_of_type(pc, var_data->type);

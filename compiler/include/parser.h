@@ -93,9 +93,9 @@ struct BoolLiteralAST {
 
 struct VarDeclAST {
         struct Token *var_name_tok;
-        struct Token *var_type_tok;
+        struct Type *var_type;
         struct Node *decl;
-	struct VarData *local_var_data;
+	struct VarData *var_data;
         int ac_mod;
 };
 
@@ -142,7 +142,7 @@ struct IfStmtAST {
 
 struct FuncDeclAST {
         struct Token *func_name_tok;
-        struct Token *ret_type_tok;
+        struct Type *ret_type;
         struct Node *params; // variable declaration bundle.
         struct Node **body;
         struct FuncData *func_data;
@@ -209,7 +209,7 @@ struct ClassAST {
 	
         struct Node **body;
         unsigned body_count;
-
+	
         struct Token *name_tok;
         struct Token *parent_name_tok;
 };
@@ -248,9 +248,9 @@ enum ScopeData {
 struct FuncData {
         unsigned id;
         const char *func_name;
-        const char *return_type;
+        struct Type *return_type;
 
-        const char **arg_types;
+        struct Type **arg_types;
         unsigned arg_count;
 
 	bool is_constructor;
@@ -263,15 +263,17 @@ struct FuncData {
 struct VarData {
         unsigned id;
         unsigned offset; // offset data from stack pointer or class
+	struct Type *type;
         const char *var_name;
-        const char *type;
 
 	enum ScopeData scope_data;
 };
 
 struct ClassData {
         unsigned id;
-        const char *class_name, *parent_name;
+
+	struct Type *class_type, *parent_type;
+
         struct HTable *member_vars;
         struct HTable *member_funcs;
 
@@ -308,11 +310,11 @@ struct ParserContext {
 
         struct Scope *current_scope;
 
-        struct ClassData *current_class; // current parsing class.
-        struct FuncData *current_func;   // current parsing func.
-
         struct VarData **declared_local_vars;
         unsigned declared_local_var_count, declared_local_var_capacity;
+
+        struct ClassData *current_class; // current parsing class.
+        struct FuncData *current_func;   // current parsing func.
 
         struct Node **nodes;
         unsigned node_count, node_capacity;

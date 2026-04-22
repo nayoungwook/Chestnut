@@ -109,6 +109,11 @@ struct Type *find_type(struct ParserContext *pc, const char *type_str) {
                 result = ht_find(pc->class_type_smtb, type_str);
         }
 
+	if(result == NULL){
+		printf("%s\n", type_str);
+		panic("Failed to find type!", pc->tc);
+	}
+	
         return result;
 }
 
@@ -117,9 +122,7 @@ bool check_type_existance(struct ParserContext *pc, const char *type) {
 }
 
 unsigned get_size_of_type(struct ParserContext *pc,
-                                 const char *type_str) {
-
-        struct Type *type = find_type(pc, type_str);
+			  struct Type *type) {
 
         if (type != NULL) {
                 return type->nbyte;

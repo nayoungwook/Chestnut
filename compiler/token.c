@@ -459,7 +459,7 @@ struct Token *consume(struct TokenizerContext *tc, enum TokenType tt) {
         struct Token *tok = pull(tc);
 
         if (tok->type != tt) {
-                printf("\n%d %d\n", tok->type, tt);
+                printf("\n%d , expected : %d\n", tok->type, tt);
                 panic("Wrong token type consumed.\n", tc);
         }
 

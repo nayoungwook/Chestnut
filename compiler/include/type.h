@@ -41,7 +41,7 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node);
 bool check_type_existance(struct ParserContext *pc, const char *type);
 
 unsigned get_size_of_type(struct ParserContext *pc,
-			  const char *type_str);
+			  struct Type *type);
 struct Type *find_type(struct ParserContext *pc, const char *type_str);
 
 #endif

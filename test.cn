@@ -1,6 +1,6 @@
 
-func foo(): void{
-	return 3;
+func foo(num: int): void{
+	return 3 + num;
 }
 
 func main(): void {
@@ -10,7 +10,7 @@ func main(): void {
 
 	var bar: Bar = new Bar();
 	
-	bar.foo();
+	print(bar.bar.asdf);
 
 	var a: int = 3 + 5;
 }
