@@ -18,7 +18,7 @@ union TypeData {
 };
 
 enum TypeKind {
-	TK_Numeric, TK_Class, TK_Primitive,
+	TK_Numeric, TK_Class, TK_Primitive, TK_Null
 };
 
 struct Type {
@@ -34,7 +34,8 @@ struct Node;
 
 struct Type *gen_primitive_type(const char *type_str, unsigned nbyte);
 struct Type *gen_numeric_type(const char *type_str, unsigned nbyte, struct NumericData *numeric_data);
-struct Type *gen_class_type(const char *type_str, void *data);
+struct Type *gen_class_type(const char *type_str);
+struct Type *gen_null_type();
 
 struct Type *infer_type(struct ParserContext *pc, struct Node *node);
 

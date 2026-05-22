@@ -591,6 +591,8 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 struct FuncData *func_data = func_call_ast->func_data;
 
                 if (!func_data->varargs) {
+			printf("%s\n", func_data->func_name);
+			printf("%d %d\n", func_data->arg_count, func_call_ast->param_count);
                         assert(func_data->arg_count ==
                                func_call_ast->param_count);
                 }

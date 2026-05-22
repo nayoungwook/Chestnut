@@ -83,8 +83,10 @@ struct StringLiteralAST {
 
 struct IdentifierAST {
         struct Token *ident;
-	struct VarData *var_data;
 	bool is_attr;
+
+	// semantics
+	struct VarData *var_data;
 };
 
 struct BoolLiteralAST {
@@ -93,10 +95,12 @@ struct BoolLiteralAST {
 
 struct VarDeclAST {
         struct Token *var_name_tok;
-        struct Type *var_type;
+        struct Token *var_type_tok;
         struct Node *decl;
-	struct VarData *var_data;
         int ac_mod;
+
+	// semantics
+	struct VarData *var_data;
 };
 
 struct VarDeclBundleAST {
@@ -142,16 +146,17 @@ struct IfStmtAST {
 
 struct FuncDeclAST {
         struct Token *func_name_tok;
-        struct Type *ret_type;
+	struct Token *ret_type_tok;
         struct Node *params; // variable declaration bundle.
         struct Node **body;
-        struct FuncData *func_data;
-
-        struct VarData **declared_vars;
-        unsigned declared_var_count;
 
         unsigned body_count;
         int ac_mod;
+
+	// semantics
+        struct FuncData *func_data;
+        struct VarData **declared_vars;
+        unsigned declared_var_count;
 };
 
 struct ParamData {
@@ -162,9 +167,11 @@ struct ParamData {
 struct FuncCallAST {
         struct Token *func_name_tok;
         struct Node **params;
-        struct FuncData *func_data;
         int param_count;
 	bool is_attr;
+
+	// semantics
+        struct FuncData *func_data;
 };
 
 struct IdentIncreAST {
@@ -193,32 +200,39 @@ struct ConstructorAST {
         struct Node *params;
         struct Node **body;
 	struct ClassData *class_data;
-	struct FuncData *func_data;
 
-	struct VarData **declared_vars;
-        unsigned declared_var_count;
-
+	struct Token *func_name;
+	
 	unsigned body_count;
         int ac_mod;
+
+	// semantics
+	struct FuncData *func_data;
+	struct VarData **declared_vars;
+        unsigned declared_var_count;
 };
 
 struct ClassAST {
         struct Node *initializer;
         struct Node *constructor;
-	struct ClassData *class_data;
-	
+
         struct Node **body;
         unsigned body_count;
 	
         struct Token *name_tok;
         struct Token *parent_name_tok;
+
+	// semantics
+	struct ClassData *class_data;
 };
 
 struct NewAST {
         struct Token *name_tok;
         struct Node **params;
-	struct ClassData *class_data;
         int param_count;
+
+	// semantics
+	struct ClassData *class_data;
 };
 
 struct NullAST {
@@ -325,9 +339,10 @@ struct ParserContext *gen_pc();
 void compile_file(struct ParserContext *pc, struct TokenizerContext *tc);
 
 // parse
-struct Node *parse(struct ParserContext *pc, bool is_expr);
-void parse_structure(struct ParserContext *pc);
+struct Node *parse_stmt(struct ParserContext *pc);
+struct Node *parse_expr_node(struct ParserContext *pc);
 
+void parse_structure(struct ParserContext *pc);
 void debug_view_data(struct ParserContext *pc);
 
 #endif

@@ -18,6 +18,26 @@ struct ClassData *register_class_data(const char *class_name, struct ParserConte
 struct VarData *register_local_var_data(const char *name, struct Type *type, struct ParserContext *pc);
 struct VarData *register_non_local_var_data(const char *name, struct Type *type, struct ParserContext *pc);
 
+enum TypeMatchKind {
+	TMKTypeMatch,
+	TMKBinTypeMatch,
+};
+
+// after first semantic check,
+// compiler infers and matches a type to the expr node.
+struct TypeMatch {
+	enum TypeMatchKind type_match_kind;
+	struct Node *expr;
+	struct Type *type;
+};
+
+struct BinTypeMatch {
+	enum TypeMatchKind type_match_kind;
+	struct Node *expr_lhs;
+	struct Node *expr_rhs;
+};
+
 void check_semantics(struct ParserContext *pc, struct Node *node);
+void register_data(struct ParserContext *pc, struct Node *node);
 
 #endif

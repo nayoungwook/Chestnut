@@ -6,8 +6,8 @@ bool is_castable(struct Type *from, struct Type *to){
 	bool result = false;
 
 	if(from == to) return true;
-	
-	if(from->type_kind != to->type_kind){
+
+	if(from->type_kind != TK_Null && from->type_kind != to->type_kind){
 		return false;
 	}
 
@@ -44,6 +44,11 @@ bool is_castable(struct Type *from, struct Type *to){
 		result = from == to;
 		break;
 	}
+
+	case TK_Null: {
+		result = to->type_kind == TK_Class;
+		break;
+	}
 	}
 
 	return result;
@@ -57,6 +62,11 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
 
         switch (node->type) {
 
+	case AST_Null: {
+		result = find_type(pc, "null");
+		break;
+	}
+		
 	case AST_NumberLiteral: {
 		struct NumberLiteralAST *num_lit_ast = (struct NumberLiteralAST *) node->ast;
 		result = num_lit_ast->type;
@@ -105,7 +115,7 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
 		struct Type *left_type = infer_type(pc, bin_expr_ast->left);
 		struct Type *right_type = infer_type(pc, bin_expr_ast->right);
 
-		if(left_type != right_type){
+		if(!is_castable(left_type, right_type)){
 			panic("In binary expression, failed to math left and right expression", pc->tc);
 		}
 
@@ -120,6 +130,8 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
 		
 		break;
 	}
+
+		
 		
         default:{
 		char err_buf[512];
@@ -180,12 +192,21 @@ struct Type *gen_numeric_type(const char *type_str, unsigned nbyte, struct Numer
         return result;
 }
 
-struct Type *gen_class_type(const char *type_str, void *data) {
+struct Type *gen_null_type(){
+	struct Type *type = (struct Type*) S_malloc(sizeof(struct Type));
+
+	type->type_kind = TK_Null;
+	type->type_str = "null";
+	type->nbyte = 0;
+
+	return type;
+}
+
+struct Type *gen_class_type(const char *type_str) {
         struct Type *type = (struct Type *)S_malloc(sizeof(struct Type));
 
 	type->type_kind = TK_Class;
         type->type_str = type_str;
-        type->data.class_data = data;
         type->nbyte = 8;
 
         return type;
