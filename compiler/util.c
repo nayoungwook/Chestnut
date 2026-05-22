@@ -79,8 +79,8 @@ static char *read_file_unix(const char *path) {
 static char *read_file_win(const char *path) {
         FILE *fp = fopen(path, "rb");
         if (!fp) {
-                char *err_buff[512];
-                sprintf_s(err_buff, 512, "Failed to open file : %s", path);
+                char err_buff[512];
+                snprintf(err_buff, sizeof(err_buff), "Failed to open file : %s", path);
                 error(err_buff);
 
                 return NULL;
@@ -91,8 +91,8 @@ static char *read_file_win(const char *path) {
         rewind(fp);
 
         if (size <= 0) {
-                char *err_buff[512];
-                sprintf_s(err_buff, 512, "File size is too small : %s", path);
+                char err_buff[512];
+                snprintf(err_buff, sizeof(err_buff), "File size is too small : %s", path);
                 error(err_buff);
 
                 fclose(fp);
@@ -153,6 +153,21 @@ void write_file(const char *path, const size_t len, const char *data) {
 #ifdef __unix__
         unix_write_file(path, len, data);
 #endif
+#ifdef _WIN32
+        FILE *fp = fopen(path, "wb");
+        if (!fp) {
+                error("Failed to open file.");
+                return;
+        }
+
+        if (fwrite(data, sizeof(byte), len, fp) != len) {
+                fclose(fp);
+                error("Write failed.");
+                return;
+        }
+
+        fclose(fp);
+#endif
 }
 
 static unsigned get_hash(const char *key) {
@@ -203,6 +218,9 @@ void ht_insert(struct HTable *target_table, const char *key, void *ptr) {
         if (!tnode) {
                 target_table->bucket[hash] = node;
         } else {
+                while (tnode->next != NULL) {
+                        tnode = tnode->next;
+                }
                 tnode->next = node;
         }
 

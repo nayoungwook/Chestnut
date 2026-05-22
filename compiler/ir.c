@@ -5,12 +5,12 @@
 
 struct IRContext *gen_irc() {
         struct IRContext *irc =
-		(struct IRContext *)S_malloc(sizeof(struct IRContext));
+            (struct IRContext *)S_malloc(sizeof(struct IRContext));
 
         irc->node = NULL;
         irc->byte_cnt = 0;
         irc->byte_size = 0;
-	irc->label_id = 0;
+        irc->label_id = 0;
         irc->str_rodata = gen_htable();
 
         return irc;
@@ -69,20 +69,30 @@ static void emit_float(struct IRContext *irc, float f) {
         }
 }
 
+static void emit_double(struct IRContext *irc, double d) {
+        unsigned long long db;
+        memcpy(&db, &d, sizeof(double));
+        int i;
+        for (i = 0; i < sizeof(double); i++) {
+                emit_byte(irc, (byte)(db & 0xFF));
+                db >>= 8;
+        }
+}
+
 static void gen_func_metadata(struct IRContext *irc, struct ParserContext *pc,
                               struct FuncData *fd) {
-	if(fd->is_constructor){
-		emit_byte(irc, META_CONSTRUCTOR);
-	}else{
-		emit_byte(irc, META_FUNC);
-	}
+        if (fd->is_constructor) {
+                emit_byte(irc, META_CONSTRUCTOR);
+        } else {
+                emit_byte(irc, META_FUNC);
+        }
 
         emit_int(irc, fd->id);
         emit_str(irc, fd->func_name);
 
-	if(!fd->is_constructor){
-		emit_str(irc, fd->return_type->type_str);
-	}
+        if (!fd->is_constructor) {
+                emit_str(irc, fd->return_type->type_str);
+        }
 }
 
 static void gen_var_metadata(struct IRContext *irc, struct ParserContext *pc,
@@ -97,7 +107,7 @@ static void gen_var_metadata(struct IRContext *irc, struct ParserContext *pc,
 static void gen_class_metadata(struct IRContext *irc, struct ParserContext *pc,
                                struct ClassData *cd) {
         emit_byte(irc, META_CLASS);
-	
+
         emit_int(irc, cd->id);
         emit_str(irc, cd->class_type->type_str);
 
@@ -165,7 +175,7 @@ static unsigned get_total_stack_size_of_func(struct ParserContext *pc,
         for (i = 0; i < func_decl->declared_var_count; i++) {
                 struct VarData *var_data = func_decl->declared_vars[i];
                 unsigned data_size = get_size_of_type(pc, var_data->type);
-		
+
                 var_data->offset = stack_offset;
 
                 stack_offset += data_size;
@@ -174,9 +184,26 @@ static unsigned get_total_stack_size_of_func(struct ParserContext *pc,
         return stack_offset;
 }
 
+static unsigned
+get_total_stack_size_of_constructor(struct ParserContext *pc,
+                                    struct ConstructorAST *constructor) {
+        int i;
+        unsigned stack_offset = 0;
+
+        for (i = 0; i < constructor->declared_var_count; i++) {
+                struct VarData *var_data = constructor->declared_vars[i];
+                unsigned data_size = get_size_of_type(pc, var_data->type);
+
+                var_data->offset = stack_offset;
+                stack_offset += data_size;
+        }
+
+        return stack_offset;
+}
+
 static struct RODATA_Str *gen_str_rodata(unsigned id, const char *str) {
         struct RODATA_Str *result =
-		(struct RODATA_Str *)S_malloc(sizeof(struct RODATA_Str));
+            (struct RODATA_Str *)S_malloc(sizeof(struct RODATA_Str));
 
         result->id = id;
         result->str = str;
@@ -187,412 +214,460 @@ static struct RODATA_Str *gen_str_rodata(unsigned id, const char *str) {
 static struct RODATA_Str *add_str_rodata(struct IRContext *irc,
                                          const char *str) {
 
-	struct RODATA_Str *rodata_str = (struct RODATA_Str *) ht_find(irc->str_rodata, str);
+        struct RODATA_Str *rodata_str =
+            (struct RODATA_Str *)ht_find(irc->str_rodata, str);
 
-	if(rodata_str == NULL){
-		rodata_str = gen_str_rodata(irc->str_rodata->size, str);
-		ht_insert(irc->str_rodata, str, rodata_str);
-	}
-	
+        if (rodata_str == NULL) {
+                rodata_str = gen_str_rodata(irc->str_rodata->size, str);
+                ht_insert(irc->str_rodata, str, rodata_str);
+        }
+
         return rodata_str;
 }
 
-static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type){
-	byte op_byte = 0x00;
+static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type) {
+        byte op_byte = 0x00;
 
-	switch(op_type){
-	case OpADD:{
-		op_byte = OP_ADD;
-		break;
-	}
-			
-	case OpSUB:{
-		op_byte = OP_SUB;
-		break;
-	}
-				
-	case OpMUL: {
-		op_byte = OP_MUL;
-		break;
-	}
+        switch (op_type) {
+        case OpADD: {
+                op_byte = OP_ADD;
+                break;
+        }
 
-	case OpDIV:{
-		op_byte = OP_DIV;
-		break;
-	}
-			
-	case OpEQUAL: {
-		op_byte = OP_EQUAL;
-		break;
-	}
+        case OpSUB: {
+                op_byte = OP_SUB;
+                break;
+        }
 
-	case OpNOTEQUAL: {
-		op_byte = OP_NOTEQUAL;
-		break;
-	}
+        case OpMUL: {
+                op_byte = OP_MUL;
+                break;
+        }
 
-	case OpGREATER: {
-		op_byte = OP_GREATER;
-		break;
-	}
-			
-	case OpLESS: {
-		op_byte = OP_LESS;
-		break;
-	}
-			
-	case OpEQUALGREATER: {
-		op_byte = OP_EQUALGREATER;
-		break;
-	}
+        case OpDIV: {
+                op_byte = OP_DIV;
+                break;
+        }
 
-	case OpEQUALLESS: {
-		op_byte = OP_EQUALLESS;
-		break;
-	}
-	case OpASSIGN: {
-		op_byte = OP_ASSIGN;
-		break;
-	}
-			
-	case OpOR: {
-		op_byte = OP_OR;
-		break;
-	}
-			 
-	case OpAND: {
-		op_byte = OP_AND;
-		break;
-	}
-			
-	default: {
-		panic("Unknown Op Type", pc->tc);
-		break;
-	}
-	}
+        case OpEQUAL: {
+                op_byte = OP_EQUAL;
+                break;
+        }
 
-	assert(op_byte != 0x00);
+        case OpNOTEQUAL: {
+                op_byte = OP_NOTEQUAL;
+                break;
+        }
 
-	return op_byte;
+        case OpGREATER: {
+                op_byte = OP_GREATER;
+                break;
+        }
+
+        case OpLESS: {
+                op_byte = OP_LESS;
+                break;
+        }
+
+        case OpEQUALGREATER: {
+                op_byte = OP_EQUALGREATER;
+                break;
+        }
+
+        case OpEQUALLESS: {
+                op_byte = OP_EQUALLESS;
+                break;
+        }
+        case OpASSIGN: {
+                op_byte = OP_ASSIGN;
+                break;
+        }
+
+        case OpOR: {
+                op_byte = OP_OR;
+                break;
+        }
+
+        case OpAND: {
+                op_byte = OP_AND;
+                break;
+        }
+
+        default: {
+                panic("Unknown Op Type", pc->tc);
+                break;
+        }
+        }
+
+        assert(op_byte != 0x00);
+
+        return op_byte;
 }
 
 static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         struct Node *node);
 
-static void gen_ident_load_ir(struct IRContext *irc, struct ParserContext *pc, enum ScopeData scope_data, unsigned offset, unsigned size) {
-	switch(scope_data){
-	case ScopeLocal:
-		emit_byte(irc, OP_SP_LOAD);
-		break;
+static void gen_ident_load_ir(struct IRContext *irc, struct ParserContext *pc,
+                              enum ScopeData scope_data, unsigned offset,
+                              unsigned size) {
+        switch (scope_data) {
+        case ScopeLocal:
+                emit_byte(irc, OP_SP_LOAD);
+                break;
 
-	case ScopeGlobal:
-		emit_byte(irc, OP_LOAD_GLOBAL);
-		break;
+        case ScopeGlobal:
+                emit_byte(irc, OP_LOAD_GLOBAL);
+                break;
 
-	case ScopeClass:
-		emit_byte(irc, OP_LOAD_CLASS);
-		break;
+        case ScopeClass:
+                emit_byte(irc, OP_LOAD_CLASS);
+                break;
 
-	default:
-		panic("Wrong scope of variable!", pc->tc);
-		break;
-	}
-	
-	emit_int(irc, offset);
-	emit_int(irc, size);
+        default:
+                panic("Wrong scope of variable!", pc->tc);
+                break;
+        }
+
+        emit_int(irc, offset);
+        emit_int(irc, size);
 }
 
-static void gen_ident_incre_ir(struct IRContext *irc, struct ParserContext *pc, enum ScopeData scope_data, unsigned offset, unsigned size) {
-	switch(scope_data){
-	case ScopeLocal:
-		emit_byte(irc, OP_SP_INCRE);
-		break;
+static void gen_ident_incre_ir(struct IRContext *irc, struct ParserContext *pc,
+                               enum ScopeData scope_data, unsigned offset,
+                               unsigned size) {
+        switch (scope_data) {
+        case ScopeLocal:
+                emit_byte(irc, OP_SP_INCRE);
+                break;
 
-	case ScopeGlobal:
-		emit_byte(irc, OP_INCRE_GLOBAL);
-		break;
+        case ScopeGlobal:
+                emit_byte(irc, OP_INCRE_GLOBAL);
+                break;
 
-	case ScopeClass:
-		emit_byte(irc, OP_INCRE_CLASS);
-		break;
+        case ScopeClass:
+                emit_byte(irc, OP_INCRE_CLASS);
+                break;
 
-	default:
-		panic("Wrong scope of variable!", pc->tc);
-		break;
-	}
-	
-	emit_int(irc, offset);
-	emit_int(irc, size);
+        default:
+                panic("Wrong scope of variable!", pc->tc);
+                break;
+        }
+
+        emit_int(irc, offset);
+        emit_int(irc, size);
 }
 
-static void gen_ident_decre_ir(struct IRContext *irc, struct ParserContext *pc, enum ScopeData scope_data, unsigned offset, unsigned size) {
-	switch(scope_data){
-	case ScopeLocal:
-		emit_byte(irc, OP_SP_DECRE);
-		break;
+static void gen_ident_decre_ir(struct IRContext *irc, struct ParserContext *pc,
+                               enum ScopeData scope_data, unsigned offset,
+                               unsigned size) {
+        switch (scope_data) {
+        case ScopeLocal:
+                emit_byte(irc, OP_SP_DECRE);
+                break;
 
-	case ScopeGlobal:
-		emit_byte(irc, OP_DECRE_GLOBAL);
-		break;
+        case ScopeGlobal:
+                emit_byte(irc, OP_DECRE_GLOBAL);
+                break;
 
-	case ScopeClass:
-		emit_byte(irc, OP_DECRE_CLASS);
-		break;
+        case ScopeClass:
+                emit_byte(irc, OP_DECRE_CLASS);
+                break;
 
-	default:
-		panic("Wrong scope of variable!", pc->tc);
-		break;
-	}
+        default:
+                panic("Wrong scope of variable!", pc->tc);
+                break;
+        }
 
-	emit_int(irc, offset);
-	emit_int(irc, size);
+        emit_int(irc, offset);
+        emit_int(irc, size);
 }
 
-static void gen_attr_load_ir(struct IRContext *irc, struct ParserContext *pc, unsigned offset, unsigned size){
-	emit_byte(irc, OP_LOAD_ATTR);
-	emit_int(irc, offset);
-	emit_int(irc, size);
+static void gen_attr_load_ir(struct IRContext *irc, struct ParserContext *pc,
+                             unsigned offset, unsigned size) {
+        emit_byte(irc, OP_LOAD_ATTR);
+        emit_int(irc, offset);
+        emit_int(irc, size);
 }
 
-static void gen_attr_incre_ir(struct IRContext *irc, struct ParserContext *pc, unsigned offset, unsigned size){
-	emit_byte(irc, OP_INCRE_ATTR);
-	emit_int(irc, offset);
-	emit_int(irc, size);
+static void gen_attr_incre_ir(struct IRContext *irc, struct ParserContext *pc,
+                              unsigned offset, unsigned size) {
+        emit_byte(irc, OP_INCRE_ATTR);
+        emit_int(irc, offset);
+        emit_int(irc, size);
 }
 
-static void gen_attr_decre_ir(struct IRContext *irc, struct ParserContext *pc, unsigned offset, unsigned size){
-	emit_byte(irc, OP_DECRE_ATTR);
-	emit_int(irc, offset);
-	emit_int(irc, size);
+static void gen_attr_decre_ir(struct IRContext *irc, struct ParserContext *pc,
+                              unsigned offset, unsigned size) {
+        emit_byte(irc, OP_DECRE_ATTR);
+        emit_int(irc, offset);
+        emit_int(irc, size);
 }
 
-static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc, struct Node *node){
+static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc,
+                         struct Node *node) {
 
-	struct IdentifierAST *ident_ast = NULL;
+        struct IdentifierAST *ident_ast = NULL;
 
-	switch(node->type){
-	case AST_Identifier:{
-		ident_ast = ((struct IdentifierAST *) node->ast);
-		break;
-	}
+        switch (node->type) {
+        case AST_Identifier: {
+                ident_ast = ((struct IdentifierAST *)node->ast);
+                break;
+        }
 
-	case AST_IdentIncrease:{
-		struct IdentIncreAST *ident_incre_ast = ((struct IdentIncreAST *) node->ast);
-		ident_ast = (struct IdentifierAST *) ident_incre_ast->ident_node->ast;
-		break;
-	}
+        case AST_IdentIncrease: {
+                struct IdentIncreAST *ident_incre_ast =
+                    ((struct IdentIncreAST *)node->ast);
+                ident_ast =
+                    (struct IdentifierAST *)ident_incre_ast->ident_node->ast;
+                break;
+        }
 
-	case AST_IdentDecrease:{
-		struct IdentDecreAST *ident_decre_ast = ((struct IdentDecreAST *) node->ast);
-		ident_ast = (struct IdentifierAST *) ident_decre_ast->ident_node->ast;
-		break;
-	}
+        case AST_IdentDecrease: {
+                struct IdentDecreAST *ident_decre_ast =
+                    ((struct IdentDecreAST *)node->ast);
+                ident_ast =
+                    (struct IdentifierAST *)ident_decre_ast->ident_node->ast;
+                break;
+        }
 
-	default:{
-	}
-	}
+        default: {
+        }
+        }
 
-	assert(ident_ast != NULL);
+        assert(ident_ast != NULL);
 
-	struct VarData *var_data = ident_ast->var_data;
-	assert(var_data != NULL);
-	
-	unsigned size = get_size_of_type(pc, var_data->type);
-	unsigned offset = var_data->offset;
-	
-	switch(node->type){
-	case AST_Identifier:{
-		
-		if(ident_ast->is_attr){
-			gen_attr_load_ir(irc, pc, offset, size);
-		} else {
-			gen_ident_load_ir(irc, pc, var_data->scope_data, offset, size);
-		}
-		break;
-	}
+        struct VarData *var_data = ident_ast->var_data;
+        assert(var_data != NULL);
 
-	case AST_IdentIncrease:{
-		if(ident_ast->is_attr){
-			gen_attr_incre_ir(irc, pc, offset, size);
-		} else {
-			gen_ident_incre_ir(irc, pc, var_data->scope_data, offset, size);
-		}
-		break;
-	}
+        unsigned size = get_size_of_type(pc, var_data->type);
+        unsigned offset = var_data->offset;
 
-	case AST_IdentDecrease:{
-		if(ident_ast->is_attr){
-			gen_attr_decre_ir(irc, pc, offset, size);
-		} else {
-			gen_ident_decre_ir(irc, pc, var_data->scope_data, offset, size);
-		}
-		break;
-	}
+        switch (node->type) {
+        case AST_Identifier: {
 
-	default:{
-		panic("in gen_ident_ir function, this node is not identifier.", pc->tc);
-	}
-	}
-	
-	if(node->attr != NULL){
-		gen_node_ir(irc, pc, node->attr);
-	}
+                if (ident_ast->is_attr) {
+                        gen_attr_load_ir(irc, pc, offset, size);
+                } else {
+                        gen_ident_load_ir(irc, pc, var_data->scope_data, offset,
+                                          size);
+                }
+                break;
+        }
+
+        case AST_IdentIncrease: {
+                if (ident_ast->is_attr) {
+                        gen_attr_incre_ir(irc, pc, offset, size);
+                } else {
+                        gen_ident_incre_ir(irc, pc, var_data->scope_data,
+                                           offset, size);
+                }
+                break;
+        }
+
+        case AST_IdentDecrease: {
+                if (ident_ast->is_attr) {
+                        gen_attr_decre_ir(irc, pc, offset, size);
+                } else {
+                        gen_ident_decre_ir(irc, pc, var_data->scope_data,
+                                           offset, size);
+                }
+                break;
+        }
+
+        default: {
+                panic("in gen_ident_ir function, this node is not identifier.",
+                      pc->tc);
+        }
+        }
+
+        if (node->attr != NULL) {
+                gen_node_ir(irc, pc, node->attr);
+        }
 }
 
 static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         struct Node *node) {
         switch (node->type) {
 
-	case AST_Null: {
-		emit_byte(irc, OP_PUSH_NULL);
-		
-		break;
-	}
+        case AST_Null: {
+                emit_byte(irc, OP_PUSH_NULL);
 
-	case AST_Identifier:
-	case AST_IdentIncrease:
-	case AST_IdentDecrease:{
-		gen_ident_ir(irc, pc, node);
-		
-		break;
-	}
-		
+                break;
+        }
+
+        case AST_Identifier:
+        case AST_IdentIncrease:
+        case AST_IdentDecrease: {
+                gen_ident_ir(irc, pc, node);
+
+                break;
+        }
+
         case AST_StringLiteral: {
                 struct StringLiteralAST *str_lit_ast =
-			(struct StringLiteralAST *)node->ast;
+                    (struct StringLiteralAST *)node->ast;
 
                 struct RODATA_Str *rodata =
-			add_str_rodata(irc, str_lit_ast->str_tok->str);
-		
+                    add_str_rodata(irc, str_lit_ast->str_tok->str);
+
                 emit_byte(irc, OP_LOAD_STR);
                 emit_int(irc, rodata->id);
 
                 break;
         }
 
-	case AST_VariableDeclarationBundle: {
-		struct VarDeclBundleAST *var_decl_bundle_ast = (struct VarDeclBundleAST *)node->ast;
-		
-		int i;
-		for(i=0; i<var_decl_bundle_ast->var_count; i++){
-			gen_node_ir(irc, pc, var_decl_bundle_ast->var_decls[i]);
-		}
-		
-		break;
-	}
+        case AST_VariableDeclarationBundle: {
+                struct VarDeclBundleAST *var_decl_bundle_ast =
+                    (struct VarDeclBundleAST *)node->ast;
 
-	case AST_VariableDeclaration: {
-		struct VarDeclAST *var_decl_ast = (struct VarDeclAST *) node->ast;
+                int i;
+                for (i = 0; i < var_decl_bundle_ast->var_count; i++) {
+                        gen_node_ir(irc, pc, var_decl_bundle_ast->var_decls[i]);
+                }
 
-		gen_node_ir(irc, pc, var_decl_ast->decl);
-		
-		// case for local var data
-		if(var_decl_ast->var_data != NULL){
-			struct VarData *var_data = var_decl_ast->var_data;
-
-                        unsigned offset = var_data->offset;
-			unsigned size = get_size_of_type(pc, var_data->type);
-                        
-			emit_byte(irc, OP_SP_SAVE); // stack point load
-			emit_int(irc, offset);
-			emit_int(irc, size);
-
-			break;
-		}
-
-		// global or class attribute
-		
-		break;
-	}
-		
-	case AST_BinExpr: {
-		struct BinExprAST *bin_expr_ast = (struct BinExprAST *) node->ast;
-
-		if(bin_expr_ast->op_type == OpASSIGN){
-			
-		}else{
-			gen_node_ir(irc, pc, bin_expr_ast->left);
-			gen_node_ir(irc, pc, bin_expr_ast->right);
-		
-			emit_byte(irc, OP_EXPR_OP);
-			byte op_byte = get_op_byte(pc, bin_expr_ast->op_type);
-			emit_byte(irc, op_byte);
-		}
-		break;
-	}
-		
-        case AST_NumberLiteral: {
-                struct NumberLiteralAST *num_lit_ast =
-			(struct NumberLiteralAST *)node->ast;
-		struct Type *numeric_type = num_lit_ast->type;
-		struct NumericData *numeric_data = numeric_type->data.numeric_data;
-
-		assert(numeric_type != NULL && numeric_data != NULL);
-
-		if(numeric_data->is_integer){
-			if(numeric_type->nbyte == 4){
-				emit_byte(irc, OP_LDC_I4);
-				emit_int(irc, atoi(num_lit_ast->num_tok->str));
-			}
-		} else {
-			if(numeric_type->nbyte == 4){
-				emit_byte(irc, OP_LDC_F4);
-				emit_float(irc, atof(num_lit_ast->num_tok->str));
-			}
-
-			if(strcmp(numeric_type->type_str, "double") == 0){
-				emit_byte(irc, OP_LDC_F8);
-				// emit_double
-			}
-		}
-
-		
                 break;
         }
 
-	case AST_ForStatement: {
-		struct ForStmtAST *for_stmt_ast = (struct ForStmtAST *) node->ast;
+        case AST_VariableDeclaration: {
+                struct VarDeclAST *var_decl_ast =
+                    (struct VarDeclAST *)node->ast;
 
-		gen_node_ir(irc, pc, for_stmt_ast->init);
+                if (var_decl_ast->decl == NULL) {
+                        break;
+                }
 
-		irc->label_id++;
-		int end_label_id = irc->label_id;
-		irc->label_id++;
-		int begin_label_id = irc->label_id;
+                gen_node_ir(irc, pc, var_decl_ast->decl);
 
-		emit_byte(irc, OP_GOTO);
-		emit_int(irc, end_label_id);
+                // case for local var data
+                if (var_decl_ast->var_data != NULL) {
+                        struct VarData *var_data = var_decl_ast->var_data;
 
-		emit_byte(irc, OP_LABEL);
-		emit_int(irc, begin_label_id);
+                        unsigned offset = var_data->offset;
+                        unsigned size = get_size_of_type(pc, var_data->type);
 
-		int i;
-		for(i=0; i<for_stmt_ast->body_count; i++){
-			gen_node_ir(irc, pc, for_stmt_ast->body[i]);
-		}
+                        emit_byte(irc, OP_SP_SAVE); // stack point load
+                        emit_int(irc, offset);
+                        emit_int(irc, size);
 
-		gen_node_ir(irc, pc, for_stmt_ast->step);
+                        break;
+                }
 
-		emit_byte(irc, OP_LABEL);
-		emit_int(irc, end_label_id);
+                // global or class attribute
 
-		gen_node_ir(irc, pc, for_stmt_ast->cond);
+                break;
+        }
 
-		emit_byte(irc, OP_JE);
-		emit_int(irc, begin_label_id);
+        case AST_BinExpr: {
+                struct BinExprAST *bin_expr_ast =
+                    (struct BinExprAST *)node->ast;
 
-		break;
-	}
-		
+                if (bin_expr_ast->op_type == OpASSIGN) {
+                        gen_node_ir(irc, pc, bin_expr_ast->right);
+
+                        if (bin_expr_ast->left->type != AST_Identifier) {
+                                panic(
+                                    "Assignment target must be an identifier.",
+                                    pc->tc);
+                        }
+
+                        struct IdentifierAST *ident_ast =
+                            (struct IdentifierAST *)bin_expr_ast->left->ast;
+                        struct VarData *var_data = ident_ast->var_data;
+
+                        if (var_data->scope_data != ScopeLocal ||
+                            ident_ast->is_attr) {
+                                panic("Only local variable assignment is "
+                                      "supported.",
+                                      pc->tc);
+                        }
+
+                        emit_byte(irc, OP_SP_SAVE);
+                        emit_int(irc, var_data->offset);
+                        emit_int(irc, get_size_of_type(pc, var_data->type));
+                } else {
+                        gen_node_ir(irc, pc, bin_expr_ast->left);
+                        gen_node_ir(irc, pc, bin_expr_ast->right);
+
+                        emit_byte(irc, OP_EXPR_OP);
+                        byte op_byte = get_op_byte(pc, bin_expr_ast->op_type);
+                        emit_byte(irc, op_byte);
+                }
+                break;
+        }
+
+        case AST_NumberLiteral: {
+                struct NumberLiteralAST *num_lit_ast =
+                    (struct NumberLiteralAST *)node->ast;
+                struct Type *numeric_type = num_lit_ast->type;
+                struct NumericData *numeric_data =
+                    numeric_type->data.numeric_data;
+
+                assert(numeric_type != NULL && numeric_data != NULL);
+
+                if (numeric_data->is_integer) {
+                        if (numeric_type->nbyte == 4) {
+                                emit_byte(irc, OP_LDC_I4);
+                                emit_int(irc, atoi(num_lit_ast->num_tok->str));
+                        }
+                } else {
+                        if (numeric_type->nbyte == 4) {
+                                emit_byte(irc, OP_LDC_F4);
+                                emit_float(irc,
+                                           atof(num_lit_ast->num_tok->str));
+                        }
+
+                        if (strcmp(numeric_type->type_str, "double") == 0) {
+                                emit_byte(irc, OP_LDC_F8);
+                                emit_double(irc,
+                                            atof(num_lit_ast->num_tok->str));
+                        }
+                }
+
+                break;
+        }
+
+        case AST_ForStatement: {
+                struct ForStmtAST *for_stmt_ast =
+                    (struct ForStmtAST *)node->ast;
+
+                gen_node_ir(irc, pc, for_stmt_ast->init);
+
+                irc->label_id++;
+                int end_label_id = irc->label_id;
+                irc->label_id++;
+                int begin_label_id = irc->label_id;
+
+                emit_byte(irc, OP_GOTO);
+                emit_int(irc, end_label_id);
+
+                emit_byte(irc, OP_LABEL);
+                emit_int(irc, begin_label_id);
+
+                int i;
+                for (i = 0; i < for_stmt_ast->body_count; i++) {
+                        gen_node_ir(irc, pc, for_stmt_ast->body[i]);
+                }
+
+                gen_node_ir(irc, pc, for_stmt_ast->step);
+
+                emit_byte(irc, OP_LABEL);
+                emit_int(irc, end_label_id);
+
+                gen_node_ir(irc, pc, for_stmt_ast->cond);
+
+                emit_byte(irc, OP_JE);
+                emit_int(irc, begin_label_id);
+
+                break;
+        }
+
         case AST_FunctionCall: {
                 struct FuncCallAST *func_call_ast =
-			(struct FuncCallAST *)node->ast;
+                    (struct FuncCallAST *)node->ast;
 
                 struct FuncData *func_data = func_call_ast->func_data;
 
                 if (!func_data->varargs) {
-			printf("%s\n", func_data->func_name);
-			printf("%d %d\n", func_data->arg_count, func_call_ast->param_count);
                         assert(func_data->arg_count ==
                                func_call_ast->param_count);
                 }
@@ -602,70 +677,139 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         gen_node_ir(irc, pc, func_call_ast->params[i]);
                 }
 
-		enum ScopeData scope_data = func_data->scope_data;
-		
-		if(func_call_ast->is_attr){
-			emit_byte(irc, OP_CALL_ATTR);
-		}else{
-			switch(scope_data){
-			case ScopeGlobal:
-				emit_byte(irc, OP_CALL_GLOBAL);
-				break;
+                enum ScopeData scope_data = func_data->scope_data;
 
-			case ScopeClass:
-				emit_byte(irc, OP_CALL_CLASS);
-				break;
-			
-			case ScopeSyscall:
-				emit_byte(irc, OP_SYSCALL);
-				break;
+                if (func_call_ast->is_attr) {
+                        emit_byte(irc, OP_CALL_ATTR);
+                } else {
+                        switch (scope_data) {
+                        case ScopeGlobal:
+                                emit_byte(irc, OP_CALL_GLOBAL);
+                                break;
 
-			default:
-				panic("Wrong scope of variable!", pc->tc);
-				break;
-			}
-		}
-		
+                        case ScopeClass:
+                                emit_byte(irc, OP_CALL_CLASS);
+                                break;
+
+                        case ScopeSyscall:
+                                emit_byte(irc, OP_SYSCALL);
+                                break;
+
+                        default:
+                                panic("Wrong scope of variable!", pc->tc);
+                                break;
+                        }
+                }
+
                 emit_int(irc, func_data->id);
                 emit_int(irc, func_call_ast->param_count);
 
                 break;
         }
-	case AST_Class: {
-		struct ClassAST *class_ast = (struct ClassAST *)node->ast;
-		struct ClassData *class_data = class_ast->class_data;
-		
-		emit_byte(irc, CODE_CLASS);
+        case AST_Class: {
+                struct ClassAST *class_ast = (struct ClassAST *)node->ast;
+                struct ClassData *class_data = class_ast->class_data;
 
-		emit_int(irc, class_data->id);
+                emit_byte(irc, CODE_CLASS);
 
-		int i;
-		for(i=0; i<class_ast->body_count; i++){
-			gen_node_ir(irc, pc, class_ast->body[i]);
-		}
-		
-		emit_byte(irc, CODE_TERM);
-		
-		break;
-	}
+                emit_int(irc, class_data->id);
 
-	case AST_Return: {
-		struct ReturnAST *ret_ast = (struct ReturnAST *) node->ast;
+                int i;
+                for (i = 0; i < class_ast->body_count; i++) {
+                        gen_node_ir(irc, pc, class_ast->body[i]);
+                }
 
-		gen_node_ir(irc, pc, ret_ast->expr);
-		
-		emit_byte(irc, OP_RET_VAL);
-		break;
-	}
+                emit_byte(irc, CODE_TERM);
+
+                break;
+        }
+
+        case AST_IfStatement: {
+                struct IfStmtAST *if_stmt_ast = (struct IfStmtAST *)node->ast;
+
+                irc->label_id++;
+                int body_label_id = irc->label_id;
+                irc->label_id++;
+                int end_label_id = irc->label_id;
+
+                if (if_stmt_ast->cond != NULL) {
+                        gen_node_ir(irc, pc, if_stmt_ast->cond);
+                        emit_byte(irc, OP_JE);
+                        emit_int(irc, body_label_id);
+                } else {
+                        emit_byte(irc, OP_GOTO);
+                        emit_int(irc, body_label_id);
+                }
+
+                if (if_stmt_ast->next_stmt != NULL) {
+                        gen_node_ir(irc, pc, if_stmt_ast->next_stmt);
+                }
+
+                emit_byte(irc, OP_GOTO);
+                emit_int(irc, end_label_id);
+
+                emit_byte(irc, OP_LABEL);
+                emit_int(irc, body_label_id);
+
+                int i;
+                for (i = 0; i < if_stmt_ast->body_count; i++) {
+                        gen_node_ir(irc, pc, if_stmt_ast->body[i]);
+                }
+
+                emit_byte(irc, OP_LABEL);
+                emit_int(irc, end_label_id);
+
+                break;
+        }
+
+        case AST_Constructor: {
+                struct ConstructorAST *constructor_ast =
+                    (struct ConstructorAST *)node->ast;
+                struct FuncData *func_data = constructor_ast->func_data;
+                unsigned total_stack_size =
+                    get_total_stack_size_of_constructor(pc, constructor_ast);
+
+                emit_byte(irc, CODE_FUNC);
+                emit_int(irc, func_data->id);
+
+                if (total_stack_size != 0) {
+                        emit_byte(irc, OP_SP_PUSH);
+                        emit_int(irc, total_stack_size);
+                }
+
+                int i;
+                for (i = 0; i < constructor_ast->body_count; i++) {
+                        gen_node_ir(irc, pc, constructor_ast->body[i]);
+                }
+
+                if (total_stack_size != 0) {
+                        emit_byte(irc, OP_SP_POP);
+                        emit_int(irc, total_stack_size);
+                }
+
+                emit_byte(irc, OP_RET);
+                emit_byte(irc, CODE_TERM);
+
+                break;
+        }
+
+        case AST_Return: {
+                struct ReturnAST *ret_ast = (struct ReturnAST *)node->ast;
+
+                gen_node_ir(irc, pc, ret_ast->expr);
+
+                emit_byte(irc, OP_RET_VAL);
+                break;
+        }
 
         case AST_FunctionDeclaration: {
                 struct FuncDeclAST *func_decl_ast =
-			(struct FuncDeclAST *)node->ast;
+                    (struct FuncDeclAST *)node->ast;
 
                 struct FuncData *func_data = func_decl_ast->func_data;
 
                 unsigned total_stack_size =
-			get_total_stack_size_of_func(pc, func_decl_ast);
+                    get_total_stack_size_of_func(pc, func_decl_ast);
 
                 emit_byte(irc, CODE_FUNC);
                 emit_int(irc, func_data->id);
@@ -704,20 +848,21 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 static void gen_rodata(struct IRContext *irc, struct ParserContext *pc) {
         emit_byte(irc, RODATA_BEGIN);
 
-	int i;
-	for(i=0; i<HTABLE_BUFF; i++){
-		struct DataNode *data_node = irc->str_rodata->bucket[i];
+        int i;
+        for (i = 0; i < HTABLE_BUFF; i++) {
+                struct DataNode *data_node = irc->str_rodata->bucket[i];
 
-		while(data_node != NULL){
-			struct RODATA_Str *rodata_str = (struct RODATA_Str *) data_node->ptr;
-			
-			emit_byte(irc, RODATA_STR);
-			emit_int(irc, rodata_str->id);
-			emit_str(irc, rodata_str->str);
+                while (data_node != NULL) {
+                        struct RODATA_Str *rodata_str =
+                            (struct RODATA_Str *)data_node->ptr;
 
-			data_node = data_node->next;
-		}
-	}
+                        emit_byte(irc, RODATA_STR);
+                        emit_int(irc, rodata_str->id);
+                        emit_str(irc, rodata_str->str);
+
+                        data_node = data_node->next;
+                }
+        }
 
         emit_byte(irc, RODATA_END);
 }

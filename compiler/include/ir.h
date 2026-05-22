@@ -57,8 +57,8 @@
 #define OP_SYSCALL 0x5c // syscall id(uint) arg_cnt(uint)
 #define OP_CALL 0x5d    // call id(uint) arg_cnt(uint)
 #define OP_CALL_ATTR 0x5e // call_attr id(uint) arg_cnt(uint)
-#define OP_CALL_CLASS 0x5e // call_class id(uint) arg_cnt(uint)
-#define OP_CALL_GLOBAL 0x5e // call_global id(uint) arg_cnt(uint)
+#define OP_CALL_CLASS 0x5f // call_class id(uint) arg_cnt(uint)
+#define OP_CALL_GLOBAL 0x61 // call_global id(uint) arg_cnt(uint)
 
 #define OP_LOAD_STR 0x60 // load_str id(uint)
 

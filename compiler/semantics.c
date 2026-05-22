@@ -14,6 +14,9 @@ struct FuncData *gen_func_data(const char *func_name, struct Type *ret_type, uns
         data->func_name = func_name;
         data->id = id;
         data->varargs = varargs;
+	data->arg_types = NULL;
+	data->arg_count = 0;
+	data->scope_data = ScopeNone;
 
         return data;
 }
@@ -28,6 +31,7 @@ struct FuncData *register_constructor_data(const char *func_name,
         struct FuncData *data = gen_func_data(func_name, find_type(pc, "void"), -1, false);
 
 	data->is_constructor = true;
+	data->scope_data = ScopeClass;
 	
         // id assign.
         if (pc->current_class) {
@@ -147,7 +151,7 @@ struct ClassData *register_class_data(const char *class_name,
                                              struct ParserContext *pc) {
         struct ClassData *data =
 		(struct ClassData *)S_malloc(sizeof(struct ClassData));
-        data->id = pc->class_type_smtb->size + 1;
+        data->id = pc->class_data_count + 1;
 
         data->member_funcs = gen_htable();
         data->member_vars = gen_htable();
@@ -340,6 +344,8 @@ static void check_attr_semantics(struct ParserContext *pc, struct ClassData *att
 		}
 		
 		type_of_node = var_data->type;
+		ident_ast->var_data = var_data;
+		ident_ast->is_attr = true;
 
 		break;
 	}
@@ -355,6 +361,8 @@ static void check_attr_semantics(struct ParserContext *pc, struct ClassData *att
 		}
 
 		type_of_node = func_data->return_type;
+		func_call_ast->func_data = func_data;
+		func_call_ast->is_attr = true;
 		
 		break;
 	}
@@ -394,8 +402,11 @@ static void check_func_decl_semantics(struct ParserContext *pc, struct FuncDeclA
 }
 
 static void check_if_stmt_semantics(struct ParserContext *pc, struct IfStmtAST *if_stmt_ast){
-	check_semantics(pc, if_stmt_ast->cond);
+	if(if_stmt_ast->cond != NULL){
+		check_semantics(pc, if_stmt_ast->cond);
+	}
 	check_semantics_body(pc, if_stmt_ast->body, if_stmt_ast->body_count);
+	check_semantics(pc, if_stmt_ast->next_stmt);
 }
 
 static void check_for_stmt_semantics(struct ParserContext *pc, struct ForStmtAST *for_stmt_ast){
@@ -487,6 +498,8 @@ static void register_attr_data(struct ParserContext *pc, struct ClassData *attr_
 		}
 		
 		type_of_node = var_data->type;
+		ident_ast->var_data = var_data;
+		ident_ast->is_attr = true;
 
 		break;
 	}
@@ -502,6 +515,8 @@ static void register_attr_data(struct ParserContext *pc, struct ClassData *attr_
 		}
 
 		type_of_node = func_data->return_type;
+		func_call_ast->func_data = func_data;
+		func_call_ast->is_attr = true;
 		
 		break;
 	}
@@ -553,6 +568,8 @@ void register_data(struct ParserContext *pc, struct Node *node){
 	case AST_FunctionDeclaration: {
 		struct FuncDeclAST *func_decl_ast = (struct FuncDeclAST *) node->ast;
 
+		reset_declared_local_var_data(pc);
+
 		struct Type *ret_type = find_type(pc, func_decl_ast->ret_type_tok->str);
 		struct FuncData *func_data =
 			register_func_data(func_decl_ast->func_name_tok->str, ret_type, pc);
@@ -576,6 +593,9 @@ void register_data(struct ParserContext *pc, struct Node *node){
 		}
 
 		register_data_of_body(pc, func_decl_ast->body, func_decl_ast->body_count);
+
+		func_decl_ast->declared_var_count = pc->declared_local_var_count;
+		func_decl_ast->declared_vars = pc->declared_local_vars;
 
 		close_scope(pc);
 		pc->current_func = NULL;
@@ -624,6 +644,8 @@ void register_data(struct ParserContext *pc, struct Node *node){
 		}
 
 		var_decl_ast->var_data = var_data;
+
+		register_data(pc, var_decl_ast->decl);
 		
 		break;
 	}
@@ -632,6 +654,16 @@ void register_data(struct ParserContext *pc, struct Node *node){
 		struct IdentifierAST *ident_ast = (struct IdentifierAST *) node->ast;
 
 		ident_ast->var_data = find_var_data(pc, ident_ast->ident->str);
+		if(ident_ast->var_data == NULL){
+			panic("Failed to find identifier", pc->tc);
+		}
+		if(node->attr != NULL){
+			struct Type *type = ident_ast->var_data->type;
+			if(type->type_kind != TK_Class){
+				panic("We can\'t find attribute from non-class type.", pc->tc);
+			}
+			register_attr_data(pc, type->data.class_data, node->attr);
+		}
 		
 		break;
 	}
@@ -655,6 +687,8 @@ void register_data(struct ParserContext *pc, struct Node *node){
 	case AST_Constructor: {
 		struct ConstructorAST *constructor_ast = (struct ConstructorAST *) node->ast;
 		
+		reset_declared_local_var_data(pc);
+
 		struct FuncData *func_data = register_constructor_data(constructor_ast->func_name->str, pc);
 		struct VarDeclBundleAST *params_ast = (struct VarDeclBundleAST *) constructor_ast->params->ast;
 		
@@ -676,8 +710,19 @@ void register_data(struct ParserContext *pc, struct Node *node){
 		constructor_ast->func_data = func_data;
 		
 		pc->current_func = constructor_ast->func_data;
+
+		open_scope(pc);
+		for (i = 0; i < params_ast->var_count; i++) {
+			register_data(pc, params_ast->var_decls[i]);
+		}
+
 		register_data_of_body(pc, constructor_ast->body, constructor_ast->body_count);
+
+		close_scope(pc);
 		pc->current_func = NULL;
+
+		constructor_ast->declared_var_count = pc->declared_local_var_count;
+		constructor_ast->declared_vars = pc->declared_local_vars;
 		
 		break;
 	}
@@ -685,7 +730,9 @@ void register_data(struct ParserContext *pc, struct Node *node){
 	case AST_IfStatement: {
 		struct IfStmtAST *if_stmt_ast = (struct IfStmtAST *) node->ast;
 
+		register_data(pc, if_stmt_ast->cond);
 		register_data_of_body(pc, if_stmt_ast->body, if_stmt_ast->body_count);
+		register_data(pc, if_stmt_ast->next_stmt);
 		
 		break;
 	}
@@ -721,18 +768,29 @@ void register_data(struct ParserContext *pc, struct Node *node){
 		
 		break;
 	}
+
+	case AST_New: {
+		struct NewAST *new_ast = (struct NewAST *) node->ast;
+		struct Type *type = find_type(pc, new_ast->name_tok->str);
+		new_ast->class_data = find_class_data(pc, type);
+		int i;
+		for(i=0; i<new_ast->param_count; i++){
+			register_data(pc, new_ast->params[i]);
+		}
+		break;
+	}
 		
 	default: {
 		break;
 	}
 	}
-
-	if(node->attr != NULL){
-		register_data(pc, node->attr);
-	}
 }
 
 void check_semantics(struct ParserContext *pc, struct Node *node){
+	if(node == NULL){
+		return;
+	}
+
 	switch(node->type){
 	case  AST_Class:{
 		struct ClassAST *class_ast = (struct ClassAST *) node->ast;
@@ -741,14 +799,9 @@ void check_semantics(struct ParserContext *pc, struct Node *node){
 	}
 
 	case AST_FunctionDeclaration:{
-		reset_declared_local_var_data(pc);
-		
 		struct FuncDeclAST *func_decl_ast = (struct FuncDeclAST *) node->ast;
 
 		check_func_decl_semantics(pc, func_decl_ast);
-
-		func_decl_ast->declared_var_count = pc->declared_local_var_count;
-		func_decl_ast->declared_vars = pc->declared_local_vars;
 		
 		break;
 	}
@@ -849,7 +902,6 @@ void check_semantics(struct ParserContext *pc, struct Node *node){
 	}
 
 	case AST_Constructor: {
-		reset_declared_local_var_data(pc);
 		struct ConstructorAST *constructor_ast = (struct ConstructorAST *) node->ast;		
 
 		constructor_ast->class_data = pc->current_class;
@@ -857,14 +909,13 @@ void check_semantics(struct ParserContext *pc, struct Node *node){
 		
 		check_semantics_body(pc, constructor_ast->body, constructor_ast->body_count);
 		
-		constructor_ast->declared_var_count = pc->declared_local_var_count;
-		constructor_ast->declared_vars = pc->declared_local_vars;
-			
 		break;
 	}
 
 	case AST_New :{
 		struct NewAST *new_ast = (struct NewAST *) node->ast;
+		struct Type *type = find_type(pc, new_ast->name_tok->str);
+		new_ast->class_data = find_class_data(pc, type);
 
 		int i;
 		for(i=0; i<new_ast->param_count; i++){

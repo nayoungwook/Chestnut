@@ -2,19 +2,21 @@
   @Author : @nayoungwook
   @Description :
   Main parser of the Chestnut compiler.
-  It processes tokens from the tokenizer and translates the source code into an AST (Abstract Syntax Tree).
+  It processes tokens from the tokenizer and translates the source code into an
+  AST (Abstract Syntax Tree).
 
   This parser operates in two passes:
-  1. Structure analysis: analyzes the program structure and registers ClassData and FuncData in the ParserContext.
+  1. Structure analysis: analyzes the program structure and registers ClassData
+  and FuncData in the ParserContext.
   2. AST generation: parses the source code and generates the AST.
 */
 
-#include <token.h>
-#include <type.h>
-#include <util.h>
 #include <error.h>
 #include <parser.h>
 #include <semantics.h>
+#include <token.h>
+#include <type.h>
+#include <util.h>
 
 static struct Node *parse_term(struct ParserContext *pc);
 static struct Node *parse_simple_expression(struct ParserContext *pc);
@@ -22,45 +24,51 @@ static struct Node *parse_unary_expression(struct ParserContext *pc);
 static struct Node *parse_compare_expression(struct ParserContext *pc);
 static struct Node *parse_expression(struct ParserContext *pc);
 
-static void add_primitive_numeric(struct ParserContext *pc, const char *name, unsigned nbyte, unsigned rank, bool is_signed, bool is_integer){
-	struct Type *numeric_type = gen_numeric_type(name, nbyte, gen_numeric_data(rank, is_signed, is_integer));
-	ht_insert(pc->primitive_type_smtb, name, numeric_type);
+static void add_primitive_numeric(struct ParserContext *pc, const char *name,
+                                  unsigned nbyte, unsigned rank, bool is_signed,
+                                  bool is_integer) {
+        struct Type *numeric_type = gen_numeric_type(
+            name, nbyte, gen_numeric_data(rank, is_signed, is_integer));
+        ht_insert(pc->primitive_type_smtb, name, numeric_type);
 
-	if(pc->numeric_type_count + 1 >= pc->numeric_type_capacity){
-		pc->numeric_type_capacity *= 2;
-		pc->numeric_type_array = (struct Type **) S_realloc(pc->numeric_type_array, sizeof(struct Type *) * pc->numeric_type_capacity);
-	}
-	
-	pc->numeric_type_array[pc->numeric_type_count++] = numeric_type;
+        if (pc->numeric_type_count + 1 >= pc->numeric_type_capacity) {
+                pc->numeric_type_capacity *= 2;
+                pc->numeric_type_array = (struct Type **)S_realloc(
+                    pc->numeric_type_array,
+                    sizeof(struct Type *) * pc->numeric_type_capacity);
+        }
+
+        pc->numeric_type_array[pc->numeric_type_count++] = numeric_type;
 }
 
 static void init_primitive(struct ParserContext *pc) {
         // char < int < uint < float < double
-	add_primitive_numeric(pc, "int", 4, 5, true, true);
-	add_primitive_numeric(pc, "float", 4, 6, true, false);
-	add_primitive_numeric(pc, "double", 8, 7, true, false);
+        add_primitive_numeric(pc, "int", 4, 5, true, true);
+        add_primitive_numeric(pc, "float", 4, 6, true, false);
+        add_primitive_numeric(pc, "double", 8, 7, true, false);
 
         ht_insert(pc->primitive_type_smtb, "char",
                   gen_primitive_type("char", 2));
-	
+
         ht_insert(pc->primitive_type_smtb, "bool",
                   gen_primitive_type("bool", 1));
         ht_insert(pc->primitive_type_smtb, "void",
                   gen_primitive_type("void", 0));
 
-	ht_insert(pc->primitive_type_smtb, "null",
-		  gen_null_type());
+        ht_insert(pc->primitive_type_smtb, "null", gen_null_type());
 
-
-	ht_insert(pc->primitive_type_smtb, "string",
+        ht_insert(pc->primitive_type_smtb, "string",
                   gen_primitive_type("string", 8));
 }
 
-static void register_syscall(struct ParserContext *pc, const char *func_name, const char *ret_type, unsigned id, bool is_varargs){
-	struct FuncData *func_data = gen_func_data(func_name, find_type(pc, ret_type), id, is_varargs);
-	func_data->scope_data = ScopeSyscall;
-	
-	ht_insert(pc->syscall_smtb, func_name, func_data);
+static void register_syscall(struct ParserContext *pc, const char *func_name,
+                             const char *ret_type, unsigned id,
+                             bool is_varargs) {
+        struct FuncData *func_data =
+            gen_func_data(func_name, find_type(pc, ret_type), id, is_varargs);
+        func_data->scope_data = ScopeSyscall;
+
+        ht_insert(pc->syscall_smtb, func_name, func_data);
 }
 
 static void init_syscall(struct ParserContext *pc) {
@@ -69,7 +77,7 @@ static void init_syscall(struct ParserContext *pc) {
 
 struct ParserContext *gen_pc() {
         struct ParserContext *pc =
-		(struct ParserContext *)S_malloc(sizeof(struct ParserContext));
+            (struct ParserContext *)S_malloc(sizeof(struct ParserContext));
 
         pc->tc = NULL;
 
@@ -86,13 +94,16 @@ struct ParserContext *gen_pc() {
         pc->class_type_smtb = gen_htable();
         pc->primitive_type_smtb = gen_htable();
 
-	pc->numeric_type_array = (struct Type **) S_malloc(sizeof(struct Type *));
-	pc->numeric_type_count = 0;
-	pc->numeric_type_capacity = 1;
+        pc->numeric_type_array =
+            (struct Type **)S_malloc(sizeof(struct Type *));
+        pc->numeric_type_count = 0;
+        pc->numeric_type_capacity = 1;
 
-	pc->declared_local_var_capacity = 1;
-	pc->declared_local_vars = NULL;
-		
+        pc->declared_local_var_capacity = 1;
+        pc->declared_local_var_count = 0;
+        pc->declared_local_vars =
+            (struct VarData **)S_malloc(sizeof(struct VarData *));
+
         pc->class_data_count = 0;
         pc->func_data_count = 0;
 
@@ -117,8 +128,8 @@ void compile_file(struct ParserContext *pc, struct TokenizerContext *tc) {
                 if (pc->node_count + 1 >= pc->node_capacity) {
                         pc->node_capacity *= 2;
                         pc->nodes = (struct Node **)S_realloc(
-							      pc->nodes,
-							      sizeof(struct Node *) * pc->node_capacity);
+                            pc->nodes,
+                            sizeof(struct Node *) * pc->node_capacity);
                 }
 
                 pc->nodes[pc->node_count++] = node;
@@ -132,28 +143,31 @@ static struct Node *pack(enum ASTType type, void *ptr) {
 
         result->ast = ptr;
         result->type = type;
+        result->attr = NULL;
 
         return result;
 }
 
 static struct ParamData parse_func_call_params(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
-	struct ParamData param_data = {0, };
-	
+        struct ParamData param_data = {
+            0,
+        };
+
         unsigned capacity = 1, count = 0;
         struct Node **params =
-		(struct Node **)S_malloc(sizeof(struct Node *) * capacity);
+            (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
 
         consume(tc, TokLParen);
 
-	// parse arguments
+        // parse arguments
         while (peek(tc)->type != TokRParen) {
                 struct Node *expr = parse_expression(pc);
 
                 if (count + 1 >= capacity) {
                         capacity *= 2;
                         params = (struct Node **)S_realloc(
-							   params, sizeof(struct Node *) * capacity);
+                            params, sizeof(struct Node *) * capacity);
                 }
 
                 params[count++] = expr;
@@ -163,46 +177,56 @@ static struct ParamData parse_func_call_params(struct ParserContext *pc) {
                 }
         }
 
-	// make param data
-	param_data.params = params;
-	param_data.param_count = count;
+        // make param data
+        param_data.params = params;
+        param_data.param_count = count;
 
         consume(tc, TokRParen);
 
-	return param_data;
+        return param_data;
 }
 
 static struct Node *gen_func_call_node(struct Token *first,
                                        struct ParserContext *pc) {
         struct FuncCallAST *func_call =
-		(struct FuncCallAST *)S_malloc(sizeof(struct FuncCallAST));
+            (struct FuncCallAST *)S_malloc(sizeof(struct FuncCallAST));
 
         struct ParamData param_data = parse_func_call_params(pc);
 
-	func_call->params = param_data.params;
-	func_call->param_count = param_data.param_count;
+        func_call->params = param_data.params;
+        func_call->param_count = param_data.param_count;
         func_call->func_name_tok = first;
+        func_call->is_attr = false;
+        func_call->func_data = NULL;
 
         return pack(AST_FunctionCall, func_call);
 }
 
-static struct Node *gen_ident_node(struct Token *first, struct ParserContext *pc);
+static struct Node *gen_ident_node(struct Token *first,
+                                   struct ParserContext *pc);
 
-static void parse_attribute(struct ParserContext *pc,
-                            struct Node *ident_node) {
+static void parse_attribute(struct ParserContext *pc, struct Node *ident_node) {
         struct Node *attr = parse_expr_node(pc);
+        if (attr->type == AST_Identifier) {
+                ((struct IdentifierAST *)attr->ast)->is_attr = true;
+        }
+        if (attr->type == AST_FunctionCall) {
+                ((struct FuncCallAST *)attr->ast)->is_attr = true;
+        }
         ident_node->attr = attr;
 }
 
-static struct Node *gen_ident_node(struct Token *first, struct ParserContext *pc) {
+static struct Node *gen_ident_node(struct Token *first,
+                                   struct ParserContext *pc) {
         struct Node *result = NULL;
 
-	struct IdentifierAST *ident_ast =
-		(struct IdentifierAST *)S_malloc(
-						 sizeof(struct IdentifierAST));
-	ident_ast->ident = first;
+        struct IdentifierAST *ident_ast =
+            (struct IdentifierAST *)S_malloc(sizeof(struct IdentifierAST));
+        ident_ast->ident = first;
+        ident_ast->is_attr = false;
+        ident_ast->var_data = NULL;
 
-	result = pack(AST_Identifier, ident_ast);
+        result = pack(AST_Identifier, ident_ast);
 
         return result;
 }
@@ -211,7 +235,7 @@ static struct Node *gen_ident_node(struct Token *first, struct ParserContext *pc
 static struct Node *gen_func_param_node(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
         struct VarDeclBundleAST *result = (struct VarDeclBundleAST *)S_malloc(
-									      sizeof(struct VarDeclBundleAST));
+            sizeof(struct VarDeclBundleAST));
 
         result->var_count = 0;
         result->var_decls = (struct Node **)S_malloc(sizeof(struct Node *));
@@ -228,20 +252,20 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
 
                 struct Token *type_tok = pull(tc);
                 struct VarDeclAST *var_decl =
-			(struct VarDeclAST *)S_malloc(sizeof(struct VarDeclAST));
+                    (struct VarDeclAST *)S_malloc(sizeof(struct VarDeclAST));
                 var_decl->decl = NULL;
                 var_decl->var_name_tok = name_tok;
                 var_decl->var_type_tok = type_tok;
 
                 if (param_size + 1 >= capacity) {
                         capacity *= 2;
-                        result->var_decls = S_realloc(
-						      result->var_decls,
-						      sizeof(struct Node *) * capacity);
+                        result->var_decls =
+                            S_realloc(result->var_decls,
+                                      sizeof(struct Node *) * capacity);
                 }
 
                 result->var_decls[param_size++] =
-			pack(AST_VariableDeclaration, var_decl);
+                    pack(AST_VariableDeclaration, var_decl);
 
                 struct Token *nt = peek(tc);
                 if (nt->type == TokRParen)
@@ -264,7 +288,7 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
 
         unsigned size = 0, capacity = 1;
         struct Node **result =
-		(struct Node **)S_malloc(sizeof(struct Node *) * capacity);
+            (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
 
         while (peek(tc)->type != TokRBracket) {
                 void *element = parse_stmt(pc);
@@ -273,7 +297,7 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
                 if (size + 1 >= capacity) {
                         capacity *= 2;
                         result = (struct Node **)S_realloc(
-							   result, sizeof(struct Node *) * capacity);
+                            result, sizeof(struct Node *) * capacity);
                 }
 
                 result[size++] = element;
@@ -287,32 +311,33 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
 }
 
 static struct Node *gen_constructor_node(struct Token *first,
-					 struct ParserContext *pc){
-	struct ConstructorAST *constructor = (struct ConstructorAST *) S_malloc(sizeof(struct ConstructorAST));
+                                         struct ParserContext *pc) {
+        struct ConstructorAST *constructor =
+            (struct ConstructorAST *)S_malloc(sizeof(struct ConstructorAST));
 
         unsigned body_count = 0;
 
-	struct Token *func_name = consume(pc->tc, TokIdent);
-	
+        struct Token *func_name = consume(pc->tc, TokIdent);
+
         struct Node *params = gen_func_param_node(pc);
         assert(params->type == AST_VariableDeclarationBundle);
 
-	constructor->params = params;
+        constructor->params = params;
 
         struct Node *result = pack(AST_Constructor, constructor);
 
-	constructor->func_name = func_name;
+        constructor->func_name = func_name;
 
         constructor->body = gen_body(pc, &body_count);
         constructor->body_count = body_count;
-	
+
         return result;
 }
 
 static struct Node *gen_func_decl_node(struct Token *first,
                                        struct ParserContext *pc) {
         struct FuncDeclAST *func_decl =
-		(struct FuncDeclAST *)S_malloc(sizeof(struct FuncDeclAST));
+            (struct FuncDeclAST *)S_malloc(sizeof(struct FuncDeclAST));
 
         struct TokenizerContext *tc = pc->tc;
         unsigned body_count = 0;
@@ -320,14 +345,14 @@ static struct Node *gen_func_decl_node(struct Token *first,
         struct Token *func_name_tok = pull(tc);
 
         struct Node *params = gen_func_param_node(pc);
-	assert(params->type == AST_VariableDeclarationBundle);
+        assert(params->type == AST_VariableDeclarationBundle);
 
         assert(params->type == AST_VariableDeclarationBundle);
 
         consume(tc, TokColon);
 
         struct Token *ret_type_tok = pull(tc);
-	
+
         func_decl->func_name_tok = func_name_tok;
         func_decl->ret_type_tok = ret_type_tok;
         func_decl->params = params;
@@ -347,7 +372,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
             sizeof(struct VarDeclBundleAST));
 
         result->var_decls = (struct Node **)S_malloc(sizeof(struct Node *));
-	
+
         // var a: int = 0, b : float;
 
         bool comp = false;
@@ -357,7 +382,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
                 struct Token *var_name_tok = pull(tc);
 
                 consume(tc, TokColon);
-		
+
                 struct Token *var_type_tok = pull(tc);
 
                 struct Token *cont_tok = peek(tc);
@@ -376,7 +401,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
                         break;
                 case TokSemiColon:
                         comp = true;
-			consume(tc, TokSemiColon);
+                        consume(tc, TokSemiColon);
                         break;
                 default:
                         panic("Unexpected token in variable declaration.", tc);
@@ -384,7 +409,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
 
                 struct VarDeclAST *var_decl =
                     (struct VarDeclAST *)S_malloc(sizeof(struct VarDeclAST));
-		
+
                 var_decl->var_name_tok = var_name_tok;
                 var_decl->var_type_tok = var_type_tok;
                 var_decl->decl = decl;
@@ -399,9 +424,9 @@ static struct Node *gen_var_decl_node(struct Token *first,
 
                 struct Node *node = pack(AST_VariableDeclaration, var_decl);
                 result->var_decls[var_count++] = node;
-		result->var_count = var_count;
+                result->var_count = var_count;
         }
-	
+
         return pack(AST_VariableDeclarationBundle, result);
 }
 
@@ -526,8 +551,8 @@ static struct Node *gen_ret_node(struct Token *first,
 
         ret_ast->expr = expr;
 
-	consume(pc->tc, TokSemiColon);
-	
+        consume(pc->tc, TokSemiColon);
+
         return pack(AST_Return, ret_ast);
 }
 
@@ -536,8 +561,10 @@ static struct Node *gen_class_decl_node(struct Token *first,
         struct TokenizerContext *tc = pc->tc;
         struct ClassAST *class_ast =
             (struct ClassAST *)S_malloc(sizeof(struct ClassAST));
-	
+
         struct Token *name_tok = pull(tc);
+        class_ast->initializer = NULL;
+        class_ast->constructor = NULL;
         class_ast->name_tok = name_tok;
         class_ast->parent_name_tok = NULL;
 
@@ -559,72 +586,78 @@ static struct Node *gen_class_decl_node(struct Token *first,
 }
 
 static struct Node *gen_new_node(struct Token *first,
-				 struct ParserContext *pc){
+                                 struct ParserContext *pc) {
 
-	struct TokenizerContext *tc = pc->tc;
-	struct Token *class_name_tok = consume(tc, TokIdent);
-	struct ParamData param_data = parse_func_call_params(pc);
+        struct TokenizerContext *tc = pc->tc;
+        struct Token *class_name_tok = consume(tc, TokIdent);
+        struct ParamData param_data = parse_func_call_params(pc);
 
-	struct NewAST *new_ast = (struct NewAST *) S_malloc(sizeof(struct NewAST));
+        struct NewAST *new_ast =
+            (struct NewAST *)S_malloc(sizeof(struct NewAST));
 
-	new_ast->name_tok = class_name_tok;
-	new_ast->params = param_data.params;
-	new_ast->param_count = param_data.param_count;
-	
-	return pack(AST_New, new_ast);
+        new_ast->name_tok = class_name_tok;
+        new_ast->params = param_data.params;
+        new_ast->param_count = param_data.param_count;
+        new_ast->class_data = NULL;
+
+        return pack(AST_New, new_ast);
 }
 
-static bool is_number_literal_integer(const char *num_lit_str){
-	char *c = (char *) num_lit_str;
+static bool is_number_literal_integer(const char *num_lit_str) {
+        char *c = (char *)num_lit_str;
 
-	while(*c != '\0'){
-		if(*c == '.' || *c == 'f'){
-			return false;
-		}
+        while (*c != '\0') {
+                if (*c == '.' || *c == 'f') {
+                        return false;
+                }
 
-		c++;
-	}
-	
-	return true;
+                c++;
+        }
+
+        return true;
 }
 
-static short get_number_literal_byte(const char *num_lit_str){
-	short result = 0;
+static short get_number_literal_byte(const char *num_lit_str) {
+        short result = 0;
 
-	size_t len = strlen(num_lit_str);
+        size_t len = strlen(num_lit_str);
 
-	bool is_float = num_lit_str[len - 1] == 'f';
-	bool is_integer = is_number_literal_integer(num_lit_str);
+        bool is_float = num_lit_str[len - 1] == 'f';
+        bool is_integer = is_number_literal_integer(num_lit_str);
 
-	if(is_float || is_integer){ // int and float
-		result = 4;
-	}
+        if (is_float || is_integer) { // int and float
+                result = 4;
+        }
 
-	if(!is_integer && !is_float){ // double
-		result = 8;
-	}
-	
-	return result;
+        if (!is_integer && !is_float) { // double
+                result = 8;
+        }
+
+        return result;
 }
 
-static struct Type *find_numeric_type(struct ParserContext *pc, unsigned nbyte, bool is_integer, bool is_signed){
-	int i;
-	for(i=0; i < pc->numeric_type_count; i++){
-		struct Type *numeric_type = pc->numeric_type_array[i];
-		assert(numeric_type->type_kind == TK_Numeric);
-		struct NumericData *numeric_data = numeric_type->data.numeric_data;
+static struct Type *find_numeric_type(struct ParserContext *pc, unsigned nbyte,
+                                      bool is_integer, bool is_signed) {
+        int i;
+        for (i = 0; i < pc->numeric_type_count; i++) {
+                struct Type *numeric_type = pc->numeric_type_array[i];
+                assert(numeric_type->type_kind == TK_Numeric);
+                struct NumericData *numeric_data =
+                    numeric_type->data.numeric_data;
 
-		if(numeric_data->is_integer == is_integer && numeric_data->is_signed == is_signed && numeric_type->nbyte == nbyte){
-			return numeric_type;
-		}
-	}
+                if (numeric_data->is_integer == is_integer &&
+                    numeric_data->is_signed == is_signed &&
+                    numeric_type->nbyte == nbyte) {
+                        return numeric_type;
+                }
+        }
 
-	return NULL;
+        return NULL;
 }
 
-struct Node *parse_expr_node(struct ParserContext *pc){
-	struct TokenizerContext *tc = pc->tc;
-	assert(tc != NULL);
+struct Node *parse_expr_node(struct ParserContext *pc) {
+        struct TokenizerContext *tc = pc->tc;
+        assert(tc != NULL);
 
         struct Token *first = pull(tc);
 
@@ -634,21 +667,24 @@ struct Node *parse_expr_node(struct ParserContext *pc){
                 struct NumberLiteralAST *num =
                     (struct NumberLiteralAST *)S_malloc(
                         sizeof(struct NumberLiteralAST));
-		
+
                 num->num_tok = first;
-		
-		bool is_integer = is_number_literal_integer(num->num_tok->str);
-		bool is_signed = true;
-		unsigned nbyte = get_number_literal_byte(num->num_tok->str);
 
-		struct Type *numeric_type = find_numeric_type(pc, nbyte, is_integer, is_signed);
+                bool is_integer = is_number_literal_integer(num->num_tok->str);
+                bool is_signed = true;
+                unsigned nbyte = get_number_literal_byte(num->num_tok->str);
 
-		if(numeric_type == NULL){
-			panic("This number literal is not supported in this compiler.", pc->tc);
-		}
+                struct Type *numeric_type =
+                    find_numeric_type(pc, nbyte, is_integer, is_signed);
 
-		num->type = numeric_type;
-		
+                if (numeric_type == NULL) {
+                        panic("This number literal is not supported in this "
+                              "compiler.",
+                              pc->tc);
+                }
+
+                num->type = numeric_type;
+
                 return pack(AST_NumberLiteral, num);
         }
 
@@ -664,22 +700,22 @@ struct Node *parse_expr_node(struct ParserContext *pc){
 
         case TokNull: {
                 struct NullAST *null =
-			(struct NullAST *)S_malloc(sizeof(struct NullAST));
+                    (struct NullAST *)S_malloc(sizeof(struct NullAST));
                 null->null_tok = first;
 
                 return pack(AST_Null, null);
         }
 
-	case TokNew: {
-		return gen_new_node(first, pc);
-	}
+        case TokNew: {
+                return gen_new_node(first, pc);
+        }
 
         case TokIdent: {
-		struct Token *nt = peek(tc);
-		if(nt->type == TokLParen){
-			return gen_func_call_node(first, pc);
-		}
-		
+                struct Token *nt = peek(tc);
+                if (nt->type == TokLParen) {
+                        return gen_func_call_node(first, pc);
+                }
+
                 return gen_ident_node(first, pc);
         }
 
@@ -710,64 +746,64 @@ struct Node *parse_stmt(struct ParserContext *pc) {
 
         switch (first->type) {
         case TokIf: {
-		pull(tc);
+                pull(tc);
                 return gen_if_stmt_node(first, pc);
         }
 
         case TokFor: {
-		pull(tc);
+                pull(tc);
                 return gen_for_stmt_node(first, pc);
         }
-		
+
         case TokVar: {
-		pull(tc);
+                pull(tc);
                 return gen_var_decl_node(first, pc);
         }
-		
+
         case TokFunc: {
-		pull(tc);
+                pull(tc);
                 return gen_func_decl_node(first, pc);
         }
 
-	case TokConstructor: {
-		pull(tc);
-		return gen_constructor_node(first, pc);
-	}
+        case TokConstructor: {
+                pull(tc);
+                return gen_constructor_node(first, pc);
+        }
 
         case TokClass: {
-		pull(tc);
+                pull(tc);
                 return gen_class_decl_node(first, pc);
         }
 
         case TokReturn: {
-		pull(tc);
+                pull(tc);
                 return gen_ret_node(first, pc);
         }
 
         case TokEOF: {
-		pull(tc);
+                pull(tc);
                 return NULL;
         }
 
-        default:{
-		struct Node *expr = parse_expression(pc);
-		consume(tc, TokSemiColon);
-		return expr;
-	}
+        default: {
+                struct Node *expr = parse_expression(pc);
+                consume(tc, TokSemiColon);
+                return expr;
+        }
         }
 
         return NULL;
 }
 
 static struct Node *parse_term(struct ParserContext *pc) {
-        struct Node *node = parse_expr_node(pc);
+        struct Node *node = parse_unary_expression(pc);
         struct TokenizerContext *tc = pc->tc;
         struct Token *tok = NULL;
 
         while ((tok = peek(tc)) != NULL &&
                (tok->type == TokMul || tok->type == TokDiv)) {
                 enum TokenType op = pull(tc)->type;
-                void *right = parse_expr_node(pc);
+                void *right = parse_unary_expression(pc);
 
                 enum OperatorType op_type = (op == TokMul) ? OpMUL : OpDIV;
 
@@ -807,120 +843,131 @@ static struct Node *parse_simple_expression(struct ParserContext *pc) {
         return node;
 }
 
-static struct Node *parse_prefix(struct ParserContext *pc){
-	struct TokenizerContext *tc = pc->tc;
+static struct Node *parse_prefix(struct ParserContext *pc) {
+        struct TokenizerContext *tc = pc->tc;
         struct Token *tok = NULL;
-	
-	tok = pull(tc);
 
-	switch(tok->type){
-	case TokIncrease:{
-		struct IdentIncreAST *incre = (struct IdentIncreAST *) S_malloc(sizeof(struct IdentIncreAST));
+        tok = pull(tc);
 
-		struct Node *node = parse_unary_expression(pc);
-			
-		if(node->type != AST_Identifier){
-			panic("Increasement (++) must be used with identifier!", pc->tc);
-		}
+        switch (tok->type) {
+        case TokIncrease: {
+                struct IdentIncreAST *incre = (struct IdentIncreAST *)S_malloc(
+                    sizeof(struct IdentIncreAST));
 
-		incre->ident_node = node;
-		
-		return pack(AST_IdentIncrease, incre);
-	}
+                struct Node *node = parse_unary_expression(pc);
 
-	case TokDecrease:{
-		struct IdentDecreAST *decre = (struct IdentDecreAST *) S_malloc(sizeof(struct IdentDecreAST));
-			
-		struct Node *node = parse_unary_expression(pc);
-			
-		if(node->type != AST_Identifier){
-			panic("Decreasement (--) must be used with identifier!", pc->tc);
-		}
+                if (node->type != AST_Identifier) {
+                        panic("Increasement (++) must be used with identifier!",
+                              pc->tc);
+                }
 
-		decre->ident_node = node;
-		
-		return pack(AST_IdentIncrease, decre);
-	}
+                incre->ident_node = node;
 
-	case TokNot: {
-		struct UnaryExprAST *unary_expr =
-			(struct UnaryExprAST *)S_malloc(
-							sizeof(struct UnaryExprAST));
-		
-		unary_expr->expr = parse_unary_expression(pc);
-		return pack(AST_UnaryExpr, unary_expr);
-	}
-			
-	default:{
-		panic("Unknown operator type.", tc);
-	}
+                return pack(AST_IdentIncrease, incre);
+        }
+
+        case TokDecrease: {
+                struct IdentDecreAST *decre = (struct IdentDecreAST *)S_malloc(
+                    sizeof(struct IdentDecreAST));
+
+                struct Node *node = parse_unary_expression(pc);
+
+                if (node->type != AST_Identifier) {
+                        panic("Decreasement (--) must be used with identifier!",
+                              pc->tc);
+                }
+
+                decre->ident_node = node;
+
+                return pack(AST_IdentDecrease, decre);
+        }
+
+        case TokNot: {
+                struct UnaryExprAST *unary_expr =
+                    (struct UnaryExprAST *)S_malloc(
+                        sizeof(struct UnaryExprAST));
+
+                unary_expr->expr = parse_unary_expression(pc);
+                return pack(AST_UnaryExpr, unary_expr);
+        }
+
+        default: {
+                panic("Unknown operator type.", tc);
+        }
         }
 
         return parse_simple_expression(pc);
 }
 
-static struct Node *parse_postfix(struct ParserContext *pc){
-	
-	struct TokenizerContext *tc = pc->tc;
-	struct Node *node = parse_expr_node(pc);
-	struct Token *tok = NULL;
+static struct Node *parse_postfix(struct ParserContext *pc) {
 
-	while ((tok = peek(tc)) != NULL) {
-		if (tok->type == TokDot) {
-			consume(tc, TokDot);
-			parse_attribute(pc, node);
-			continue;
-		}
+        struct TokenizerContext *tc = pc->tc;
+        struct Node *node = parse_expr_node(pc);
+        struct Token *tok = NULL;
 
-		if (tok->type == TokIncrease) {
-			consume(tc, TokIncrease);
+        while ((tok = peek(tc)) != NULL) {
+                if (tok->type == TokDot) {
+                        consume(tc, TokDot);
+                        parse_attribute(pc, node);
+                        continue;
+                }
 
-			if (node->type != AST_Identifier) {
-				panic("Increasement (++) must be used with identifier!", pc->tc);
-			}
+                if (tok->type == TokIncrease) {
+                        consume(tc, TokIncrease);
 
-			struct IdentIncreAST *incre =
-				(struct IdentIncreAST *) S_malloc(sizeof(struct IdentIncreAST));
+                        if (node->type != AST_Identifier) {
+                                panic("Increasement (++) must be used with "
+                                      "identifier!",
+                                      pc->tc);
+                        }
 
-			incre->ident_node = node;
-			node = pack(AST_IdentIncrease, incre);
-			continue;
-		}
+                        struct IdentIncreAST *incre =
+                            (struct IdentIncreAST *)S_malloc(
+                                sizeof(struct IdentIncreAST));
 
-		if (tok->type == TokDecrease) {
-			consume(tc, TokDecrease);
+                        incre->ident_node = node;
+                        node = pack(AST_IdentIncrease, incre);
+                        continue;
+                }
 
-			if (node->type != AST_Identifier) {
-				panic("Decreasement (--) must be used with identifier!", pc->tc);
-			}
+                if (tok->type == TokDecrease) {
+                        consume(tc, TokDecrease);
 
-			struct IdentDecreAST *decre =
-				(struct IdentDecreAST *) S_malloc(sizeof(struct IdentDecreAST));
+                        if (node->type != AST_Identifier) {
+                                panic("Decreasement (--) must be used with "
+                                      "identifier!",
+                                      pc->tc);
+                        }
 
-			decre->ident_node = node;
-			node = pack(AST_IdentDecrease, decre);
-			continue;
-		}
+                        struct IdentDecreAST *decre =
+                            (struct IdentDecreAST *)S_malloc(
+                                sizeof(struct IdentDecreAST));
 
-		break;
-	}
+                        decre->ident_node = node;
+                        node = pack(AST_IdentDecrease, decre);
+                        continue;
+                }
 
-	return node;
+                break;
+        }
+
+        return node;
 }
 
 static struct Node *parse_unary_expression(struct ParserContext *pc) {
-	struct TokenizerContext *tc = pc->tc;
-	struct Token *tok = peek(tc);
-	
-	if (tok != NULL && (tok->type == TokNot || tok->type == TokIncrease || tok->type == TokDecrease)) {
-		return parse_prefix(pc);
-	}
+        struct TokenizerContext *tc = pc->tc;
+        struct Token *tok = peek(tc);
 
-	return parse_postfix(pc);
+        if (tok != NULL && (tok->type == TokNot || tok->type == TokIncrease ||
+                            tok->type == TokDecrease)) {
+                return parse_prefix(pc);
+        }
+
+        return parse_postfix(pc);
 }
 
 static struct Node *parse_compare_expression(struct ParserContext *pc) {
-        void *node = parse_unary_expression(pc);
+        void *node = parse_simple_expression(pc);
         struct TokenizerContext *tc = pc->tc;
         struct Token *tok = NULL;
 
@@ -931,7 +978,7 @@ static struct Node *parse_compare_expression(struct ParserContext *pc) {
 
                 struct Token *operator_token = pull(tc);
                 enum TokenType op = operator_token->type;
-                struct Node *right = parse_unary_expression(pc);
+                struct Node *right = parse_simple_expression(pc);
 
                 enum OperatorType op_type = OpNone;
                 switch (op) {
@@ -970,8 +1017,8 @@ static struct Node *parse_compare_expression(struct ParserContext *pc) {
         return node;
 }
 
-static struct Node *parse_logical_expression(struct ParserContext *pc){
-	struct Node *node = parse_compare_expression(pc);
+static struct Node *parse_logical_expression(struct ParserContext *pc) {
+        struct Node *node = parse_compare_expression(pc);
         struct TokenizerContext *tc = pc->tc;
         struct Token *tok = NULL;
 
@@ -1006,12 +1053,11 @@ static struct Node *parse_logical_expression(struct ParserContext *pc){
 }
 
 static struct Node *parse_expression(struct ParserContext *pc) {
-	struct Node *node = parse_logical_expression(pc);
+        struct Node *node = parse_logical_expression(pc);
         struct TokenizerContext *tc = pc->tc;
         struct Token *tok = NULL;
 
-        while (((tok = peek(tc)) != NULL) &&
-               (peek(tc)->type == TokAssign)) {
+        while (((tok = peek(tc)) != NULL) && (peek(tc)->type == TokAssign)) {
                 enum TokenType op = pull(tc)->type;
                 struct Node *right = parse_logical_expression(pc);
 
@@ -1041,11 +1087,11 @@ static struct Node *parse_expression(struct ParserContext *pc) {
 //      FIRST PASS OF COMPILER FOR CODE STRUCTURES AND BLOCKS.
 //=======================================================================
 
-static void pass_body(struct ParserContext *pc){
-	struct TokenizerContext *tc = pc->tc;
-	struct Token *tok;
-	
-	consume(tc, TokLBracket);
+static void pass_body(struct ParserContext *pc) {
+        struct TokenizerContext *tc = pc->tc;
+        struct Token *tok;
+
+        consume(tc, TokLBracket);
         int bracket_counter = 1;
 
         while ((tok = pull(tc))->type != TokEOF) {
@@ -1061,11 +1107,11 @@ static void pass_body(struct ParserContext *pc){
         }
 }
 
-static void pass_func_param(struct ParserContext *pc){
-	struct TokenizerContext *tc = pc->tc;
-	struct Token *tok;
-	
-	consume(tc, TokLParen);
+static void pass_func_param(struct ParserContext *pc) {
+        struct TokenizerContext *tc = pc->tc;
+        struct Token *tok;
+
+        consume(tc, TokLParen);
         int paren_counter = 1;
 
         while ((tok = pull(tc))->type != TokEOF) {
@@ -1087,17 +1133,16 @@ static void parse_class_structure(struct ParserContext *pc) {
         struct Token *class_name_tok = pull(tc);
 
         const char *class_name = class_name_tok->str;
-	
-	struct Type *class_type = gen_class_type(class_name);
-        ht_insert(pc->class_type_smtb, class_name,
-                  class_type);
-	
+
+        struct Type *class_type = gen_class_type(class_name);
+        ht_insert(pc->class_type_smtb, class_name, class_type);
+
         if (peek(tc)->type == TokExtends) {
                 consume(tc, TokExtends);
-		consume(tc, TokIdent);
+                consume(tc, TokIdent);
         }
 
-	pass_body(pc);
+        pass_body(pc);
 }
 
 static void parse_func_structure(struct ParserContext *pc) {
@@ -1105,24 +1150,24 @@ static void parse_func_structure(struct ParserContext *pc) {
 
         consume(tc, TokIdent);
 
-	pass_func_param(pc);
+        pass_func_param(pc);
 
         consume(tc, TokColon);
 
         pull(tc); // return type
-	
+
         // We will not parse content of function declaration.
-	pass_body(pc);
+        pass_body(pc);
 }
 
 static void parse_constructor_structure(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
 
-	consume(tc, TokIdent);
+        consume(tc, TokIdent);
 
-	pass_func_param(pc);
+        pass_func_param(pc);
         // We will not parse content of function declaration.
-	pass_body(pc);
+        pass_body(pc);
 }
 
 static void parse_var_structure(struct ParserContext *pc) {
@@ -1130,8 +1175,8 @@ static void parse_var_structure(struct ParserContext *pc) {
         bool comp = false;
 
         while (!comp) {
-		consume(tc, TokIdent);
-		
+                consume(tc, TokIdent);
+
                 consume(tc, TokColon);
 
                 pull(tc); // type
@@ -1178,11 +1223,11 @@ void parse_structure(struct ParserContext *pc) {
                 break;
         }
 
-	case TokConstructor: {
-		parse_constructor_structure(pc);
-		break;
-	}
-		
+        case TokConstructor: {
+                parse_constructor_structure(pc);
+                break;
+        }
+
         default: {
                 printf("\n%d\n", first->type);
                 panic("Unexpected token, block of source code must begin with "
@@ -1202,7 +1247,8 @@ static void debug_view_func_smtb(struct HTable *htable) {
                         struct FuncData *fd = (struct FuncData *)dn->ptr;
 
                         printf("Function Data : %s(%d), ret type : %s ",
-                               fd->func_name, fd->id, fd->return_type->type_str);
+                               fd->func_name, fd->id,
+                               fd->return_type->type_str);
 
                         printf("Arguments : ");
                         for (j = 0; j < fd->arg_count; j++) {
@@ -1236,12 +1282,14 @@ void debug_view_data(struct ParserContext *pc) {
         int i;
         for (i = 0; i < pc->class_data_count; i++) {
                 struct ClassData *cd = pc->class_data[i];
-		
-                printf("Class Data : %s(%d), parent :", cd->class_type->type_str,
-                       cd->id);
 
-		printf(" %s\n", cd->parent_type == NULL ? "(none)" : cd->parent_type->type_str); 
-		
+                printf("Class Data : %s(%d), parent :",
+                       cd->class_type->type_str, cd->id);
+
+                printf(" %s\n", cd->parent_type == NULL
+                                    ? "(none)"
+                                    : cd->parent_type->type_str);
+
                 printf("------ members -----\n");
 
                 debug_view_func_smtb(cd->member_funcs);

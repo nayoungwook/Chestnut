@@ -11,8 +11,6 @@ struct IRReader *gen_ir_reader(struct IRContext *irc) {
         return ir_reader;
 }
 
-static void dump_op(struct IRReader *ir_reader) {}
-
 static void consume_str(struct IRReader *ir_reader) {
         byte b;
 
@@ -41,6 +39,16 @@ static void consume_float(struct IRReader *ir_reader){
         }
 
         printf("%x", byte);	
+}
+
+static void consume_double(struct IRReader *ir_reader){
+	int i;
+
+        for (i = 0; i < 8; i++) {
+                (void)CONSUME_BYTE(ir_reader);
+        }
+
+        printf("<f8>");
 }
 
 static void read_block_meta(struct IRReader *ir_reader) {
@@ -294,6 +302,20 @@ static void read_func_ir(struct IRReader *ir_reader) {
                         consume_int(ir_reader);
                         break;
 
+                case OP_CALL_CLASS:
+                        printf("call_class ");
+                        consume_int(ir_reader);
+                        printf(" ");
+                        consume_int(ir_reader);
+                        break;
+
+                case OP_CALL_GLOBAL:
+                        printf("call_global ");
+                        consume_int(ir_reader);
+                        printf(" ");
+                        consume_int(ir_reader);
+                        break;
+
                 case OP_SYSCALL:
                         printf("syscall ");
                         consume_int(ir_reader);
@@ -342,6 +364,11 @@ static void read_func_ir(struct IRReader *ir_reader) {
 		case  OP_LDC_F4:
 			printf("ldc_f4 ");
                         consume_float(ir_reader);
+			break;
+
+		case OP_LDC_F8:
+			printf("ldc_f8 ");
+                        consume_double(ir_reader);
 			break;
 			
                 default:
