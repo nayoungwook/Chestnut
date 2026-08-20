@@ -990,6 +990,8 @@ static struct Node *parse_postfix(struct ParserContext *pc) {
                 }
 
 
+                // for array access
+                // ident [ expr ]
                 if (tok->type == TokLSquareBracket) {
                         consume(tc, TokLSquareBracket);
                         struct ArrayAccessAST *access =
