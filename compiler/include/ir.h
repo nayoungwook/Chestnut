@@ -112,6 +112,17 @@
 #define OP_INCRE_ATTR 0x90 // incre_attr offset(uint) size(uint) # increase from data from top of the stack.
 #define OP_DECRE_ATTR 0x91 // decre_attr offset(uint) size(uint) # decrease from data from top of the stack.
 
+#define OP_SAVE_CLASS 0x92
+#define OP_SAVE_GLOBAL 0x93
+#define OP_SAVE_ATTR 0x94
+#define OP_NEW_OBJECT 0x95 // class id, size, alignment, constructor id, arg count
+#define OP_NEW_ARRAY 0x96  // element size, element count
+#define OP_ARRAY_LOAD 0x97 // element size
+#define OP_ARRAY_SAVE 0x98 // element size
+#define OP_ARRAY_LENGTH 0x99
+#define OP_ARRAY_PUSH 0x9a   // method id, argument count
+#define OP_ARRAY_REMOVE 0x9b // method id, argument count
+
 typedef unsigned char byte;
 
 struct RODATA_Str {
@@ -129,6 +140,7 @@ struct IRContext {
 
 	struct ClassData *current_class;
 	struct FuncData *current_func;
+	unsigned current_stack_size;
 };
 
 struct IRContext *gen_irc();

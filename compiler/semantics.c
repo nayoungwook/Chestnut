@@ -5,6 +5,18 @@
 #include <error.h>
 #include <stdbool.h>
 
+static struct FuncData *find_member_func_data(struct ParserContext *pc,
+                                               struct ClassData *attr_of,
+                                               const char *key);
+
+static struct Token *type_token_for(struct Type *type) {
+	struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
+	tok->str = type->type_str;
+	tok->length = (unsigned)strlen(type->type_str);
+	tok->type = TokIdent;
+	return tok;
+}
+
 struct FuncData *gen_func_data(const char *func_name, struct Type *ret_type, unsigned id, bool varargs) {
         struct FuncData *data =
 		(struct FuncData *)S_malloc(sizeof(struct FuncData));
@@ -38,7 +50,7 @@ struct FuncData *register_constructor_data(const char *func_name,
                 // register in class member.
                 struct ClassData *current_class = pc->current_class;
 
-                data->id = current_class->member_funcs->size + 1;
+                data->id = 0;
 
                 ht_insert(current_class->member_funcs, func_name, data);
 
@@ -60,7 +72,16 @@ struct FuncData *register_func_data(const char *func_name,
                 struct ClassData *current_class = pc->current_class;
 
 		data->scope_data = ScopeClass;
-                data->id = current_class->member_funcs->size + 1;
+                struct FuncData *parent_func = NULL;
+                if (current_class->parent_type != NULL)
+                        parent_func = find_member_func_data(
+                            pc, current_class->parent_type->data.class_data,
+                            func_name);
+                if (parent_func != NULL && !parent_func->is_constructor)
+                        data->id = parent_func->id;
+                else
+                        data->id = current_class->inherited_func_count +
+                                   current_class->member_funcs->size + 1;
 		
                 ht_insert(current_class->member_funcs, func_name, data);
         } else {
@@ -130,6 +151,14 @@ struct VarData *register_non_local_var_data(const char *name, struct Type *type,
         if (member) {
 		data->scope_data = ScopeClass;
                 target_smtb = pc->current_class->member_vars;
+		unsigned align = type->nbyte > 8 ? 8 : type->nbyte;
+		if (align == 0) align = 1;
+		unsigned offset = pc->current_class->instance_size;
+		offset = (offset + align - 1) / align * align;
+		data->offset = offset;
+		pc->current_class->instance_size = offset + type->nbyte;
+		if (align > pc->current_class->instance_align)
+			pc->current_class->instance_align = align;
         }
 
         if (glob) {
@@ -141,7 +170,9 @@ struct VarData *register_non_local_var_data(const char *name, struct Type *type,
                 return NULL;
         }
 
-        data->id = target_smtb->size + 1;
+        data->id = member ? pc->current_class->inherited_var_count +
+                               target_smtb->size + 1
+                         : target_smtb->size + 1;
         ht_insert(target_smtb, name, data);
 
         return data;
@@ -157,6 +188,14 @@ struct ClassData *register_class_data(const char *class_name,
         data->member_vars = gen_htable();
 	
 	data->constructor = NULL;
+	data->class_type = NULL;
+	data->parent_type = NULL;
+	data->instance_size = 8;
+	data->instance_align = 8;
+	data->inherited_var_count = 0;
+	data->inherited_func_count = 0;
+	data->registration_state = 0;
+	data->ast = NULL;
 
         pc->class_data[pc->class_data_count++] = data;
 
@@ -221,8 +260,7 @@ struct FuncData *find_func_data(struct ParserContext *pc,
         struct ClassData *current_class = pc->current_class;
         struct FuncData *result = NULL;
 
-        // find in current class
-        // TODO : find parent class.
+        // Find in the current class and its ancestors.
         if (current_class != NULL &&
             (result = find_member_func_data(pc, current_class, func_name)) !=
 	    NULL) {
@@ -325,6 +363,47 @@ static void check_semantics_body(struct ParserContext *pc, struct Node **body, u
 
 static void resolve_attr(struct ParserContext *pc, struct Type *type_of_node, struct Node *node);
 
+static void bind_array_attr(struct ParserContext *pc, struct Type *array_type,
+                            struct Node *node) {
+	if (node->type == AST_Identifier) {
+		struct IdentifierAST *ident = (struct IdentifierAST *)node->ast;
+		if (strcmp(ident->ident->str, "length") != 0)
+			panic("Unknown array attribute.", pc->tc);
+		struct VarData *data =
+			(struct VarData *)S_malloc(sizeof(struct VarData));
+		data->id = 0;
+		data->offset = 0;
+		data->type = find_type(pc, "int");
+		data->var_name = "length";
+		data->scope_data = ScopeArray;
+		ident->var_data = data;
+		ident->is_attr = true;
+		if (node->attr != NULL)
+			panic("Array length has no attributes.", pc->tc);
+		return;
+	}
+	if (node->type == AST_FunctionCall) {
+		struct FuncCallAST *call = (struct FuncCallAST *)node->ast;
+		bool push = strcmp(call->func_name_tok->str, "push") == 0;
+		bool remove = strcmp(call->func_name_tok->str, "remove") == 0;
+		if (!push && !remove)
+			panic("Unknown array method.", pc->tc);
+		struct FuncData *data = gen_func_data(
+			call->func_name_tok->str, find_type(pc, "void"),
+			push ? 0 : 1, false);
+		data->scope_data = ScopeArray;
+		data->arg_count = 1;
+		data->arg_types =
+			(struct Type **)S_malloc(sizeof(struct Type *));
+		data->arg_types[0] = push ? array_type->data.element_type
+		                          : find_type(pc, "int");
+		call->func_data = data;
+		call->is_attr = true;
+		return;
+	}
+	panic("Invalid array attribute.", pc->tc);
+}
+
 // check semantics of attribute node.
 // attr_of will be targeted class we have to find variable or function from this class.
 // and node will be attribute.
@@ -380,11 +459,18 @@ static void resolve_attr(struct ParserContext *pc, struct Type *type_of_node, st
 			panic("We can\'t find attribute from non-type.", pc->tc);
 		}
 		
+		if(type_of_node->type_kind == TK_Array){
+			bind_array_attr(pc, type_of_node, node->attr);
+			check_semantics(pc, node->attr);
+			return;
+		}
+
 		if(type_of_node->type_kind != TK_Class){
 			panic("We can\'t find attribute from non-class type.", pc->tc);
 		}
 		
 		check_attr_semantics(pc, type_of_node->data.class_data, node->attr);
+		check_semantics(pc, node->attr);
 	}
 }
 
@@ -397,8 +483,10 @@ static void check_class_semantics(struct ParserContext *pc, struct ClassAST *cla
 }
 
 static void check_func_decl_semantics(struct ParserContext *pc, struct FuncDeclAST *func_decl_ast){
+	pc->current_func = func_decl_ast->func_data;
 	check_semantics(pc, func_decl_ast->params);
 	check_semantics_body(pc, func_decl_ast->body, func_decl_ast->body_count);
+	pc->current_func = NULL;
 }
 
 static void check_if_stmt_semantics(struct ParserContext *pc, struct IfStmtAST *if_stmt_ast){
@@ -426,9 +514,17 @@ static void check_var_decl_bundle_semantics(struct ParserContext *pc, struct Var
 
 static void check_var_decl_semantics(struct ParserContext *pc, struct VarDeclAST *var_decl_ast){
 	if(var_decl_ast->decl != NULL){
+		if (var_decl_ast->decl->type == AST_ArrayDeclaration) {
+			struct Type *expected = var_decl_ast->var_data->type;
+			if (expected->type_kind != TK_Array)
+				panic("Array literal requires an array target.", pc->tc);
+			((struct ArrayDeclAST *)var_decl_ast->decl->ast)->ele_type_tok =
+				type_token_for(expected);
+		}
 		check_semantics(pc, var_decl_ast->decl);
-
-		//		push_type_match(pc, var_decl_ast->decl, var_decl_ast->var_type);
+		if (!is_castable(infer_type(pc, var_decl_ast->decl),
+		                 var_decl_ast->var_data->type))
+			panic("Variable initializer is not assignable to its type.", pc->tc);
 	}
 }
 
@@ -439,7 +535,14 @@ static void check_ident_semantics(struct ParserContext *pc, struct Node *node, s
 }
 
 static void check_parameter_type(struct ParserContext *pc, struct Type *arg_type, struct Node *param){
-	//	push_type_match(pc, param, arg_type);
+	if (param->type == AST_ArrayDeclaration) {
+		if (arg_type->type_kind != TK_Array)
+			panic("Array literal requires an array parameter.", pc->tc);
+		((struct ArrayDeclAST *)param->ast)->ele_type_tok =
+			type_token_for(arg_type);
+	}
+	if (!is_castable(infer_type(pc, param), arg_type))
+		panic("Function argument type mismatch.", pc->tc);
 }
 
 static void check_func_call_semantics(struct ParserContext *pc, struct Node *node, struct FuncCallAST *func_call_ast){
@@ -454,6 +557,14 @@ static void check_func_call_semantics(struct ParserContext *pc, struct Node *nod
 
 	int i;
 	for(i=0; i<func_call_ast->param_count; i++){
+		if(!func_data->varargs &&
+		   func_call_ast->params[i]->type == AST_ArrayDeclaration) {
+			struct Type *expected = func_data->arg_types[i];
+			if (expected->type_kind != TK_Array)
+				panic("Array literal requires an array parameter.", pc->tc);
+			((struct ArrayDeclAST *)func_call_ast->params[i]->ast)->ele_type_tok =
+				type_token_for(expected);
+		}
 		check_semantics(pc, func_call_ast->params[i]);
 		
 		if(!func_data->varargs){
@@ -480,6 +591,74 @@ static void register_data_of_body(struct ParserContext *pc, struct Node **body, 
 		register_data(pc, body[i]);
 	}
 	close_scope(pc);
+}
+
+static struct ClassAST *find_class_ast(struct ParserContext *pc,
+                                       const char *name) {
+	unsigned i;
+	for (i = 0; i < pc->node_count; i++) {
+		struct Node *node = pc->nodes[i];
+		if (node->type != AST_Class) continue;
+		struct ClassAST *ast = (struct ClassAST *)node->ast;
+		if (strcmp(ast->name_tok->str, name) == 0) return ast;
+	}
+	return NULL;
+}
+
+static unsigned max_member_func_id(struct ClassData *class_data) {
+	unsigned result = class_data->inherited_func_count;
+	int i;
+	for (i = 0; i < HTABLE_BUFF; i++) {
+		struct DataNode *node = class_data->member_funcs->bucket[i];
+		while (node != NULL) {
+			struct FuncData *func = (struct FuncData *)node->ptr;
+			if (!func->is_constructor && func->id > result)
+				result = func->id;
+			node = node->next;
+		}
+	}
+	return result;
+}
+
+static void ensure_class_registered(struct ParserContext *pc,
+                                    struct ClassAST *class_ast) {
+	struct Type *class_type = find_type(pc, class_ast->name_tok->str);
+	struct ClassData *class_data = class_type->data.class_data;
+	class_ast->class_data = class_data;
+	class_data->ast = class_ast;
+	if (class_data->registration_state == 2) return;
+	if (class_data->registration_state == 1)
+		panic("Cyclic class inheritance is not allowed.", pc->tc);
+	class_data->registration_state = 1;
+
+	if (class_ast->parent_name_tok != NULL) {
+		struct Type *parent_type =
+			find_type(pc, class_ast->parent_name_tok->str);
+		if (parent_type->type_kind != TK_Class || parent_type == class_type)
+			panic("Invalid parent class.", pc->tc);
+		struct ClassAST *parent_ast =
+			find_class_ast(pc, parent_type->type_str);
+		if (parent_ast == NULL)
+			panic("Parent class declaration was not found.", pc->tc);
+		ensure_class_registered(pc, parent_ast);
+		class_data->parent_type = parent_type;
+		struct ClassData *parent = parent_type->data.class_data;
+		class_data->instance_size = parent->instance_size;
+		class_data->instance_align = parent->instance_align;
+		class_data->inherited_var_count =
+			parent->inherited_var_count + parent->member_vars->size;
+		class_data->inherited_func_count = max_member_func_id(parent);
+	}
+
+	pc->current_class = class_data;
+	register_data_of_body(pc, class_ast->body, class_ast->body_count);
+	register_data(pc, class_ast->constructor);
+	register_data(pc, class_ast->initializer);
+	pc->current_class = NULL;
+	class_data->instance_size =
+		(class_data->instance_size + class_data->instance_align - 1) /
+		class_data->instance_align * class_data->instance_align;
+	class_data->registration_state = 2;
 }
 
 static void register_attr_data(struct ParserContext *pc, struct ClassData *attr_of, struct Node *node){
@@ -536,31 +715,7 @@ void register_data(struct ParserContext *pc, struct Node *node){
 	switch(node->type){
 	case AST_Class: {
 		struct ClassAST *class_ast = (struct ClassAST *) node->ast;	
-
-		struct Type *class_type = find_type(pc, class_ast->name_tok->str);
-		struct Type *parent_type = NULL;
-
-		if(class_ast->parent_name_tok != NULL){
-			parent_type = find_type(pc, class_ast->parent_name_tok->str);
-		}
-		
-		// Data & Type registeration
-		struct ClassData *class_data = register_class_data(class_ast->name_tok->str, pc);
-		class_type->data.class_data = class_data;
-		
-		class_data->parent_type = parent_type;
-		class_data->class_type = class_type;
-	
-		class_ast->class_data = class_data;
-
-		pc->current_class = class_data;
-
-		register_data_of_body(pc, class_ast->body, class_ast->body_count);
-
-		register_data(pc, class_ast->constructor);
-		register_data(pc, class_ast->initializer);
-
-		pc->current_class = NULL;
+		ensure_class_registered(pc, class_ast);
 		
 		break;
 	}
@@ -590,6 +745,20 @@ void register_data(struct ParserContext *pc, struct Node *node){
 			register_data(pc, params_ast->var_decls[i]);
 			func_data->arg_types[i] = find_type(pc, param_ast->var_type_tok->str);
 			
+		}
+
+		if (pc->current_class != NULL && pc->current_class->parent_type != NULL) {
+			struct FuncData *parent_func = find_member_func_data(
+				pc, pc->current_class->parent_type->data.class_data,
+				func_data->func_name);
+			if (parent_func != NULL) {
+				if (parent_func->return_type != func_data->return_type ||
+				    parent_func->arg_count != func_data->arg_count)
+					panic("Overriding method signature does not match parent.", pc->tc);
+				for (i = 0; i < params_ast->var_count; i++)
+					if (parent_func->arg_types[i] != func_data->arg_types[i])
+						panic("Overriding method parameter type mismatch.", pc->tc);
+			}
 		}
 
 		register_data_of_body(pc, func_decl_ast->body, func_decl_ast->body_count);
@@ -659,10 +828,13 @@ void register_data(struct ParserContext *pc, struct Node *node){
 		}
 		if(node->attr != NULL){
 			struct Type *type = ident_ast->var_data->type;
-			if(type->type_kind != TK_Class){
+			if(type->type_kind == TK_Array){
+				bind_array_attr(pc, type, node->attr);
+			} else if(type->type_kind == TK_Class){
+				register_attr_data(pc, type->data.class_data, node->attr);
+			} else {
 				panic("We can\'t find attribute from non-class type.", pc->tc);
 			}
-			register_attr_data(pc, type->data.class_data, node->attr);
 		}
 		
 		break;
@@ -690,6 +862,9 @@ void register_data(struct ParserContext *pc, struct Node *node){
 		reset_declared_local_var_data(pc);
 
 		struct FuncData *func_data = register_constructor_data(constructor_ast->func_name->str, pc);
+		if (strcmp(constructor_ast->func_name->str,
+		           pc->current_class->class_type->type_str) != 0)
+			panic("Constructor name must match its class.", pc->tc);
 		struct VarDeclBundleAST *params_ast = (struct VarDeclBundleAST *) constructor_ast->params->ast;
 		
 		func_data->arg_types = S_malloc(params_ast->var_count * sizeof(struct Type *));
@@ -708,6 +883,7 @@ void register_data(struct ParserContext *pc, struct Node *node){
 		}
 		
 		constructor_ast->func_data = func_data;
+		pc->current_class->constructor = func_data;
 		
 		pc->current_func = constructor_ast->func_data;
 
@@ -777,6 +953,29 @@ void register_data(struct ParserContext *pc, struct Node *node){
 		for(i=0; i<new_ast->param_count; i++){
 			register_data(pc, new_ast->params[i]);
 		}
+		break;
+	}
+
+	case AST_ArrayDeclaration: {
+		struct ArrayDeclAST *array_ast = (struct ArrayDeclAST *)node->ast;
+		int i;
+		for (i = 0; i < array_ast->element_count; i++)
+			register_data(pc, array_ast->elements[i]);
+		break;
+	}
+
+	case AST_ArrayAccess: {
+		struct ArrayAccessAST *access = (struct ArrayAccessAST *)node->ast;
+		register_data(pc, access->target_array);
+		int i;
+		for (i = 0; i < access->access_count; i++)
+			register_data(pc, access->indexes[i]);
+		break;
+	}
+
+	case AST_Return: {
+		struct ReturnAST *ret_ast = (struct ReturnAST *)node->ast;
+		register_data(pc, ret_ast->expr);
 		break;
 	}
 		
@@ -878,9 +1077,20 @@ void check_semantics(struct ParserContext *pc, struct Node *node){
 		struct BinExprAST *bin_expr_ast = (struct BinExprAST *) node->ast;
 
 		check_semantics(pc, bin_expr_ast->left);
+		if (bin_expr_ast->op_type == OpASSIGN) {
+			if (bin_expr_ast->left->type != AST_Identifier &&
+			    bin_expr_ast->left->type != AST_ArrayAccess)
+				panic("Left side of assignment is not assignable.", pc->tc);
+			struct Type *target = infer_type(pc, bin_expr_ast->left);
+			if (bin_expr_ast->right->type == AST_ArrayDeclaration) {
+				if (target->type_kind != TK_Array)
+					panic("Array literal requires an array target.", pc->tc);
+				((struct ArrayDeclAST *)bin_expr_ast->right->ast)->ele_type_tok =
+					type_token_for(target);
+			}
+		}
 		check_semantics(pc, bin_expr_ast->right);
-
-		//		push_bin_type_match(pc, bin_expr_ast->left, bin_expr_ast->right);
+		(void)infer_type(pc, node);
 		
 		break;
 	}
@@ -895,8 +1105,19 @@ void check_semantics(struct ParserContext *pc, struct Node *node){
 
 	case AST_Return: {
 		struct ReturnAST *ret_ast = (struct ReturnAST *) node->ast;
-
-		check_semantics(pc, ret_ast->expr);
+		if (pc->current_func == NULL)
+			panic("Return statement outside a function.", pc->tc);
+		if (ret_ast->expr == NULL) {
+			if (pc->current_func->return_type != find_type(pc, "void"))
+				panic("Non-void function must return a value.", pc->tc);
+		} else {
+			if (pc->current_func->return_type == find_type(pc, "void"))
+				panic("Void function cannot return a value.", pc->tc);
+			check_semantics(pc, ret_ast->expr);
+			if (!is_castable(infer_type(pc, ret_ast->expr),
+			                 pc->current_func->return_type))
+				panic("Return value type mismatch.", pc->tc);
+		}
 		
 		break;
 	}
@@ -907,7 +1128,9 @@ void check_semantics(struct ParserContext *pc, struct Node *node){
 		constructor_ast->class_data = pc->current_class;
 		pc->current_class->constructor = constructor_ast->func_data;
 		
+		pc->current_func = constructor_ast->func_data;
 		check_semantics_body(pc, constructor_ast->body, constructor_ast->body_count);
+		pc->current_func = NULL;
 		
 		break;
 	}
@@ -918,10 +1141,66 @@ void check_semantics(struct ParserContext *pc, struct Node *node){
 		new_ast->class_data = find_class_data(pc, type);
 
 		int i;
-		for(i=0; i<new_ast->param_count; i++){
-			check_semantics(pc, new_ast->params[i]);
+		struct FuncData *constructor = new_ast->class_data->constructor;
+		if (constructor == NULL) {
+			if (new_ast->param_count != 0)
+				panic("Class has no matching constructor.", pc->tc);
+		} else {
+			if (constructor->arg_count != (unsigned)new_ast->param_count)
+				panic("Wrong constructor parameter count.", pc->tc);
+			for (i = 0; i < new_ast->param_count; i++) {
+				if (new_ast->params[i]->type == AST_ArrayDeclaration) {
+					struct Type *expected = constructor->arg_types[i];
+					if (expected->type_kind != TK_Array)
+						panic("Array literal requires an array parameter.", pc->tc);
+					((struct ArrayDeclAST *)new_ast->params[i]->ast)->ele_type_tok =
+						type_token_for(expected);
+				}
+				check_semantics(pc, new_ast->params[i]);
+				check_parameter_type(pc, constructor->arg_types[i],
+				                     new_ast->params[i]);
+			}
 		}
 		
+		break;
+	}
+
+	case AST_ArrayDeclaration: {
+		struct ArrayDeclAST *array_ast = (struct ArrayDeclAST *)node->ast;
+		if (array_ast->ele_type_tok == NULL)
+			panic("Cannot infer array literal type without a target.", pc->tc);
+		struct Type *array_type = find_type(pc, array_ast->ele_type_tok->str);
+		if (array_type->type_kind != TK_Array)
+			panic("Invalid array literal target type.", pc->tc);
+		int i;
+		for (i = 0; i < array_ast->element_count; i++) {
+			if (array_ast->elements[i]->type == AST_ArrayDeclaration) {
+				if (array_type->data.element_type->type_kind != TK_Array)
+					panic("Nested array literal type mismatch.", pc->tc);
+				((struct ArrayDeclAST *)array_ast->elements[i]->ast)->ele_type_tok =
+					type_token_for(array_type->data.element_type);
+			}
+			check_semantics(pc, array_ast->elements[i]);
+			if (!is_castable(infer_type(pc, array_ast->elements[i]),
+			                 array_type->data.element_type))
+				panic("Array element type mismatch.", pc->tc);
+		}
+		break;
+	}
+
+	case AST_ArrayAccess: {
+		struct ArrayAccessAST *access = (struct ArrayAccessAST *)node->ast;
+		check_semantics(pc, access->target_array);
+		struct Type *array_type = infer_type(pc, access->target_array);
+		if (array_type->type_kind != TK_Array)
+			panic("Indexing requires an array value.", pc->tc);
+		int i;
+		for (i = 0; i < access->access_count; i++) {
+			check_semantics(pc, access->indexes[i]);
+			struct Type *index_type = infer_type(pc, access->indexes[i]);
+			if (index_type != find_type(pc, "int"))
+				panic("Array index must be int.", pc->tc);
+		}
 		break;
 	}
 		

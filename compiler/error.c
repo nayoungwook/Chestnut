@@ -4,6 +4,7 @@
 void panic(char *msg, struct TokenizerContext *tc) {
         printf("PANIC!\n");
         printf("%s\n", msg);
-        printf("%d | %s\n", tc->line_num, tc->cur_ch);
+        if (tc != NULL)
+                printf("%d | %s\n", tc->line_num, tc->cur_ch);
         exit(1);
 }

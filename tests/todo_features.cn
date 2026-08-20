@@ -1,0 +1,41 @@
+class Base {
+	var base: int = 1;
+
+	constructor Base(value: int) {
+		base = value;
+	}
+
+	func value(): int {
+		return base;
+	}
+}
+
+class Child extends Base {
+	var extra: double = 2.0;
+
+	func value(): int {
+		return base;
+	}
+}
+
+func array_size(values: array<int>): int {
+	values.push(4);
+	values.remove(0);
+	return values.length;
+}
+
+func exercise_todo(): Base {
+	var child: Child = new Child();
+	var made: Base = new Base(9);
+	var base: Base = child;
+	var values: array<int> = {1, 2, 3};
+	values = {5, 6, 7};
+	values[0] = 3;
+	child.extra = 3.0;
+	array_size(values);
+	return made;
+}
+
+func empty_return(): void {
+	return;
+}

@@ -51,4 +51,9 @@ func main(): void {
 	exercise_loop();
 	exercise_objects();
 	log("test end");
+
+	var test: array<int> = {2, 3, 4, 5};
+	test = {1, 2, 3, 4};
+	test[0] = 3;
+	
 }

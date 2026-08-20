@@ -67,8 +67,15 @@ int main(int arc, char *args[]) {
         // front end
         struct ParserContext *pc = gen_pc();
 
-        q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
-        q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
+        if (arc > 1) {
+                int i;
+                for (i = 1; i < arc; i++)
+                        q_push(pc->first_pass_queue,
+                               gen_tc(read_file(args[i])));
+        } else {
+                q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
+                q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
+        }
 
         resolve_first_pass_queue(pc);
         resolve_second_pass_queue(pc);

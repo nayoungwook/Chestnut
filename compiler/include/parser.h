@@ -256,7 +256,7 @@ struct NegAST {
 };
 
 enum ScopeData {
-	ScopeNone, ScopeLocal, ScopeGlobal, ScopeClass, ScopeSyscall
+	ScopeNone, ScopeLocal, ScopeGlobal, ScopeClass, ScopeSyscall, ScopeArray
 };
 
 struct FuncData {
@@ -292,6 +292,12 @@ struct ClassData {
         struct HTable *member_funcs;
 
 	struct FuncData *constructor;
+	unsigned instance_size;
+	unsigned instance_align;
+	unsigned inherited_var_count;
+	unsigned inherited_func_count;
+	int registration_state;
+	struct ClassAST *ast;
 };
 
 struct Scope {

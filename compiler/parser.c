@@ -148,6 +148,40 @@ static struct Node *pack(enum ASTType type, void *ptr) {
         return result;
 }
 
+static struct Token *make_type_token(const char *name) {
+        struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
+        size_t len = strlen(name);
+        char *copy = (char *)S_malloc(len + 1);
+        memcpy(copy, name, len + 1);
+        tok->str = copy;
+        tok->length = (unsigned)len;
+        tok->type = TokIdent;
+        return tok;
+}
+
+/* Parse both ordinary type names and array<T>.  Array types are interned in
+ * the primitive type table so pointer equality remains a valid type check. */
+static struct Token *parse_type_token(struct ParserContext *pc) {
+        struct TokenizerContext *tc = pc->tc;
+        struct Token *base = consume(tc, TokIdent);
+        if (strcmp(base->str, "array") != 0 || peek(tc)->type != TokLesser)
+                return base;
+
+        consume(tc, TokLesser);
+        struct Token *element_tok = parse_type_token(pc);
+        consume(tc, TokGreater);
+
+        size_t size = strlen(element_tok->str) + 8;
+        char *name = (char *)S_malloc(size);
+        snprintf(name, size, "array<%s>", element_tok->str);
+        if (ht_find(pc->primitive_type_smtb, name) == NULL) {
+                struct Type *element_type = find_type(pc, element_tok->str);
+                ht_insert(pc->primitive_type_smtb, name,
+                          gen_array_type(name, element_type));
+        }
+        return make_type_token(name);
+}
+
 static struct ParamData parse_func_call_params(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
         struct ParamData param_data = {
@@ -213,7 +247,35 @@ static void parse_attribute(struct ParserContext *pc, struct Node *ident_node) {
         if (attr->type == AST_FunctionCall) {
                 ((struct FuncCallAST *)attr->ast)->is_attr = true;
         }
+        while (ident_node->attr != NULL)
+                ident_node = ident_node->attr;
         ident_node->attr = attr;
+}
+
+static struct Node *gen_array_literal_node(struct ParserContext *pc) {
+        struct ArrayDeclAST *array_ast =
+            (struct ArrayDeclAST *)S_malloc(sizeof(struct ArrayDeclAST));
+        unsigned count = 0, capacity = 1;
+        array_ast->elements =
+            (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
+        array_ast->ele_type_tok = NULL;
+
+        while (peek(pc->tc)->type != TokRBracket) {
+                if (count + 1 >= capacity) {
+                        capacity *= 2;
+                        array_ast->elements = (struct Node **)S_realloc(
+                            array_ast->elements,
+                            sizeof(struct Node *) * capacity);
+                }
+                array_ast->elements[count++] = parse_expression(pc);
+                if (peek(pc->tc)->type == TokComma)
+                        consume(pc->tc, TokComma);
+                else
+                        break;
+        }
+        consume(pc->tc, TokRBracket);
+        array_ast->element_count = (int)count;
+        return pack(AST_ArrayDeclaration, array_ast);
 }
 
 static struct Node *gen_ident_node(struct Token *first,
@@ -250,7 +312,7 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
 
                 consume(tc, TokColon); // :
 
-                struct Token *type_tok = pull(tc);
+                struct Token *type_tok = parse_type_token(pc);
                 struct VarDeclAST *var_decl =
                     (struct VarDeclAST *)S_malloc(sizeof(struct VarDeclAST));
                 var_decl->decl = NULL;
@@ -351,7 +413,7 @@ static struct Node *gen_func_decl_node(struct Token *first,
 
         consume(tc, TokColon);
 
-        struct Token *ret_type_tok = pull(tc);
+        struct Token *ret_type_tok = parse_type_token(pc);
 
         func_decl->func_name_tok = func_name_tok;
         func_decl->ret_type_tok = ret_type_tok;
@@ -383,7 +445,7 @@ static struct Node *gen_var_decl_node(struct Token *first,
 
                 consume(tc, TokColon);
 
-                struct Token *var_type_tok = pull(tc);
+                struct Token *var_type_tok = parse_type_token(pc);
 
                 struct Token *cont_tok = peek(tc);
 
@@ -544,8 +606,10 @@ static struct Node *gen_for_stmt_node(struct Token *first,
 }
 
 static struct Node *gen_ret_node(struct Token *first,
-                                 struct ParserContext *pc) {
-        struct Node *expr = parse_expression(pc);
+                                  struct ParserContext *pc) {
+        struct Node *expr = NULL;
+        if (peek(pc->tc)->type != TokSemiColon)
+                expr = parse_expression(pc);
         struct ReturnAST *ret_ast =
             (struct ReturnAST *)S_malloc(sizeof(struct ReturnAST));
 
@@ -697,6 +761,19 @@ struct Node *parse_expr_node(struct ParserContext *pc) {
 
                 return pack(AST_StringLiteral, str);
         }
+
+        case TokBoolLiteral:
+        case TokTrue:
+        case TokFalse: {
+                struct BoolLiteralAST *value =
+                    (struct BoolLiteralAST *)S_malloc(
+                        sizeof(struct BoolLiteralAST));
+                value->bool_tok = first;
+                return pack(AST_BoolLiteral, value);
+        }
+
+        case TokLBracket:
+                return gen_array_literal_node(pc);
 
         case TokNull: {
                 struct NullAST *null =
@@ -909,6 +986,22 @@ static struct Node *parse_postfix(struct ParserContext *pc) {
                 if (tok->type == TokDot) {
                         consume(tc, TokDot);
                         parse_attribute(pc, node);
+                        continue;
+                }
+
+
+                if (tok->type == TokLSquareBracket) {
+                        consume(tc, TokLSquareBracket);
+                        struct ArrayAccessAST *access =
+                            (struct ArrayAccessAST *)S_malloc(
+                                sizeof(struct ArrayAccessAST));
+                        access->indexes = (struct Node **)S_malloc(
+                            sizeof(struct Node *));
+                        access->indexes[0] = parse_expression(pc);
+                        access->access_count = 1;
+                        access->target_array = node;
+                        consume(tc, TokRSquareBracket);
+                        node = pack(AST_ArrayAccess, access);
                         continue;
                 }
 
@@ -1127,6 +1220,16 @@ static void pass_func_param(struct ParserContext *pc) {
         }
 }
 
+static void pass_type_annotation(struct ParserContext *pc) {
+        struct Token *tok = consume(pc->tc, TokIdent);
+        if (strcmp(tok->str, "array") == 0 &&
+            peek(pc->tc)->type == TokLesser) {
+                consume(pc->tc, TokLesser);
+                pass_type_annotation(pc);
+                consume(pc->tc, TokGreater);
+        }
+}
+
 static void parse_class_structure(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
 
@@ -1136,6 +1239,9 @@ static void parse_class_structure(struct ParserContext *pc) {
 
         struct Type *class_type = gen_class_type(class_name);
         ht_insert(pc->class_type_smtb, class_name, class_type);
+        struct ClassData *class_data = register_class_data(class_name, pc);
+        class_data->class_type = class_type;
+        class_type->data.class_data = class_data;
 
         if (peek(tc)->type == TokExtends) {
                 consume(tc, TokExtends);
@@ -1154,7 +1260,7 @@ static void parse_func_structure(struct ParserContext *pc) {
 
         consume(tc, TokColon);
 
-        pull(tc); // return type
+        pass_type_annotation(pc);
 
         // We will not parse content of function declaration.
         pass_body(pc);
@@ -1179,7 +1285,7 @@ static void parse_var_structure(struct ParserContext *pc) {
 
                 consume(tc, TokColon);
 
-                pull(tc); // type
+                pass_type_annotation(pc);
 
                 struct Token *tok = NULL;
 

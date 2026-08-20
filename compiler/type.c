@@ -39,7 +39,9 @@ bool is_castable(struct Type *from, struct Type *to) {
         }
 
         case TK_Numeric: {
-                result = true;
+                result = to->type_kind == TK_Numeric &&
+                         from->data.numeric_data->rank <=
+                             to->data.numeric_data->rank;
                 break;
         }
 
@@ -49,7 +51,15 @@ bool is_castable(struct Type *from, struct Type *to) {
         }
 
         case TK_Null: {
-                result = to->type_kind == TK_Class;
+                result = to->type_kind == TK_Class ||
+                         to->type_kind == TK_Array;
+                break;
+        }
+
+        case TK_Array: {
+                result = to->type_kind == TK_Array &&
+                         is_castable(from->data.element_type,
+                                     to->data.element_type);
                 break;
         }
         }
@@ -83,11 +93,38 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
                 break;
         }
 
+        case AST_BoolLiteral: {
+                result = find_type(pc, "bool");
+                break;
+        }
+
         case AST_FunctionCall: {
                 struct FuncCallAST *func_call_ast =
                     (struct FuncCallAST *)node->ast;
                 result = func_call_ast->func_data->return_type;
+		if (node->attr != NULL)
+			result = infer_type(pc, node->attr);
 
+                break;
+        }
+
+        case AST_New: {
+                struct NewAST *new_ast = (struct NewAST *)node->ast;
+                result = new_ast->class_data->class_type;
+                break;
+        }
+
+        case AST_ArrayDeclaration: {
+                struct ArrayDeclAST *array_ast =
+                    (struct ArrayDeclAST *)node->ast;
+                result = find_type(pc, array_ast->ele_type_tok->str);
+                break;
+        }
+
+        case AST_ArrayAccess: {
+                struct ArrayAccessAST *access =
+                    (struct ArrayAccessAST *)node->ast;
+                result = infer_type(pc, access->target_array)->data.element_type;
                 break;
         }
 
@@ -97,6 +134,8 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
                 struct VarData *var_data = ident_ast->var_data;
 
                 result = var_data->type;
+		if (node->attr != NULL)
+			result = infer_type(pc, node->attr);
 
                 break;
         }
@@ -123,13 +162,32 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
                 struct Type *left_type = infer_type(pc, bin_expr_ast->left);
                 struct Type *right_type = infer_type(pc, bin_expr_ast->right);
 
-                if (!is_castable(left_type, right_type)) {
+                if (bin_expr_ast->op_type == OpASSIGN) {
+                        if (!is_castable(right_type, left_type)) {
+                                panic("Expression is not assignable to target type.",
+                                      pc->tc);
+                        }
+                        result = left_type;
+                        break;
+                }
+
+                if (!is_castable(right_type, left_type) &&
+                    !is_castable(left_type, right_type)) {
                         panic("In binary expression, failed to math left and "
                               "right expression",
                               pc->tc);
                 }
 
-                result = left_type;
+                if (bin_expr_ast->op_type >= OpEQUAL &&
+                    bin_expr_ast->op_type <= OpAND)
+                        result = find_type(pc, "bool");
+                else if (left_type->type_kind == TK_Numeric &&
+                         right_type->type_kind == TK_Numeric &&
+                         right_type->data.numeric_data->rank >
+                             left_type->data.numeric_data->rank)
+                        result = right_type;
+                else
+                        result = left_type;
                 break;
         }
 
@@ -221,6 +279,15 @@ struct Type *gen_class_type(const char *type_str) {
         type->type_str = type_str;
         type->nbyte = 8;
 
+        return type;
+}
+
+struct Type *gen_array_type(const char *type_str, struct Type *element_type) {
+        struct Type *type = (struct Type *)S_malloc(sizeof(struct Type));
+        type->type_kind = TK_Array;
+        type->type_str = type_str;
+        type->data.element_type = element_type;
+        type->nbyte = 8;
         return type;
 }
 

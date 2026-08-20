@@ -8,6 +8,12 @@ func call & constructor parameter type checking.
 assignable check.
 
 Array parser implementation.
+var arr: array<int> = {1, 2, 3};
+arr = {1, 2, 3};
+arr[0] = 3;
+arr.length
+arr.push()
+arr.remove()
 
 new, return statement.
 
