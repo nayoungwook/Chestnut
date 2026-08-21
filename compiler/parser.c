@@ -159,26 +159,29 @@ static struct Token *make_type_token(const char *name) {
         return tok;
 }
 
-/* Parse both ordinary type names and array<T>.  Array types are interned in
- * the primitive type table so pointer equality remains a valid type check. */
 static struct Token *parse_type_token(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
-        struct Token *base = consume(tc, TokIdent);
-        if (strcmp(base->str, "array") != 0 || peek(tc)->type != TokLesser)
-                return base;
+        struct Token *tok = consume(tc, TokIdent);
+	
+        if (strcmp(tok->str, "array") != 0 || peek(tc)->type != TokLesser)
+	  return tok;
 
+        // parsing for array type, array< type >
         consume(tc, TokLesser);
         struct Token *element_tok = parse_type_token(pc);
         consume(tc, TokGreater);
 
         size_t size = strlen(element_tok->str) + 8;
         char *name = (char *)S_malloc(size);
+        
         snprintf(name, size, "array<%s>", element_tok->str);
+
         if (ht_find(pc->primitive_type_smtb, name) == NULL) {
                 struct Type *element_type = find_type(pc, element_tok->str);
                 ht_insert(pc->primitive_type_smtb, name,
                           gen_array_type(name, element_type));
         }
+
         return make_type_token(name);
 }
 
@@ -210,7 +213,7 @@ static struct ParamData parse_func_call_params(struct ParserContext *pc) {
                         consume(tc, TokComma);
                 }
         }
-
+        
         // make param data
         param_data.params = params;
         param_data.param_count = count;
@@ -256,6 +259,7 @@ static struct Node *gen_array_literal_node(struct ParserContext *pc) {
         struct ArrayDeclAST *array_ast =
             (struct ArrayDeclAST *)S_malloc(sizeof(struct ArrayDeclAST));
         unsigned count = 0, capacity = 1;
+
         array_ast->elements =
             (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
         array_ast->ele_type_tok = NULL;
@@ -263,16 +267,20 @@ static struct Node *gen_array_literal_node(struct ParserContext *pc) {
         while (peek(pc->tc)->type != TokRBracket) {
                 if (count + 1 >= capacity) {
                         capacity *= 2;
+
                         array_ast->elements = (struct Node **)S_realloc(
                             array_ast->elements,
                             sizeof(struct Node *) * capacity);
                 }
+
                 array_ast->elements[count++] = parse_expression(pc);
+                
                 if (peek(pc->tc)->type == TokComma)
                         consume(pc->tc, TokComma);
                 else
                         break;
         }
+
         consume(pc->tc, TokRBracket);
         array_ast->element_count = (int)count;
         return pack(AST_ArrayDeclaration, array_ast);
@@ -315,6 +323,7 @@ static struct Node *gen_func_param_node(struct ParserContext *pc) {
                 struct Token *type_tok = parse_type_token(pc);
                 struct VarDeclAST *var_decl =
                     (struct VarDeclAST *)S_malloc(sizeof(struct VarDeclAST));
+
                 var_decl->decl = NULL;
                 var_decl->var_name_tok = name_tok;
                 var_decl->var_type_tok = type_tok;
@@ -407,8 +416,6 @@ static struct Node *gen_func_decl_node(struct Token *first,
         struct Token *func_name_tok = pull(tc);
 
         struct Node *params = gen_func_param_node(pc);
-        assert(params->type == AST_VariableDeclarationBundle);
-
         assert(params->type == AST_VariableDeclarationBundle);
 
         consume(tc, TokColon);
@@ -925,8 +932,17 @@ static struct Node *parse_prefix(struct ParserContext *pc) {
         struct Token *tok = NULL;
 
         tok = pull(tc);
-
+        
         switch (tok->type) {
+        case TokSub: {
+                struct Node *node = parse_unary_expression(pc);
+                struct NegAST *neg_ast = (struct NegAST *) S_malloc(sizeof(struct NegAST));
+
+                neg_ast->ast = node;
+
+                return pack(AST_Negative, neg_ast);
+        }
+
         case TokIncrease: {
                 struct IdentIncreAST *incre = (struct IdentIncreAST *)S_malloc(
                     sizeof(struct IdentIncreAST));
@@ -1054,7 +1070,7 @@ static struct Node *parse_unary_expression(struct ParserContext *pc) {
         struct Token *tok = peek(tc);
 
         if (tok != NULL && (tok->type == TokNot || tok->type == TokIncrease ||
-                            tok->type == TokDecrease)) {
+                            tok->type == TokDecrease || tok->type == TokSub)) {
                 return parse_prefix(pc);
         }
 
