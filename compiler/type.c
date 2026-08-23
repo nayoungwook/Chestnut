@@ -200,6 +200,13 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
                 break;
         }
 
+        case AST_Negative: {
+                struct NegAST *neg_ast = (struct NegAST *)node->ast;
+
+                result = infer_type(pc, neg_ast->ast);
+		break;
+	}                
+                
         default: {
                 char err_buf[512];
                 sprintf(err_buf, "Failed to inference type %d", node->type);

@@ -367,25 +367,30 @@ static void bind_array_attr(struct ParserContext *pc, struct Type *array_type,
                             struct Node *node) {
 	if (node->type == AST_Identifier) {
 		struct IdentifierAST *ident = (struct IdentifierAST *)node->ast;
+	
 		if (strcmp(ident->ident->str, "length") != 0)
 			panic("Unknown array attribute.", pc->tc);
 		struct VarData *data =
 			(struct VarData *)S_malloc(sizeof(struct VarData));
-		data->id = 0;
+		
+			data->id = 0;
 		data->offset = 0;
 		data->type = find_type(pc, "int");
 		data->var_name = "length";
 		data->scope_data = ScopeArray;
 		ident->var_data = data;
 		ident->is_attr = true;
+
 		if (node->attr != NULL)
 			panic("Array length has no attributes.", pc->tc);
 		return;
 	}
+	
 	if (node->type == AST_FunctionCall) {
 		struct FuncCallAST *call = (struct FuncCallAST *)node->ast;
 		bool push = strcmp(call->func_name_tok->str, "push") == 0;
 		bool remove = strcmp(call->func_name_tok->str, "remove") == 0;
+		
 		if (!push && !remove)
 			panic("Unknown array method.", pc->tc);
 		struct FuncData *data = gen_func_data(

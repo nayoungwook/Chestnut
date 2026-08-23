@@ -589,9 +589,15 @@ static struct Node *gen_for_stmt_node(struct Token *first,
         struct TokenizerContext *tc = pc->tc;
 
         consume(tc, TokLParen);
+        struct Node *init = NULL;
 
-        struct Node *init = parse_expression(pc);
-        consume(tc, TokSemiColon);
+        if(peek(tc)->type == TokVar){
+		init = gen_var_decl_node(pull(tc), pc);
+        } else {
+                init = parse_expression(pc);
+		consume(tc, TokSemiColon);
+        }
+	assert(init != NULL);
 
         struct Node *cond = parse_expression(pc);
         consume(tc, TokSemiColon);

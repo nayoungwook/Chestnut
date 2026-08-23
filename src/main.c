@@ -73,8 +73,9 @@ int main(int arc, char *args[]) {
                         q_push(pc->first_pass_queue,
                                gen_tc(read_file(args[i])));
         } else {
-                q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
-                q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
+                // q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
+                // q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
+                q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
         }
 
         resolve_first_pass_queue(pc);
