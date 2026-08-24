@@ -5,6 +5,7 @@
 #include <semantics.h>
 #include <token.h>
 #include <type.h>
+#include <vm.h>
 #include <util.h>
 
 #include <ir_read.h>
@@ -73,9 +74,9 @@ int main(int arc, char *args[]) {
                         q_push(pc->first_pass_queue,
                                gen_tc(read_file(args[i])));
         } else {
-                // q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
-                // q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
-                q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
+                q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
+                q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
+                // q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
         }
 
         resolve_first_pass_queue(pc);
@@ -95,7 +96,8 @@ int main(int arc, char *args[]) {
 
         // print_bytes(irc);
 
-        read_ir(gen_ir_reader(irc));
+	struct VM *vm = gen_vm();
+        read_ir(vm, gen_ir_reader(irc));
 
         return 0;
 }

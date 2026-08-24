@@ -18,6 +18,8 @@
 #include <type.h>
 #include <util.h>
 
+#include <string.h>
+
 static struct Node *parse_term(struct ParserContext *pc);
 static struct Node *parse_simple_expression(struct ParserContext *pc);
 static struct Node *parse_unary_expression(struct ParserContext *pc);

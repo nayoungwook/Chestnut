@@ -3,9 +3,34 @@
 #include <stdint.h>
 #include <string.h>
 
+#define DEBUG
+#ifdef DEBUG
+#define DEBUG_PRINTF(...) printf(__VA_ARGS__)
+#define DEBUG_PUTCHAR(value) putchar(value)
+#define DEBUG_FPRINTF(...) fprintf(__VA_ARGS__)
+#else
+
+static void debug_printf(const char *format, ...) {
+        (void)format;
+}
+
+static void debug_putchar(int value) {
+        (void)value;
+}
+
+static void debug_fprintf(FILE *stream, const char *format, ...) {
+        (void)stream;
+        (void)format;
+}
+
+#define DEBUG_PRINTF(...) debug_printf(__VA_ARGS__)
+#define DEBUG_PUTCHAR(value) debug_putchar(value)
+#define DEBUG_FPRINTF(...) debug_fprintf(__VA_ARGS__)
+#endif
+
 struct IRReader *gen_ir_reader(struct IRContext *irc) {
         struct IRReader *reader =
-            (struct IRReader *)S_malloc(sizeof(struct IRReader));
+                (struct IRReader *)S_malloc(sizeof(struct IRReader));
         reader->bytes = irc->bytes;
         reader->irc = irc;
         reader->reader_cnt = 0;
@@ -32,10 +57,11 @@ static bool peek_byte(const struct IRReader *reader, byte *value) {
 }
 
 static bool read_u32(struct IRReader *reader, uint32_t *value) {
-        if (!has_bytes(reader, 4))
-                return false;
         uint32_t result = 0;
         int i;
+
+        if (!has_bytes(reader, 4))
+                return false;
         for (i = 0; i < 4; i++)
                 result |= (uint32_t)reader->bytes[reader->reader_cnt++] <<
                           (i * 8);
@@ -43,256 +69,344 @@ static bool read_u32(struct IRReader *reader, uint32_t *value) {
         return true;
 }
 
-static bool print_i32(struct IRReader *reader) {
+static int32_t read_i32(struct IRReader *reader, bool *ok) {
         uint32_t raw;
         int32_t value;
-        if (!read_u32(reader, &raw))
-                return false;
+
+        if (!read_u32(reader, &raw)) {
+                *ok = false;
+                return 0;
+        }
         memcpy(&value, &raw, sizeof(value));
-        printf("%d", value);
-        return true;
+        return value;
 }
 
-static bool print_f32(struct IRReader *reader) {
+static float read_f32(struct IRReader *reader, bool *ok) {
         uint32_t raw;
         float value;
-        if (!read_u32(reader, &raw))
-                return false;
+
+        if (!read_u32(reader, &raw)) {
+                *ok = false;
+                return 0.0f;
+        }
         memcpy(&value, &raw, sizeof(value));
-        printf("%.9g", value);
-        return true;
+        return value;
 }
 
-static bool print_f64(struct IRReader *reader) {
-        if (!has_bytes(reader, 8))
-                return false;
+static double read_f64(struct IRReader *reader, bool *ok) {
         uint64_t raw = 0;
         double value;
         int i;
+
+        if (!has_bytes(reader, 8)) {
+                *ok = false;
+                return 0.0;
+        }
         for (i = 0; i < 8; i++)
                 raw |= (uint64_t)reader->bytes[reader->reader_cnt++] <<
                        (i * 8);
         memcpy(&value, &raw, sizeof(value));
-        printf("%.17g", value);
-        return true;
+        return value;
 }
 
-static bool print_string(struct IRReader *reader) {
-        byte value;
-        while (read_byte(reader, &value)) {
-                if (value == '\0')
-                        return true;
-                putchar((char)value);
+static const char *read_string(struct IRReader *reader, bool *ok) {
+        const char *value = (const char *)&reader->bytes[reader->reader_cnt];
+        byte byte_value;
+
+        while (read_byte(reader, &byte_value)) {
+                if (byte_value == '\0')
+                        return value;
         }
-        return false;
+        *ok = false;
+        return NULL;
 }
 
 static bool reader_error(struct IRReader *reader, const char *message) {
-        fprintf(stderr, "IR read error at byte %u: %s\n", reader->reader_cnt,
-                message);
+        DEBUG_FPRINTF(stderr, "IR read error at byte %u: %s\n",
+                      reader->reader_cnt, message);
         return false;
 }
 
-static bool read_expr_op(byte opcode) {
+static bool unknown_opcode_error(struct IRReader *reader, byte opcode) {
+        DEBUG_FPRINTF(stderr, "IR read error at byte %u: unknown opcode 0x%02x\n",
+                      reader->reader_cnt - 1, opcode);
+        return false;
+}
+
+static const char *get_expr_op_name(byte opcode) {
         switch (opcode) {
-        case OP_ADD: printf("add"); break;
-        case OP_SUB: printf("sub"); break;
-        case OP_MUL: printf("mul"); break;
-        case OP_DIV: printf("div"); break;
-        case OP_EQUAL: printf("equal"); break;
-        case OP_NOTEQUAL: printf("notequal"); break;
-        case OP_GREATER: printf("greater"); break;
-        case OP_LESS: printf("less"); break;
-        case OP_EQUALGREATER: printf("eqgreater"); break;
-        case OP_EQUALLESS: printf("eqless"); break;
-        case OP_ASSIGN: printf("assign"); break;
-        case OP_OR: printf("or"); break;
-        case OP_AND: printf("and"); break;
-        default: return false;
+        case OP_ADD: return "add";
+        case OP_SUB: return "sub";
+        case OP_MUL: return "mul";
+        case OP_DIV: return "div";
+        case OP_EQUAL: return "equal";
+        case OP_NOTEQUAL: return "notequal";
+        case OP_GREATER: return "greater";
+        case OP_LESS: return "less";
+        case OP_EQUALGREATER: return "eqgreater";
+        case OP_EQUALLESS: return "eqless";
+        case OP_ASSIGN: return "assign";
+        case OP_OR: return "or";
+        case OP_AND: return "and";
+        default: return NULL;
         }
+}
+
+static bool read_i32_values(struct IRReader *reader, const char *name,
+                            unsigned count) {
+        int32_t values[5];
+        bool ok = true;
+        unsigned i;
+
+        for (i = 0; i < count; i++) {
+                values[i] = read_i32(reader, &ok);
+                if (!ok)
+                        return false;
+        }
+
+        DEBUG_PRINTF("%s", name);
+        for (i = 0; i < count; i++)
+                DEBUG_PRINTF(" %d", values[i]);
+        DEBUG_PUTCHAR('\n');
         return true;
-}
-
-static bool print_one_int(struct IRReader *reader, const char *name) {
-        printf("%s ", name);
-        return print_i32(reader);
-}
-
-static bool print_two_ints(struct IRReader *reader, const char *name) {
-        printf("%s ", name);
-        if (!print_i32(reader))
-                return false;
-        putchar(' ');
-        return print_i32(reader);
 }
 
 static bool read_instruction(struct IRReader *reader, byte opcode) {
         bool ok = true;
+
         switch (opcode) {
-        case OP_PUSH_NULL: printf("push_null"); break;
+        case OP_PUSH_NULL:
+                DEBUG_PRINTF("push_null\n");
+                break;
         case OP_EXPR_OP: {
+                const char *name;
                 byte expr_opcode;
+
                 if (!read_byte(reader, &expr_opcode))
                         return reader_error(reader, "truncated expression opcode");
-                if (!read_expr_op(expr_opcode))
+                name = get_expr_op_name(expr_opcode);
+                if (name == NULL)
                         return reader_error(reader, "unknown expression opcode");
+                DEBUG_PRINTF("%s\n", name);
                 break;
         }
 
-        case OP_SP_PUSH: ok = print_one_int(reader, "sp_push"); break;
-        case OP_SP_POP: ok = print_one_int(reader, "sp_pop"); break;
-        case OP_SP_LOAD: ok = print_two_ints(reader, "sp_load"); break;
-        case OP_SP_SAVE: ok = print_two_ints(reader, "sp_save"); break;
-        case OP_SP_INCRE: ok = print_two_ints(reader, "sp_incre"); break;
-        case OP_SP_DECRE: ok = print_two_ints(reader, "sp_decre"); break;
+        case OP_SP_PUSH: ok = read_i32_values(reader, "sp_push", 1); break;
+        case OP_SP_POP: ok = read_i32_values(reader, "sp_pop", 1); break;
+        case OP_SP_LOAD: ok = read_i32_values(reader, "sp_load", 2); break;
+        case OP_SP_SAVE: ok = read_i32_values(reader, "sp_save", 2); break;
+        case OP_SP_INCRE: ok = read_i32_values(reader, "sp_incre", 2); break;
+        case OP_SP_DECRE: ok = read_i32_values(reader, "sp_decre", 2); break;
 
-        case OP_LOAD_CLASS: ok = print_two_ints(reader, "load_class"); break;
-        case OP_INCRE_CLASS: ok = print_two_ints(reader, "incre_class"); break;
-        case OP_DECRE_CLASS: ok = print_two_ints(reader, "decre_class"); break;
-        case OP_SAVE_CLASS: ok = print_two_ints(reader, "save_class"); break;
-
-        case OP_LOAD_GLOBAL: ok = print_two_ints(reader, "load_global"); break;
-        case OP_INCRE_GLOBAL: ok = print_two_ints(reader, "incre_global"); break;
-        case OP_DECRE_GLOBAL: ok = print_two_ints(reader, "decre_global"); break;
-        case OP_SAVE_GLOBAL: ok = print_two_ints(reader, "save_global"); break;
-
-        case OP_LOAD_ATTR: ok = print_two_ints(reader, "load_attr"); break;
-        case OP_INCRE_ATTR: ok = print_two_ints(reader, "incre_attr"); break;
-        case OP_DECRE_ATTR: ok = print_two_ints(reader, "decre_attr"); break;
-        case OP_SAVE_ATTR: ok = print_two_ints(reader, "save_attr"); break;
-
-        case OP_SYSCALL: ok = print_two_ints(reader, "syscall"); break;
-        case OP_CALL: ok = print_two_ints(reader, "call"); break;
-        case OP_CALL_ATTR: ok = print_two_ints(reader, "call_attr"); break;
-        case OP_CALL_CLASS: ok = print_two_ints(reader, "call_class"); break;
-        case OP_CALL_GLOBAL: ok = print_two_ints(reader, "call_global"); break;
-        case OP_LOAD_STR: ok = print_one_int(reader, "load_str"); break;
-
-        case OP_RET: printf("ret"); break;
-        case OP_RET_VAL: printf("ret_val"); break;
-        case OP_GOTO: ok = print_one_int(reader, "goto"); break;
-        case OP_LABEL: ok = print_one_int(reader, "label"); break;
-        case OP_JE: ok = print_one_int(reader, "je"); break;
-        case OP_JNE: ok = print_one_int(reader, "jne"); break;
-
-        case OP_LDC_I4: ok = print_one_int(reader, "ldc_i4"); break;
-        case OP_LDC_F4:
-                printf("ldc_f4 ");
-                ok = print_f32(reader);
+        case OP_LOAD_CLASS:
+                ok = read_i32_values(reader, "load_class", 2);
                 break;
-        case OP_LDC_F8:
-                printf("ldc_f8 ");
-                ok = print_f64(reader);
+        case OP_INCRE_CLASS:
+                ok = read_i32_values(reader, "incre_class", 2);
                 break;
+        case OP_DECRE_CLASS:
+                ok = read_i32_values(reader, "decre_class", 2);
+                break;
+        case OP_SAVE_CLASS:
+                ok = read_i32_values(reader, "save_class", 2);
+                break;
+
+        case OP_LOAD_GLOBAL:
+                ok = read_i32_values(reader, "load_global", 2);
+                break;
+        case OP_INCRE_GLOBAL:
+                ok = read_i32_values(reader, "incre_global", 2);
+                break;
+        case OP_DECRE_GLOBAL:
+                ok = read_i32_values(reader, "decre_global", 2);
+                break;
+        case OP_SAVE_GLOBAL:
+                ok = read_i32_values(reader, "save_global", 2);
+                break;
+
+        case OP_LOAD_ATTR:
+                ok = read_i32_values(reader, "load_attr", 2);
+                break;
+        case OP_INCRE_ATTR:
+                ok = read_i32_values(reader, "incre_attr", 2);
+                break;
+        case OP_DECRE_ATTR:
+                ok = read_i32_values(reader, "decre_attr", 2);
+                break;
+        case OP_SAVE_ATTR:
+                ok = read_i32_values(reader, "save_attr", 2);
+                break;
+
+        case OP_SYSCALL: ok = read_i32_values(reader, "syscall", 2); break;
+        case OP_CALL: ok = read_i32_values(reader, "call", 2); break;
+        case OP_CALL_ATTR: ok = read_i32_values(reader, "call_attr", 2); break;
+        case OP_CALL_CLASS: ok = read_i32_values(reader, "call_class", 2); break;
+        case OP_CALL_GLOBAL:
+                ok = read_i32_values(reader, "call_global", 2);
+                break;
+        case OP_LOAD_STR: ok = read_i32_values(reader, "load_str", 1); break;
+
+        case OP_RET:
+                DEBUG_PRINTF("ret\n");
+                break;
+        case OP_RET_VAL:
+                DEBUG_PRINTF("ret_val\n");
+                break;
+        case OP_GOTO: ok = read_i32_values(reader, "goto", 1); break;
+        case OP_LABEL: ok = read_i32_values(reader, "label", 1); break;
+        case OP_JE: ok = read_i32_values(reader, "je", 1); break;
+        case OP_JNE: ok = read_i32_values(reader, "jne", 1); break;
+
+        case OP_LDC_I4:
+                ok = read_i32_values(reader, "ldc_i4", 1);
+                break;
+        case OP_LDC_F4: {
+                float value = read_f32(reader, &ok);
+
+                if (ok)
+                        DEBUG_PRINTF("ldc_f4 %.9g\n", value);
+                break;
+        }
+        case OP_LDC_F8: {
+                double value = read_f64(reader, &ok);
+
+                if (ok)
+                        DEBUG_PRINTF("ldc_f8 %.17g\n", value);
+                break;
+        }
 
         case OP_NEW_OBJECT:
-                printf("new_object ");
-                ok = print_i32(reader);
-                if (ok) { putchar(' '); ok = print_i32(reader); }
-                if (ok) { putchar(' '); ok = print_i32(reader); }
-                if (ok) { putchar(' '); ok = print_i32(reader); }
-                if (ok) { putchar(' '); ok = print_i32(reader); }
+                ok = read_i32_values(reader, "new_object", 5);
                 break;
-        case OP_NEW_ARRAY: ok = print_two_ints(reader, "new_array"); break;
-        case OP_ARRAY_LOAD: ok = print_one_int(reader, "array_load"); break;
-        case OP_ARRAY_SAVE: ok = print_one_int(reader, "array_save"); break;
-        case OP_ARRAY_LENGTH: printf("array_length"); break;
-        case OP_ARRAY_PUSH: ok = print_two_ints(reader, "array_push"); break;
-        case OP_ARRAY_REMOVE: ok = print_two_ints(reader, "array_remove"); break;
+        case OP_NEW_ARRAY:
+                ok = read_i32_values(reader, "new_array", 2);
+                break;
+        case OP_ARRAY_LOAD:
+                ok = read_i32_values(reader, "array_load", 1);
+                break;
+        case OP_ARRAY_SAVE:
+                ok = read_i32_values(reader, "array_save", 1);
+                break;
+        case OP_ARRAY_LENGTH:
+                DEBUG_PRINTF("array_length\n");
+                break;
+        case OP_ARRAY_PUSH:
+                ok = read_i32_values(reader, "array_push", 2);
+                break;
+        case OP_ARRAY_REMOVE:
+                ok = read_i32_values(reader, "array_remove", 2);
+                break;
 
         default:
-                fprintf(stderr, "IR read error at byte %u: unknown opcode 0x%02x\n",
-                        reader->reader_cnt - 1, opcode);
-                return false;
+                return unknown_opcode_error(reader, opcode);
         }
 
         if (!ok)
                 return reader_error(reader, "truncated instruction operand");
-        putchar('\n');
         return true;
 }
 
-static bool read_meta_block(struct IRReader *reader) {
+static bool read_meta_block(struct VM *vm, struct IRReader *reader) {
         byte kind;
+        bool ok = true;
+        int32_t id;
+        const char *name;
+
+        (void)vm;
+
         if (!read_byte(reader, &kind))
                 return reader_error(reader, "truncated metadata block");
 
         switch (kind) {
         case META_CLASS: {
-                printf("[class] ");
-                if (!print_i32(reader) || (putchar(' '), !print_string(reader)))
-                        return reader_error(reader, "truncated class metadata");
-                printf(" {\n");
                 byte next;
+
+                id = read_i32(reader, &ok);
+                name = ok ? read_string(reader, &ok) : NULL;
+                if (!ok)
+                        return reader_error(reader, "truncated class metadata");
+                DEBUG_PRINTF("[class] %d %s {\n", id, name);
                 while (peek_byte(reader, &next) && next != META_TERM)
-                        if (!read_meta_block(reader))
+                        if (!read_meta_block(vm, reader))
                                 return false;
                 if (!read_byte(reader, &next) || next != META_TERM)
                         return reader_error(reader, "unterminated class metadata");
-                printf("}\n\n");
+                DEBUG_PRINTF("}\n\n");
                 return true;
         }
-        case META_FUNC:
-                printf("[function] ");
-                if (!print_i32(reader) || (putchar(' '), !print_string(reader)) ||
-                    (putchar(' '), !print_string(reader)))
+        case META_FUNC: {
+                const char *return_type;
+
+                id = read_i32(reader, &ok);
+                name = ok ? read_string(reader, &ok) : NULL;
+                return_type = ok ? read_string(reader, &ok) : NULL;
+                if (!ok)
                         return reader_error(reader, "truncated function metadata");
-                putchar('\n');
+                DEBUG_PRINTF("[function] %d %s %s\n", id, name, return_type);
                 return true;
+        }
         case META_CONSTRUCTOR:
-                printf("[constructor] ");
-                if (!print_i32(reader) || (putchar(' '), !print_string(reader)))
+                id = read_i32(reader, &ok);
+                name = ok ? read_string(reader, &ok) : NULL;
+                if (!ok)
                         return reader_error(reader, "truncated constructor metadata");
-                putchar('\n');
+                DEBUG_PRINTF("[constructor] %d %s\n", id, name);
                 return true;
-        case META_VAR:
-                printf("[variable] ");
-                if (!print_i32(reader) || (putchar(' '), !print_string(reader)) ||
-                    (putchar(' '), !print_string(reader)))
+        case META_VAR: {
+                const char *type;
+
+                id = read_i32(reader, &ok);
+                name = ok ? read_string(reader, &ok) : NULL;
+                type = ok ? read_string(reader, &ok) : NULL;
+                if (!ok)
                         return reader_error(reader, "truncated variable metadata");
-                putchar('\n');
+                DEBUG_PRINTF("[variable] %d %s %s\n", id, name, type);
                 return true;
+        }
         default:
                 return reader_error(reader, "unknown metadata block");
         }
 }
 
-static bool read_meta(struct IRReader *reader) {
-        printf("----- meta begin -----\n");
+static bool read_meta(struct VM *vm, struct IRReader *reader) {
         byte next;
+
+        DEBUG_PRINTF("----- meta begin -----\n");
         while (peek_byte(reader, &next) && next != META_END)
-                if (!read_meta_block(reader))
+                if (!read_meta_block(vm, reader))
                         return false;
         if (!read_byte(reader, &next) || next != META_END)
                 return reader_error(reader, "unterminated metadata section");
-        printf("----- meta end -----\n\n");
+        DEBUG_PRINTF("----- meta end -----\n\n");
         return true;
 }
 
 static bool read_function(struct IRReader *reader) {
-        printf("func ");
-        if (!print_i32(reader))
-                return reader_error(reader, "truncated function id");
-        printf(":\n");
-
+        bool ok = true;
+        int32_t id = read_i32(reader, &ok);
         byte next;
+
+        if (!ok)
+                return reader_error(reader, "truncated function id");
+        DEBUG_PRINTF("func %d:\n", id);
         while (peek_byte(reader, &next) && next != CODE_TERM) {
                 if (!read_byte(reader, &next) || !read_instruction(reader, next))
                         return false;
         }
         if (!read_byte(reader, &next) || next != CODE_TERM)
                 return reader_error(reader, "unterminated function code");
-        putchar('\n');
+        DEBUG_PUTCHAR('\n');
         return true;
 }
 
 static bool read_class(struct IRReader *reader) {
-        printf("class ");
-        if (!print_i32(reader))
-                return reader_error(reader, "truncated class id");
-        printf(":\n");
-
+        bool ok = true;
+        int32_t id = read_i32(reader, &ok);
         byte next;
+
+        if (!ok)
+                return reader_error(reader, "truncated class id");
+        DEBUG_PRINTF("class %d:\n", id);
         while (peek_byte(reader, &next) && next != CODE_TERM) {
                 if (!read_byte(reader, &next))
                         return reader_error(reader, "truncated class code");
@@ -305,13 +419,14 @@ static bool read_class(struct IRReader *reader) {
         }
         if (!read_byte(reader, &next) || next != CODE_TERM)
                 return reader_error(reader, "unterminated class code");
-        putchar('\n');
+        DEBUG_PUTCHAR('\n');
         return true;
 }
 
 static bool read_code(struct IRReader *reader) {
-        printf("---- code begin ----\n");
         byte kind;
+
+        DEBUG_PRINTF("---- code begin ----\n");
         while (peek_byte(reader, &kind) && kind != CODE_END) {
                 if (!read_byte(reader, &kind))
                         return reader_error(reader, "truncated code block");
@@ -327,40 +442,54 @@ static bool read_code(struct IRReader *reader) {
         }
         if (!read_byte(reader, &kind) || kind != CODE_END)
                 return reader_error(reader, "unterminated code section");
-        printf("---- code end ----\n\n");
+        DEBUG_PRINTF("---- code end ----\n\n");
         return true;
 }
 
 static bool read_rodata(struct IRReader *reader) {
-        printf("---- rodata begin ----\n");
         byte kind;
+
+        DEBUG_PRINTF("---- rodata begin ----\n");
         while (peek_byte(reader, &kind) && kind != RODATA_END) {
+                bool ok = true;
+                int32_t id;
+                const char *value;
+
                 if (!read_byte(reader, &kind))
                         return reader_error(reader, "truncated rodata block");
                 if (kind != RODATA_STR)
                         return reader_error(reader, "unknown rodata block");
-                printf("str : ");
-                if (!print_i32(reader) || (putchar(' '), !print_string(reader)))
+                id = read_i32(reader, &ok);
+                value = ok ? read_string(reader, &ok) : NULL;
+                if (!ok)
                         return reader_error(reader, "truncated string rodata");
-                putchar('\n');
+                DEBUG_PRINTF("str : %d %s\n", id, value);
         }
         if (!read_byte(reader, &kind) || kind != RODATA_END)
                 return reader_error(reader, "unterminated rodata section");
-        printf("---- rodata end ----\n\n");
+        DEBUG_PRINTF("---- rodata end ----\n\n");
         return true;
 }
 
-void read_ir(struct IRReader *reader) {
+void read_ir(struct VM *vm, struct IRReader *reader) {
         assert(reader != NULL);
         assert(reader->irc != NULL);
 
-        byte section;
-        while (read_byte(reader, &section)) {
+        while (has_bytes(reader, 1)) {
                 bool ok;
+                byte section;
+
+                read_byte(reader, &section);
                 switch (section) {
-                case META_BEGIN: ok = read_meta(reader); break;
-                case CODE_BEGIN: ok = read_code(reader); break;
-                case RODATA_BEGIN: ok = read_rodata(reader); break;
+                case META_BEGIN:
+                        ok = read_meta(vm, reader);
+                        break;
+                case CODE_BEGIN:
+                        ok = read_code(reader);
+                        break;
+                case RODATA_BEGIN:
+                        ok = read_rodata(reader);
+                        break;
                 default:
                         reader_error(reader, "unknown IR section");
                         return;

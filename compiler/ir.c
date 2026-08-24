@@ -2,6 +2,7 @@
 #include <ir.h>
 #include <parser.h>
 #include <util.h>
+#include <string.h>
 
 struct IRContext *gen_irc() {
         struct IRContext *irc =

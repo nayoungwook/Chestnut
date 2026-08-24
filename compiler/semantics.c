@@ -1,9 +1,11 @@
-#include "token.h"
+#include <token.h>
 #include <type.h>
 #include <semantics.h>
 #include <parser.h>
 #include <error.h>
+
 #include <stdbool.h>
+#include <string.h>
 
 static struct FuncData *find_member_func_data(struct ParserContext *pc,
                                                struct ClassData *attr_of,

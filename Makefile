@@ -24,4 +24,3 @@ $(TARGET)$(EXE): $(OBJS) $(COMPILER_OBJS) $(VM_OBJS)
 
 clean:
 	$(RM) $(OBJS) $(COMPILER_OBJS) $(VM_OBJS) $(TARGET)$(EXE)
- 

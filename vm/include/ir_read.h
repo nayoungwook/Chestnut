@@ -3,6 +3,8 @@
 
 #include <ir.h>
 
+struct VM;
+
 struct IRReader {
         struct IRContext *irc;
         const byte *bytes;
@@ -11,6 +13,6 @@ struct IRReader {
 
 struct IRReader *gen_ir_reader(struct IRContext *irc);
 
-void read_ir(struct IRReader *ir_reader);
+void read_ir(struct VM *vm, struct IRReader *ir_reader);
 
 #endif
