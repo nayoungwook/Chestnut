@@ -85,6 +85,8 @@ static void emit_double(struct IRContext *irc, double d) {
 
 static void gen_func_metadata(struct IRContext *irc, struct ParserContext *pc,
                               struct FuncData *fd) {
+	unsigned i;
+
         if (fd->is_constructor) {
                 emit_byte(irc, META_CONSTRUCTOR);
         } else {
@@ -97,6 +99,10 @@ static void gen_func_metadata(struct IRContext *irc, struct ParserContext *pc,
         if (!fd->is_constructor) {
                 emit_str(irc, fd->return_type->type_str);
         }
+
+	emit_int(irc, fd->arg_count);
+	for (i = 0; i < fd->arg_count; i++)
+		emit_str(irc, fd->arg_types[i]->type_str);
 }
 
 static void gen_var_metadata(struct IRContext *irc, struct ParserContext *pc,
@@ -114,6 +120,9 @@ static void gen_class_metadata(struct IRContext *irc, struct ParserContext *pc,
 
         emit_int(irc, cd->id);
         emit_str(irc, cd->class_type->type_str);
+	emit_int(irc, cd->parent_type == NULL ? 0 :
+		 cd->parent_type->data.class_data->id);
+	emit_int(irc, cd->instance_size);
 
         int i;
         for (i = 0; i < HTABLE_BUFF; i++) {

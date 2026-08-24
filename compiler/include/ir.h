@@ -16,16 +16,19 @@
 
 #define META_TERM 0x03
 
-// META_CLASS class_id(uint) class_str(char*) [contents] META_TERM
+// META_CLASS class_id(uint) class_str(char*) parent_id(uint) size(uint)
+//            [contents] META_TERM
 #define META_CLASS 0x04
 
 // META_FUNC func_id(uint) func_str(char*) return_type(char*)
+//           arg_count(uint) arg_types(char* ...)
 #define META_FUNC 0x05
 
 // META_VAR var_id(uint) var_str(char*)
 #define META_VAR 0x06
 
 // META_CONSTRUCTOR func_id(uint) func_str(char*)
+//                  arg_count(uint) arg_types(char* ...)
 #define META_CONSTRUCTOR 0X07
 
 #define CODE_BEGIN 0x51 // begining of code section
