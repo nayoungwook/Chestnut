@@ -11,7 +11,6 @@ SRC = $(wildcard src/*.c)
 OBJS = $(SRC:.c=.o)
 
 TARGET = chestnut
-CLEAN_FILES = $(subst /,\,$(OBJS) $(COMPILER_OBJS) $(VM_OBJS) $(TARGET)$(EXE))
 
 all: $(TARGET)$(EXE)
 
@@ -24,4 +23,5 @@ $(TARGET)$(EXE): $(OBJS) $(COMPILER_OBJS) $(VM_OBJS)
 .PHONY: clean
 
 clean:
-	@cmd /Q /C "for %%F in ($(CLEAN_FILES)) do if exist %%F del /Q /F %%F"
+	$(RM) $(OBJS) $(COMPILER_OBJS) $(VM_OBJS) $(TARGET)$(EXE)
+ 
