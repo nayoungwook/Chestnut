@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 
@@ -79,6 +79,7 @@ static int32_t read_i32(struct IRReader *reader, bool *ok) {
                 *ok = false;
                 return 0;
         }
+
         memcpy(&value, &raw, sizeof(value));
         return value;
 }
@@ -258,6 +259,7 @@ static bool read_instruction(struct IRReader *reader, byte opcode) {
         case OP_LABEL: ok = read_i32_values(reader, "label", 1); break;
         case OP_JE: ok = read_i32_values(reader, "je", 1); break;
         case OP_JNE: ok = read_i32_values(reader, "jne", 1); break;
+        case OP_NEG: DEBUG_PRINTF("neg\n"); break;
 
         case OP_LDC_I4:
                 ok = read_i32_values(reader, "ldc_i4", 1);
@@ -298,7 +300,6 @@ static bool read_instruction(struct IRReader *reader, byte opcode) {
         case OP_ARRAY_REMOVE:
                 ok = read_i32_values(reader, "array_remove", 2);
                 break;
-
         default:
                 return unknown_opcode_error(reader, opcode);
         }
@@ -444,6 +445,7 @@ static bool read_function(struct VM *vm, struct IRReader *reader,
 
         if (!ok || id < 0)
                 return reader_error(reader, "invalid function id");
+
         function_data = vm_find_function_data(vm, owner, (unsigned)id);
         if (function_data == NULL)
                 return reader_error(reader,
@@ -455,11 +457,14 @@ static bool read_function(struct VM *vm, struct IRReader *reader,
                 if (!read_byte(reader, &next) || !read_instruction(reader, next))
                         return false;
         }
+
         code_size = reader->reader_cnt - code_begin;
         if (!read_byte(reader, &next) || next != CODE_TERM)
                 return reader_error(reader, "unterminated function code");
+
         vm_set_function_code(function_data, &reader->bytes[code_begin],
                              code_size);
+
         DEBUG_PUTCHAR('\n');
         return true;
 }
@@ -500,6 +505,7 @@ static bool read_code(struct VM *vm, struct IRReader *reader) {
         while (peek_byte(reader, &kind) && kind != CODE_END) {
                 if (!read_byte(reader, &kind))
                         return reader_error(reader, "truncated code block");
+
                 if (kind == CODE_CLASS) {
                         if (!read_class(vm, reader))
                                 return false;
@@ -510,8 +516,10 @@ static bool read_code(struct VM *vm, struct IRReader *reader) {
                         return reader_error(reader, "unknown top-level code block");
                 }
         }
+
         if (!read_byte(reader, &kind) || kind != CODE_END)
                 return reader_error(reader, "unterminated code section");
+
         DEBUG_PRINTF("---- code end ----\n\n");
         return true;
 }

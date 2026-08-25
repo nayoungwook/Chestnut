@@ -74,8 +74,13 @@ struct VMFunctionData *vm_add_function_data(struct VM *vm,
 	function_data->code = NULL;
 	function_data->code_size = 0;
 
+	if (strcmp(name, "main") == 0) {
+		vm->main_func_id = id;
+	}
+
 	function_data->argument_types = argument_count == 0 ? NULL :
 		(const char **)S_malloc(sizeof(char *) * argument_count);
+
 	for (i = 0; i < argument_count; i++)
 		function_data->argument_types[i] = copy_string(argument_types[i]);
 
@@ -86,6 +91,7 @@ struct VMFunctionData *vm_add_function_data(struct VM *vm,
 				vm->function_data, sizeof(struct VMFunctionData *) *
 				vm->function_data_capacity);
 		}
+
 		vm->function_data[vm->function_data_count++] = function_data;
 	} else {
 		if (owner->function_data_count ==
@@ -95,9 +101,11 @@ struct VMFunctionData *vm_add_function_data(struct VM *vm,
 				owner->function_data, sizeof(FunctionData *) *
 				owner->function_data_capacity);
 		}
+
 		owner->function_data[owner->function_data_count++] =
 			function_data;
 	}
+
 	return function_data;
 }
 
@@ -115,6 +123,7 @@ struct VMFunctionData *vm_find_function_data(const struct VM *vm,
 					unsigned id) {
 	struct VMFunctionData **items = owner == NULL ? vm->function_data :
 		owner->function_data;
+
 	unsigned count = owner == NULL ? vm->function_data_count :
 		owner->function_data_count;
 	unsigned i;
@@ -130,6 +139,7 @@ void vm_set_function_code(struct VMFunctionData *function_data,
 	function_data->code_size = code_size;
 	function_data->code = code_size == 0 ? NULL :
 		(unsigned char *)S_malloc(code_size);
+
 	if (code_size != 0)
 		memcpy(function_data->code, code, code_size);
 }

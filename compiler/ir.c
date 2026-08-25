@@ -891,9 +891,8 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
         case AST_Return: {
                 struct ReturnAST *ret_ast = (struct ReturnAST *)node->ast;
 
-		if (ret_ast->expr == NULL)
-			;
-		else {
+		if (ret_ast->expr == NULL){
+		} else {
 			gen_node_ir(irc, pc, ret_ast->expr);
 		}
 		if (irc->current_stack_size != 0) {
@@ -903,6 +902,15 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 		emit_byte(irc, ret_ast->expr == NULL ? OP_RET : OP_RET_VAL);
                 break;
         }
+
+	case AST_Negative: {
+		struct NegAST *neg_ast = (struct NegAST *) node->ast;
+
+		gen_node_ir(irc, pc, neg_ast->ast);
+
+		emit_byte(irc, OP_NEG);
+		break;
+	}
 
         case AST_FunctionDeclaration: {
                 struct FuncDeclAST *func_decl_ast =

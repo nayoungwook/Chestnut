@@ -73,6 +73,8 @@
 #define OP_JE 0x75   // je label(uint)
 #define OP_JNE 0x76  // jne label(uint)
 
+#define OP_NEG 0x77 // neg
+
 // --------------------------
 // ** Binary expression **
 // --------------------------

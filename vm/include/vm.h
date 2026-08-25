@@ -12,6 +12,8 @@ struct VM {
 
 	struct VMFunctionData **function_data;
 	unsigned function_data_count, function_data_capacity;
+
+	unsigned main_func_id;
 };
 
 struct VM *gen_vm();
