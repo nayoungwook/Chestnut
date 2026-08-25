@@ -9,6 +9,7 @@
 
 #include <vm.h>
 #include <ir_read.h>
+#include <code_data.h>
 
 #include <assert.h>
 #include <locale.h>
@@ -74,9 +75,9 @@ int main(int arc, char *args[]) {
                         q_push(pc->first_pass_queue,
                                gen_tc(read_file(args[i])));
         } else {
-                //q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
-                //q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
-		q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
+                q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
+                q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
+		// q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
         }
 
         resolve_first_pass_queue(pc);
@@ -99,5 +100,10 @@ int main(int arc, char *args[]) {
 	struct VM *vm = gen_vm();
         read_ir(vm, gen_ir_reader(irc));
 
+        struct VMFunctionData *func_data =
+            vm_find_function_data(vm, NULL, vm->main_func_id);
+
+	vm_exec_function(vm, func_data);
+        
         return 0;
 }

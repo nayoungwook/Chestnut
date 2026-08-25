@@ -143,3 +143,13 @@ void vm_set_function_code(struct VMFunctionData *function_data,
 	if (code_size != 0)
 		memcpy(function_data->code, code, code_size);
 }
+
+void vm_exec_function(const struct VM *vm,
+                      struct VMFunctionData *function_data) {
+        unsigned pc = 0;
+
+	for(pc = 0; pc < function_data->code_size; pc++){
+                char instruction = (char)*(function_data->code + pc);
+		printf("%x\n", instruction);
+	}                    
+}        

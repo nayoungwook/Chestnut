@@ -34,4 +34,6 @@ struct VMFunctionData *vm_find_function_data(const struct VM *vm,
 void vm_set_function_code(struct VMFunctionData *function_data,
 		       const unsigned char *code, unsigned code_size);
 
+void vm_exec_function(const struct VM* vm, struct VMFunctionData *function_data);
+
 #endif
