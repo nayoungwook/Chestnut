@@ -164,6 +164,7 @@ static void get_str_literal(struct TokenizerContext *tc, char *str,
 
         while (true) {
                 char ch = *(tc->cur_ch);
+
                 if (ch == '\0') {
                         panic("Unterminaled string literal", tc);
                 }
@@ -171,14 +172,49 @@ static void get_str_literal(struct TokenizerContext *tc, char *str,
                         tc->cur_ch++;
                         break;
                 }
+
+                if (ch == '\\') {
+                        tc->cur_ch++;
+                        ch = *(tc->cur_ch);
+
+                        switch (ch) {
+                        case 'n': {
+                                ch = '\n';
+                                break;
+                        }
+                        case 'r': {
+                                ch = '\r';
+                                break;
+                        }
+                        case 't': {
+                                ch = '\t';
+                                break;
+                        }
+                        case '\\': {
+                                ch = '\\';
+                                break;
+                        }
+                        case '\"': {
+                                ch = '\"';
+                                break;
+                        }
+                        case '\0': {
+                                panic("Unterminaled string escape", tc);
+                                break;
+                        }
+                        default: {
+                                panic("Unknown string escape sequence", tc);
+                                break;
+                        }
+                        }
+                }
+
                 if (*str_len >= MAX_TOKEN_STR - 1)
                         panic("String literal buffer overflow.", tc);
 
                 str[(*str_len)++] = ch;
                 tc->cur_ch++;
         }
-
-        str[(*str_len)++] = '\"';
 }
 
 static struct Token *gen_sc_token(struct TokenizerContext *tc) {
@@ -194,6 +230,7 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
         switch (ch) {
         case '\"': {
                 type = TokStringLiteral;
+                str_len = 0;
                 get_str_literal(tc, str, &str_len);
                 break;
         }

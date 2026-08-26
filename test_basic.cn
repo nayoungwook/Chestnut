@@ -1,16 +1,19 @@
 
 func main(): void {
      print("Hello, World!\n");
-
      for(var i:int =0; i<10; i++){
-     	     print(i);
+     	     print(i, "\n");
      }
 
      var k: int = 3;
+     var f: float = 3.5f;
+     var sum: float = f + k;
 
      if(k == 3){
       	  print("K is three!\n");
      }else{
-     	print("K is not three.");
+     	print("K is not three.\n");
      }
+
+	print(sum);
 }

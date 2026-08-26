@@ -38,7 +38,7 @@
 
 #define CODE_CLASS 0x54 // CODE_CLASS class_id(uint)
 
-#define CODE_FUNC 0x55 // CODE_FUNC func_id(uint)
+#define CODE_FUNC 0x55 // CODE_FUNC func_id(uint) code_size(uint) code(bytes)
 
 #define RODATA_BEGIN 0x11
 #define RODATA_END 0x12

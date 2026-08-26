@@ -63,6 +63,17 @@ static void emit_int(struct IRContext *irc, int si) {
         }
 }
 
+static void patch_int(struct IRContext *irc, unsigned offset, int si) {
+        unsigned i;
+
+        assert(offset <= irc->byte_cnt &&
+               sizeof(int) <= irc->byte_cnt - offset);
+        for (i = 0; i < sizeof(int); i++) {
+                irc->bytes[offset + i] = (byte)(si & 0xFF);
+                si >>= 8;
+        }
+}
+
 static void emit_float(struct IRContext *irc, float f) {
         unsigned fb; // bit data of float.
         memcpy(&fb, &f, sizeof(float));
@@ -521,10 +532,10 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
         case AST_StringLiteral: {
                 struct StringLiteralAST *str_lit_ast =
                     (struct StringLiteralAST *)node->ast;
-
+		
                 struct RODATA_Str *rodata =
-                    add_str_rodata(irc, str_lit_ast->str_tok->str);
-
+			add_str_rodata(irc, str_lit_ast->str_tok->str);
+		
                 emit_byte(irc, OP_LOAD_STR);
                 emit_int(irc, rodata->id);
 
@@ -752,7 +763,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 }
 
                 int i;
-                for (i = 0; i < func_call_ast->param_count; i++) {
+                for (i = func_call_ast->param_count - 1; i >= 0; i--) {
                         gen_node_ir(irc, pc, func_call_ast->params[i]);
                 }
 
@@ -855,11 +866,16 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 struct FuncData *func_data = constructor_ast->func_data;
                 unsigned total_stack_size =
                     get_total_stack_size_of_constructor(pc, constructor_ast);
+		unsigned code_size_offset;
+		unsigned code_begin;
 		irc->current_func = func_data;
 		irc->current_stack_size = total_stack_size;
 
                 emit_byte(irc, CODE_FUNC);
                 emit_int(irc, func_data->id);
+		code_size_offset = irc->byte_cnt;
+		emit_int(irc, 0);
+		code_begin = irc->byte_cnt;
 
                 if (total_stack_size != 0) {
                         emit_byte(irc, OP_SP_PUSH);
@@ -881,6 +897,8 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
                 if (!has_terminal_return)
 			emit_byte(irc, OP_RET);
+		patch_int(irc, code_size_offset,
+			  (int)(irc->byte_cnt - code_begin));
                 emit_byte(irc, CODE_TERM);
 		irc->current_func = NULL;
 		irc->current_stack_size = 0;
@@ -920,11 +938,16 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
                 unsigned total_stack_size =
                     get_total_stack_size_of_func(pc, func_decl_ast);
+		unsigned code_size_offset;
+		unsigned code_begin;
 		irc->current_func = func_data;
 		irc->current_stack_size = total_stack_size;
 
                 emit_byte(irc, CODE_FUNC);
                 emit_int(irc, func_data->id);
+		code_size_offset = irc->byte_cnt;
+		emit_int(irc, 0);
+		code_begin = irc->byte_cnt;
 
                 if (total_stack_size != 0) {
                         emit_byte(irc, OP_SP_PUSH);
@@ -949,6 +972,8 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 if (!has_terminal_return)
 			emit_byte(irc, OP_RET);
 
+		patch_int(irc, code_size_offset,
+			  (int)(irc->byte_cnt - code_begin));
                 emit_byte(irc, CODE_TERM);
 		irc->current_func = NULL;
 		irc->current_stack_size = 0;
