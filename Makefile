@@ -11,6 +11,13 @@ SRC = $(wildcard src/*.c)
 OBJS = $(SRC:.c=.o)
 
 TARGET = chestnut
+CLEAN_FILES = $(OBJS) $(COMPILER_OBJS) $(VM_OBJS) $(TARGET)$(EXE)
+
+ifeq ($(OS),Windows_NT)
+EXE = .exe
+else
+EXE =
+endif
 
 all: $(TARGET)$(EXE)
 
@@ -23,4 +30,8 @@ $(TARGET)$(EXE): $(OBJS) $(COMPILER_OBJS) $(VM_OBJS)
 .PHONY: clean
 
 clean:
-	rm -f $(OBJS) $(COMPILER_OBJS) $(VM_OBJS) $(TARGET)$(EXE)
+ifeq ($(OS),Windows_NT)
+	cmd /C "for %%f in ($(subst /,\,$(CLEAN_FILES))) do @if exist %%f del /Q %%f"
+else
+	rm -f $(CLEAN_FILES)
+endif
