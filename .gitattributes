@@ -1,0 +1,5 @@
+# Keep text files consistent across Windows, macOS, and Linux.
+* text=auto eol=lf
+
+# Compiled Chestnut bytecode is binary.
+*.cb binary

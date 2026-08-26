@@ -14,5 +14,7 @@ struct IRReader {
 struct IRReader *gen_ir_reader(struct IRContext *irc);
 
 void read_ir(struct VM *vm, struct IRReader *ir_reader);
+bool read_instruction(struct VM *vm, struct IRReader *reader, byte opcode,
+                      bool exec);
 
 #endif

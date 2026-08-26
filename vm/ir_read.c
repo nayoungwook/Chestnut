@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 
@@ -156,8 +156,7 @@ static const char *get_expr_op_name(byte opcode) {
 }
 
 static bool read_i32_values(struct IRReader *reader, const char *name,
-                            unsigned count) {
-        int32_t values[5];
+                            int32_t *values, unsigned count) {
         bool ok = true;
         unsigned i;
 
@@ -170,105 +169,242 @@ static bool read_i32_values(struct IRReader *reader, const char *name,
         DEBUG_PRINTF("%s", name);
         for (i = 0; i < count; i++)
                 DEBUG_PRINTF(" %d", values[i]);
+
         DEBUG_PUTCHAR('\n');
+
         return true;
 }
 
-static bool read_instruction(struct IRReader *reader, byte opcode) {
+static void handle_syscall(struct VM *vm, int id, int argc){
+	switch(id){
+	case 0: // print
+
+		int i;
+		for(i=0; i<argc; i++){
+			//struct VMOperand op = vm_stack_pop(vm->vm_stack);
+		}
+		
+		break;
+
+	default:
+		assert(false && "Syscall not implemented.");
+	}
+}
+
+bool read_instruction(struct VM *vm, struct IRReader *reader, byte opcode,
+                      bool exec) {
+        int32_t arguments[5] = {0};
         bool ok = true;
 
+	assert(vm->vm_stack != NULL);
+	
         switch (opcode) {
-        case OP_PUSH_NULL:
+        case OP_PUSH_NULL: {
                 DEBUG_PRINTF("push_null\n");
+
+		struct VMOperand null_op = {OPRND_NULL, 0};
+		vm_stack_push(vm->vm_stack, null_op);
+
                 break;
+        }
+
         case OP_EXPR_OP: {
                 const char *name;
                 byte expr_opcode;
 
                 if (!read_byte(reader, &expr_opcode))
                         return reader_error(reader, "truncated expression opcode");
+		
                 name = get_expr_op_name(expr_opcode);
+
                 if (name == NULL)
                         return reader_error(reader, "unknown expression opcode");
                 DEBUG_PRINTF("%s\n", name);
+
                 break;
         }
 
-        case OP_SP_PUSH: ok = read_i32_values(reader, "sp_push", 1); break;
-        case OP_SP_POP: ok = read_i32_values(reader, "sp_pop", 1); break;
-        case OP_SP_LOAD: ok = read_i32_values(reader, "sp_load", 2); break;
-        case OP_SP_SAVE: ok = read_i32_values(reader, "sp_save", 2); break;
-        case OP_SP_INCRE: ok = read_i32_values(reader, "sp_incre", 2); break;
-        case OP_SP_DECRE: ok = read_i32_values(reader, "sp_decre", 2); break;
+        case OP_SP_PUSH: {
+                ok = read_i32_values(reader, "sp_push", arguments, 1);
 
-        case OP_LOAD_CLASS:
-                ok = read_i32_values(reader, "load_class", 2);
+		unsigned amount = arguments[0];
+		vm->stack_pointer += amount;
+		
                 break;
-        case OP_INCRE_CLASS:
-                ok = read_i32_values(reader, "incre_class", 2);
-                break;
-        case OP_DECRE_CLASS:
-                ok = read_i32_values(reader, "decre_class", 2);
-                break;
-        case OP_SAVE_CLASS:
-                ok = read_i32_values(reader, "save_class", 2);
-                break;
+        }
+        case OP_SP_POP: {
+                ok = read_i32_values(reader, "sp_pop", arguments, 1);
 
-        case OP_LOAD_GLOBAL:
-                ok = read_i32_values(reader, "load_global", 2);
+		unsigned amount = arguments[0];
+		vm->stack_pointer -= amount;
+		
                 break;
-        case OP_INCRE_GLOBAL:
-                ok = read_i32_values(reader, "incre_global", 2);
-                break;
-        case OP_DECRE_GLOBAL:
-                ok = read_i32_values(reader, "decre_global", 2);
-                break;
-        case OP_SAVE_GLOBAL:
-                ok = read_i32_values(reader, "save_global", 2);
-                break;
+        }
+        case OP_SP_LOAD: {
+                ok = read_i32_values(reader, "sp_load", arguments, 2);
+		
+		int offset = arguments[0];
+		size_t size = (size_t) arguments[1];
+		int64_t val = 0;
+		enum VMOPType op_type = (enum VMOPType) vm->stack_pointer_type[offset];
+		
+		struct VMOperand op = {op_type, val};
 
-        case OP_LOAD_ATTR:
-                ok = read_i32_values(reader, "load_attr", 2);
+		memcpy(&val, vm->stack_pointer + offset, size);
+		vm_stack_push(vm->vm_stack, op);
+			      
                 break;
-        case OP_INCRE_ATTR:
-                ok = read_i32_values(reader, "incre_attr", 2);
-                break;
-        case OP_DECRE_ATTR:
-                ok = read_i32_values(reader, "decre_attr", 2);
-                break;
-        case OP_SAVE_ATTR:
-                ok = read_i32_values(reader, "save_attr", 2);
-                break;
+        }
+        case OP_SP_SAVE: {
+                ok = read_i32_values(reader, "sp_save", arguments, 2);
 
-        case OP_SYSCALL: ok = read_i32_values(reader, "syscall", 2); break;
-        case OP_CALL: ok = read_i32_values(reader, "call", 2); break;
-        case OP_CALL_ATTR: ok = read_i32_values(reader, "call_attr", 2); break;
-        case OP_CALL_CLASS: ok = read_i32_values(reader, "call_class", 2); break;
-        case OP_CALL_GLOBAL:
-                ok = read_i32_values(reader, "call_global", 2);
-                break;
-        case OP_LOAD_STR: ok = read_i32_values(reader, "load_str", 1); break;
+		struct VMOperand val = vm_stack_pop(vm->vm_stack);
 
-        case OP_RET:
+		int offset = arguments[0];
+		size_t size = (size_t) arguments[1];
+		
+		memcpy(vm->stack_pointer + offset, &val.val, size);
+		vm->stack_pointer_type[offset] = val.op_type;
+		
+                break;
+        }
+        case OP_SP_INCRE: {
+                ok = read_i32_values(reader, "sp_incre", arguments, 2);
+                break;
+        }
+        case OP_SP_DECRE: {
+                ok = read_i32_values(reader, "sp_decre", arguments, 2);
+                break;
+        }
+
+        case OP_LOAD_CLASS: {
+                ok = read_i32_values(reader, "load_class", arguments, 2);
+                break;
+        }
+        case OP_INCRE_CLASS: {
+                ok = read_i32_values(reader, "incre_class", arguments, 2);
+                break;
+        }
+        case OP_DECRE_CLASS: {
+                ok = read_i32_values(reader, "decre_class", arguments, 2);
+                break;
+        }
+        case OP_SAVE_CLASS: {
+                ok = read_i32_values(reader, "save_class", arguments, 2);
+                break;
+        }
+
+        case OP_LOAD_GLOBAL: {
+                ok = read_i32_values(reader, "load_global", arguments, 2);
+                break;
+        }
+        case OP_INCRE_GLOBAL: {
+                ok = read_i32_values(reader, "incre_global", arguments, 2);
+                break;
+        }
+        case OP_DECRE_GLOBAL: {
+                ok = read_i32_values(reader, "decre_global", arguments, 2);
+                break;
+        }
+        case OP_SAVE_GLOBAL: {
+                ok = read_i32_values(reader, "save_global", arguments, 2);
+                break;
+        }
+
+        case OP_LOAD_ATTR: {
+                ok = read_i32_values(reader, "load_attr", arguments, 2);
+                break;
+        }
+        case OP_INCRE_ATTR: {
+                ok = read_i32_values(reader, "incre_attr", arguments, 2);
+                break;
+        }
+        case OP_DECRE_ATTR: {
+                ok = read_i32_values(reader, "decre_attr", arguments, 2);
+                break;
+        }
+        case OP_SAVE_ATTR: {
+                ok = read_i32_values(reader, "save_attr", arguments, 2);
+                break;
+        }
+
+        case OP_SYSCALL: {
+                ok = read_i32_values(reader, "syscall", arguments, 2);
+
+		handle_syscall(vm, arguments[0], arguments[1]);
+		
+                break;
+        }
+        case OP_CALL: {
+                ok = read_i32_values(reader, "call", arguments, 2);
+                break;
+        }
+        case OP_CALL_ATTR: {
+                ok = read_i32_values(reader, "call_attr", arguments, 2);
+                break;
+        }
+        case OP_CALL_CLASS: {
+                ok = read_i32_values(reader, "call_class", arguments, 2);
+                break;
+        }
+        case OP_CALL_GLOBAL: {
+                ok = read_i32_values(reader, "call_global", arguments, 2);
+                break;
+        }
+        case OP_LOAD_STR: {
+                ok = read_i32_values(reader, "load_str", arguments, 1);
+		struct VMOperand str_op = {OPRND_String, arguments[0]};
+		vm_stack_push(vm->vm_stack, str_op);
+		
+                break;
+        }
+
+        case OP_RET: {
                 DEBUG_PRINTF("ret\n");
                 break;
-        case OP_RET_VAL:
+        }
+        case OP_RET_VAL: {
                 DEBUG_PRINTF("ret_val\n");
                 break;
-        case OP_GOTO: ok = read_i32_values(reader, "goto", 1); break;
-        case OP_LABEL: ok = read_i32_values(reader, "label", 1); break;
-        case OP_JE: ok = read_i32_values(reader, "je", 1); break;
-        case OP_JNE: ok = read_i32_values(reader, "jne", 1); break;
-        case OP_NEG: DEBUG_PRINTF("neg\n"); break;
-
-        case OP_LDC_I4:
-                ok = read_i32_values(reader, "ldc_i4", 1);
+        }
+        case OP_GOTO: {
+                ok = read_i32_values(reader, "goto", arguments, 1);
                 break;
+        }
+        case OP_LABEL: {
+                ok = read_i32_values(reader, "label", arguments, 1);
+                break;
+        }
+        case OP_JE: {
+                ok = read_i32_values(reader, "je", arguments, 1);
+                break;
+        }
+        case OP_JNE: {
+                ok = read_i32_values(reader, "jne", arguments, 1);
+                break;
+        }
+        case OP_NEG: {
+                DEBUG_PRINTF("neg\n");
+                break;
+        }
+
+        case OP_LDC_I4: {
+                ok = read_i32_values(reader, "ldc_i4", arguments, 1);
+		
+		struct VMOperand i32_op = {OPRND_INT32, (int32_t) arguments[0]};
+		vm_stack_push(vm->stack, i32_op);
+
+                break;
+        }
         case OP_LDC_F4: {
                 float value = read_f32(reader, &ok);
 
                 if (ok)
                         DEBUG_PRINTF("ldc_f4 %.9g\n", value);
+				
+		struct VMOperand f32_op = {OPRND_FLOAT32, (int32_t) arguments[0]};
+		vm_stack_push(vm->stack, f32_op);
+
                 break;
         }
         case OP_LDC_F8: {
@@ -276,32 +412,44 @@ static bool read_instruction(struct IRReader *reader, byte opcode) {
 
                 if (ok)
                         DEBUG_PRINTF("ldc_f8 %.17g\n", value);
+
+		struct VMOperand f64_op = {OPRND_FLOAT64, (int32_t) arguments[0]};
+		vm_stack_push(vm->stack, f64_op);
+
                 break;
         }
 
-        case OP_NEW_OBJECT:
-                ok = read_i32_values(reader, "new_object", 5);
+        case OP_NEW_OBJECT: {
+                ok = read_i32_values(reader, "new_object", arguments, 5);
                 break;
-        case OP_NEW_ARRAY:
-                ok = read_i32_values(reader, "new_array", 2);
+        }
+        case OP_NEW_ARRAY: {
+                ok = read_i32_values(reader, "new_array", arguments, 2);
                 break;
-        case OP_ARRAY_LOAD:
-                ok = read_i32_values(reader, "array_load", 1);
+        }
+        case OP_ARRAY_LOAD: {
+                ok = read_i32_values(reader, "array_load", arguments, 1);
                 break;
-        case OP_ARRAY_SAVE:
-                ok = read_i32_values(reader, "array_save", 1);
+        }
+        case OP_ARRAY_SAVE: {
+                ok = read_i32_values(reader, "array_save", arguments, 1);
                 break;
-        case OP_ARRAY_LENGTH:
+        }
+        case OP_ARRAY_LENGTH: {
                 DEBUG_PRINTF("array_length\n");
                 break;
-        case OP_ARRAY_PUSH:
-                ok = read_i32_values(reader, "array_push", 2);
+        }
+        case OP_ARRAY_PUSH: {
+                ok = read_i32_values(reader, "array_push", arguments, 2);
                 break;
-        case OP_ARRAY_REMOVE:
-                ok = read_i32_values(reader, "array_remove", 2);
+        }
+        case OP_ARRAY_REMOVE: {
+                ok = read_i32_values(reader, "array_remove", arguments, 2);
                 break;
-        default:
+        }
+        default: {
                 return unknown_opcode_error(reader, opcode);
+        }
         }
 
         if (!ok)
@@ -454,7 +602,8 @@ static bool read_function(struct VM *vm, struct IRReader *reader,
         DEBUG_PRINTF("func %d:\n", id);
         code_begin = reader->reader_cnt;
         while (peek_byte(reader, &next) && next != CODE_TERM) {
-                if (!read_byte(reader, &next) || !read_instruction(reader, next))
+                if (!read_byte(reader, &next) ||
+                    !read_instruction(vm, reader, next, false))
                         return false;
         }
 
@@ -488,7 +637,7 @@ static bool read_class(struct VM *vm, struct IRReader *reader) {
                 if (next == CODE_FUNC) {
                         if (!read_function(vm, reader, class_data))
                                 return false;
-                } else if (!read_instruction(reader, next)) {
+                } else if (!read_instruction(vm, reader, next, false)) {
                         return false;
                 }
         }

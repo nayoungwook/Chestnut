@@ -1,0 +1,16 @@
+
+func main(): void {
+     print("Hello, World!\n");
+
+     for(var i:int =0; i<10; i++){
+     	     print(i);
+     }
+
+     var k: int = 3;
+
+     if(k == 3){
+      	  print("K is three!\n");
+     }else{
+     	print("K is not three.");
+     }
+}

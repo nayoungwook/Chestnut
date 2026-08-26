@@ -1,8 +1,19 @@
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
+#ifdef __unix__
+#include <sys/mman.h>
+#endif
+
 #include <vm.h>
 #include <code_data.h>
+#include <ir_read.h>
 #include <util.h>
 
 #include <string.h>
+
 
 static const char *copy_string(const char *value) {
 	size_t size = strlen(value) + 1;
@@ -24,6 +35,28 @@ struct VM *gen_vm() {
 	vm->function_data =
 		(struct VMFunctionData **)S_malloc(sizeof(struct VMFunctionData *));
 
+	const unsigned HEAP_SIZE = 1024 * 1024 * 16;
+	const unsigned STACK_SIZE = 1024 * 1024;
+	
+#ifdef __unix__
+	vm->heap = mmap(NULL, HEAP_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS , -1, 0);
+	vm->stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS , -1, 0);
+#endif
+
+#ifdef _WIN32
+	HANDLE h_map = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, HEAP_SIZE, NULL);
+	HANDLE s_map = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, STACK_SIZE, NULL);
+
+	vm->heap = (uint8_t*) MapViewOfFile(h_map, FILE_MAP_ALL_ACCESS, 0, 0, HEAP_SIZE);
+	vm->stack = (uint8_t*) MapViewOfFile(s_map, FILE_MAP_ALL_ACCESS, 0, 0, STACK_SIZE);
+#endif
+
+	vm->stack_pointer = vm->stack;
+	vm->stack_pointer_type = S_malloc(STACK_SIZE);
+	
+	vm->vm_stack = (struct VMStack *) S_malloc(sizeof(struct VMStack));
+	memset(vm->vm_stack, 0, sizeof(struct VMStack));
+	
 	return vm;
 }
 
@@ -144,12 +177,28 @@ void vm_set_function_code(struct VMFunctionData *function_data,
 		memcpy(function_data->code, code, code_size);
 }
 
-void vm_exec_function(const struct VM *vm,
+void vm_exec_function(struct VM *vm,
                       struct VMFunctionData *function_data) {
-        unsigned pc = 0;
+	assert(vm->ir_reader != NULL);
 
-	for(pc = 0; pc < function_data->code_size; pc++){
-                char instruction = (char)*(function_data->code + pc);
-		printf("%x\n", instruction);
-	}                    
+	vm->ir_reader->bytes = function_data->code;
+	vm->ir_reader->reader_cnt = 0;
+
+	while(vm->ir_reader->reader_cnt < function_data->code_size){
+		byte op_code = vm->ir_reader->bytes[vm->ir_reader->reader_cnt];
+		vm->ir_reader->reader_cnt++;
+		read_instruction(vm, vm->ir_reader, op_code, true);
+	}
 }        
+
+void vm_stack_push(struct VMStack *vm_stack, struct VMOperand val){
+	assert(vm_stack->index < 1024 * 256); // 256 KB
+
+	vm_stack->stack[vm_stack->index++] = val;
+}
+
+struct VMOperand vm_stack_pop(struct VMStack *vm_stack){
+	assert(vm_stack->index > 0);
+	
+	return vm_stack->stack[vm_stack->index--];
+}

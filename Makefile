@@ -23,4 +23,4 @@ $(TARGET)$(EXE): $(OBJS) $(COMPILER_OBJS) $(VM_OBJS)
 .PHONY: clean
 
 clean:
-	$(RM) $(OBJS) $(COMPILER_OBJS) $(VM_OBJS) $(TARGET)$(EXE)
+	rm -f $(OBJS) $(COMPILER_OBJS) $(VM_OBJS) $(TARGET)$(EXE)
