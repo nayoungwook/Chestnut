@@ -171,6 +171,21 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
                         break;
                 }
 
+                if (bin_expr_ast->op_type == OpPLUSASSIGN ||
+                    bin_expr_ast->op_type == OpMINUSASSIGN ||
+                    bin_expr_ast->op_type == OpMULTASSIGN ||
+                    bin_expr_ast->op_type == OpDIVASSIGN) {
+                        if (left_type->type_kind != TK_Numeric ||
+                            right_type->type_kind != TK_Numeric ||
+                            !is_castable(right_type, left_type)) {
+                                panic("Compound assignment requires a numeric "
+                                      "value assignable to the target type.",
+                                      pc->tc);
+                        }
+                        result = left_type;
+                        break;
+                }
+
                 if (!is_castable(right_type, left_type) &&
                     !is_castable(left_type, right_type)) {
                         panic("In binary expression, failed to math left and "

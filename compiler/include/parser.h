@@ -122,7 +122,11 @@ enum OperatorType {
         OpEQUALLESS = 10,
         OpASSIGN = 11,
         OpOR = 12,
-        OpAND = 13
+        OpAND = 13,
+        OpPLUSASSIGN = 14,
+        OpMINUSASSIGN = 15,
+        OpMULTASSIGN = 16,
+        OpDIVASSIGN = 17
 };
 
 struct BinExprAST {

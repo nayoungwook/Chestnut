@@ -1084,7 +1084,11 @@ void check_semantics(struct ParserContext *pc, struct Node *node){
 		struct BinExprAST *bin_expr_ast = (struct BinExprAST *) node->ast;
 
 		check_semantics(pc, bin_expr_ast->left);
-		if (bin_expr_ast->op_type == OpASSIGN) {
+		if (bin_expr_ast->op_type == OpASSIGN ||
+		    bin_expr_ast->op_type == OpPLUSASSIGN ||
+		    bin_expr_ast->op_type == OpMINUSASSIGN ||
+		    bin_expr_ast->op_type == OpMULTASSIGN ||
+		    bin_expr_ast->op_type == OpDIVASSIGN) {
 			if (bin_expr_ast->left->type != AST_Identifier &&
 			    bin_expr_ast->left->type != AST_ArrayAccess)
 				panic("Left side of assignment is not assignable.", pc->tc);

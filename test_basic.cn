@@ -1,8 +1,12 @@
 
 func main(): void {
      print("Hello, World!\n");
+
+     var td: int = 0;
+
      for(var i:int =0; i<10; i++){
-     	     print(i, "\n");
+         print("i is : ", i, "\n");
+	 td += i;
      }
 
      var k: int = 3;
@@ -15,5 +19,6 @@ func main(): void {
      	print("K is not three.\n");
      }
 
-	print(sum);
+     print(sum, "\n");
+     print(td);
 }

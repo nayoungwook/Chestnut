@@ -1,0 +1,10 @@
+func main(): void {
+	var value: int = 20;
+
+	value += 4;
+	value -= 4;
+	value *= 3;
+	value /= 5;
+
+	print(value, "\n");
+}

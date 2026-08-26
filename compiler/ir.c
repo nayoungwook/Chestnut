@@ -328,6 +328,29 @@ static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type) {
         return op_byte;
 }
 
+static bool is_assignment_op(enum OperatorType op_type) {
+        return op_type == OpASSIGN || op_type == OpPLUSASSIGN ||
+               op_type == OpMINUSASSIGN || op_type == OpMULTASSIGN ||
+               op_type == OpDIVASSIGN;
+}
+
+static enum OperatorType
+get_compound_binary_op(struct ParserContext *pc, enum OperatorType op_type) {
+        switch (op_type) {
+        case OpPLUSASSIGN:
+                return OpADD;
+        case OpMINUSASSIGN:
+                return OpSUB;
+        case OpMULTASSIGN:
+                return OpMUL;
+        case OpDIVASSIGN:
+                return OpDIV;
+        default:
+                panic("Unknown compound assignment operator.", pc->tc);
+                return OpNone;
+        }
+}
+
 static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         struct Node *node);
 
@@ -589,13 +612,24 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 struct BinExprAST *bin_expr_ast =
                     (struct BinExprAST *)node->ast;
 
-                if (bin_expr_ast->op_type == OpASSIGN) {
+		if (is_assignment_op(bin_expr_ast->op_type)) {
+			bool is_compound = bin_expr_ast->op_type != OpASSIGN;
+			enum OperatorType compound_op = OpNone;
+			if (is_compound)
+				compound_op = get_compound_binary_op(
+					pc, bin_expr_ast->op_type);
 			if (bin_expr_ast->left->type == AST_ArrayAccess) {
 				struct ArrayAccessAST *access =
 					(struct ArrayAccessAST *)bin_expr_ast->left->ast;
 				gen_node_ir(irc, pc, access->target_array);
 				gen_node_ir(irc, pc, access->indexes[0]);
+				if (is_compound)
+					gen_node_ir(irc, pc, bin_expr_ast->left);
 				gen_node_ir(irc, pc, bin_expr_ast->right);
+				if (is_compound) {
+					emit_byte(irc, OP_EXPR_OP);
+					emit_byte(irc, get_op_byte(pc, compound_op));
+				}
 				emit_byte(irc, OP_ARRAY_SAVE);
 				emit_int(irc, get_size_of_type(
 					pc, infer_type(pc, bin_expr_ast->left)));
@@ -614,7 +648,13 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 				parent->attr = NULL;
 				gen_node_ir(irc, pc, bin_expr_ast->left);
 				parent->attr = target;
+				if (is_compound)
+					gen_node_ir(irc, pc, bin_expr_ast->left);
 				gen_node_ir(irc, pc, bin_expr_ast->right);
+				if (is_compound) {
+					emit_byte(irc, OP_EXPR_OP);
+					emit_byte(irc, get_op_byte(pc, compound_op));
+				}
 				struct VarData *target_var =
 					((struct IdentifierAST *)target->ast)->var_data;
 				emit_byte(irc, OP_SAVE_ATTR);
@@ -622,7 +662,13 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 				emit_int(irc, get_size_of_type(pc, target_var->type));
 				break;
 			}
+			if (is_compound)
+				gen_node_ir(irc, pc, bin_expr_ast->left);
 			gen_node_ir(irc, pc, bin_expr_ast->right);
+			if (is_compound) {
+				emit_byte(irc, OP_EXPR_OP);
+				emit_byte(irc, get_op_byte(pc, compound_op));
+			}
 			switch (var_data->scope_data) {
 			case ScopeLocal: emit_byte(irc, OP_SP_SAVE); break;
 			case ScopeGlobal: emit_byte(irc, OP_SAVE_GLOBAL); break;

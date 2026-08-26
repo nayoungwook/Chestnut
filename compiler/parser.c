@@ -1176,7 +1176,10 @@ static struct Node *parse_expression(struct ParserContext *pc) {
         struct TokenizerContext *tc = pc->tc;
         struct Token *tok = NULL;
 
-        while (((tok = peek(tc)) != NULL) && (peek(tc)->type == TokAssign)) {
+        while (((tok = peek(tc)) != NULL) &&
+               (tok->type == TokAssign || tok->type == TokPlusAssign ||
+                tok->type == TokMinusAssign || tok->type == TokMultAssign ||
+                tok->type == TokDivAssign)) {
                 enum TokenType op = pull(tc)->type;
                 struct Node *right = parse_logical_expression(pc);
 
@@ -1184,6 +1187,18 @@ static struct Node *parse_expression(struct ParserContext *pc) {
                 switch (op) {
                 case TokAssign:
                         op_type = OpASSIGN;
+                        break;
+                case TokPlusAssign:
+                        op_type = OpPLUSASSIGN;
+                        break;
+                case TokMinusAssign:
+                        op_type = OpMINUSASSIGN;
+                        break;
+                case TokMultAssign:
+                        op_type = OpMULTASSIGN;
+                        break;
+                case TokDivAssign:
+                        op_type = OpDIVASSIGN;
                         break;
                 default:
                         panic("Unknown operator type.", tc);
