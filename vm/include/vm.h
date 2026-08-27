@@ -8,7 +8,7 @@
 
 struct VMClassData;
 struct VMFunctionData;
-struct IRReader;
+struct VMInstruction;
 struct VM;
 
 enum VMOPType {
@@ -50,8 +50,6 @@ struct VM {
 	struct VMFunctionData **function_data;
 	unsigned function_data_count, function_data_capacity;
 
-	struct IRReader *ir_reader;
-
 	unsigned main_func_id;
 
 	void *heap, *stack;
@@ -61,7 +59,6 @@ struct VM {
 	struct VMStack *vm_stack;
 	struct VMStringPool *vm_string_pool;
 
-	unsigned jump_table[1024 * 4];
 };
 
 struct VM *gen_vm();
@@ -79,11 +76,14 @@ struct VMClassData *vm_find_class_data(const struct VM *vm, unsigned id);
 struct VMFunctionData *vm_find_function_data(const struct VM *vm,
 					struct VMClassData *owner,
 					unsigned id);
-void vm_set_function_code(struct VMFunctionData *function_data,
-		       const unsigned char *code, unsigned code_size);
+void vm_set_function_instructions(
+		struct VMFunctionData *function_data,
+		const struct VMInstruction *instructions,
+		unsigned instruction_count);
 
-bool exec_instruction(struct VM *vm, struct IRReader *reader,
-		      unsigned char opcode);
+bool exec_instruction(struct VM *vm,
+		      const struct VMInstruction *instruction,
+		      unsigned *instruction_index);
 void vm_exec_function(struct VM *vm, struct VMFunctionData *function_data);
 
 #endif

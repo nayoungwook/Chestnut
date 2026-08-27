@@ -100,7 +100,6 @@ int main(int arc, char *args[]) {
 
 	struct VM *vm = gen_vm();
 	struct IRReader *ir_reader = gen_ir_reader(irc);
-	vm->ir_reader = ir_reader;
 
         read_ir(vm, ir_reader);
 

@@ -9,10 +9,9 @@
 
 #include <vm.h>
 #include <code_data.h>
-#include <ir.h>
+#include <ir_read.h>
 #include <util.h>
 
-#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -98,6 +97,7 @@ struct VM *gen_vm() {
 	
 	vm->vm_string_pool = (struct VMStringPool *) S_malloc(sizeof(struct VMStringPool));
 	vm->vm_string_pool->str_pool = NULL;
+	memset(vm->jump_table, 0xff, sizeof(vm->jump_table));
 
 	return vm;
 }
@@ -163,8 +163,8 @@ struct VMFunctionData *vm_add_function_data(struct VM *vm,
 	function_data->return_type = copy_string(return_type);
 	function_data->argument_count = argument_count;
 	function_data->is_constructor = is_constructor;
-	function_data->instructions = NULL;
-	function_data->instruction_count = 0;
+	function_data->code = NULL;
+	function_data->code_size = 0;
 
 	if (strcmp(name, "main") == 0) {
 		vm->main_func_id = id;
@@ -226,18 +226,48 @@ struct VMFunctionData *vm_find_function_data(const struct VM *vm,
 	return NULL;
 }
 
-void vm_set_function_instructions(
-		struct VMFunctionData *function_data,
-		const struct VMInstruction *instructions,
-		unsigned instruction_count) {
-	function_data->instruction_count = instruction_count;
-	function_data->instructions = instruction_count == 0 ? NULL :
-		(struct VMInstruction *)S_malloc(
-			sizeof(struct VMInstruction) * instruction_count);
+void vm_set_function_code(struct VMFunctionData *function_data,
+		       const unsigned char *code, unsigned code_size) {
+	function_data->code_size = code_size;
+	function_data->code = code_size == 0 ? NULL :
+		(unsigned char *)S_malloc(code_size);
 
-	if (instruction_count != 0)
-		memcpy(function_data->instructions, instructions,
-		       sizeof(struct VMInstruction) * instruction_count);
+	if (code_size != 0)
+		memcpy(function_data->code, code, code_size);
+}
+
+static bool exec_has_bytes(const struct IRReader *reader, unsigned count) {
+	return reader->reader_cnt <= reader->byte_cnt &&
+		count <= reader->byte_cnt - reader->reader_cnt;
+}
+
+static bool exec_read_byte(struct IRReader *reader, byte *value) {
+	if (!exec_has_bytes(reader, 1))
+		return false;
+	*value = reader->bytes[reader->reader_cnt++];
+	return true;
+}
+
+static bool exec_read_u32(struct IRReader *reader, uint32_t *value) {
+	uint32_t result = 0;
+	unsigned i;
+
+	if (!exec_has_bytes(reader, 4))
+		return false;
+	for (i = 0; i < 4; i++)
+		result |= (uint32_t)reader->bytes[reader->reader_cnt++] <<
+			(i * 8);
+	*value = result;
+	return true;
+}
+
+static bool exec_read_i32(struct IRReader *reader, int32_t *value) {
+	uint32_t raw;
+
+	if (!exec_read_u32(reader, &raw))
+		return false;
+	memcpy(value, &raw, sizeof(*value));
+	return true;
 }
 
 #if defined(DEBUG) || defined(DEBUG_STAMP_COMMAND)
@@ -270,6 +300,7 @@ static const char *get_instruction_name(unsigned char opcode) {
 	case OP_CALL_GLOBAL: return "call_global";
 	case OP_LOAD_STR: return "load_str";
 	case OP_GOTO: return "goto";
+	case OP_LABEL: return "label";
 	case OP_JE: return "je";
 	case OP_JNE: return "jne";
 	case OP_RET: return "ret";
@@ -311,37 +342,52 @@ static const char *get_expr_op_name(unsigned char opcode) {
 }
 #endif
 
-#ifdef DEBUG
-static void debug_print_instruction(
-		const struct VMInstruction *instruction) {
-	const char *name = get_instruction_name(instruction->opcode);
+static bool exec_read_i32_values(struct IRReader *reader,
+				 unsigned char opcode, int32_t *values,
+				 unsigned count) {
 	unsigned i;
 
-	if (name == NULL) {
-		DEBUG_PRINTF("unknown 0x%02x\n", instruction->opcode);
-		return;
+	for (i = 0; i < count; i++) {
+		if (!exec_read_i32(reader, &values[i]))
+			return false;
 	}
 
-	if (instruction->opcode == OP_EXPR_OP) {
-		const char *expr_name =
-			get_expr_op_name(instruction->operands.u8);
-
-		DEBUG_PRINTF("%s\n", expr_name != NULL ? expr_name : "unknown");
-		return;
-	}
-
+#ifdef DEBUG
+	const char *name;
+	name = get_instruction_name(opcode);
+	if (name == NULL)
+		return false;
 	DEBUG_PRINTF("%s", name);
-	if (instruction->opcode == OP_LDC_F4) {
-		DEBUG_PRINTF(" %.9g", instruction->operands.f32);
-	} else if (instruction->opcode == OP_LDC_F8) {
-		DEBUG_PRINTF(" %.17g", instruction->operands.f64);
-	} else {
-		for (i = 0; i < instruction->operand_count; i++)
-			DEBUG_PRINTF(" %d", instruction->operands.i32[i]);
-	}
+	for (i = 0; i < count; i++)
+		DEBUG_PRINTF(" %d", values[i]);
 	DEBUG_PRINTF("\n");
-}
 #endif
+	
+	return true;
+}
+
+static bool exec_read_f32(struct IRReader *reader, float *value) {
+	uint32_t raw;
+
+	if (!exec_read_u32(reader, &raw))
+		return false;
+	
+	memcpy(value, &raw, sizeof(*value));
+	return true;
+}
+
+static bool exec_read_f64(struct IRReader *reader, double *value) {
+	uint64_t raw = 0;
+	unsigned i;
+
+	if (!exec_has_bytes(reader, 8))
+		return false;
+	for (i = 0; i < 8; i++)
+		raw |= (uint64_t)reader->bytes[reader->reader_cnt++] <<
+			(i * 8);
+	memcpy(value, &raw, sizeof(*value));
+	return true;
+}
 
 static void handle_syscall(struct VM *vm, int id, int argc) {
 	switch (id) {
@@ -634,24 +680,18 @@ static void pack_numeric_result(struct VMOperand *result, int op_level,
 	}
 }
 
-bool exec_instruction(struct VM *vm,
-		      const struct VMInstruction *instruction,
-		      unsigned *instruction_index) {
-	const int32_t *arguments = instruction->operands.i32;
-	unsigned char opcode = instruction->opcode;
+bool exec_instruction(struct VM *vm, struct IRReader *reader,
+		      unsigned char opcode) {
+	int32_t arguments[5] = {0};
 	bool ok = true;
 
 	assert(vm->vm_stack != NULL);
-	assert(instruction_index != NULL);
-
-#ifdef DEBUG
-	debug_print_instruction(instruction);
-#endif
 
 	switch (opcode) {
 	case OP_PUSH_NULL: {
 		struct VMOperand operand = {OPRND_NULL, 0};
 
+		DEBUG_PRINTF("push_null\n");
 		vm_stack_push(vm->vm_stack, operand);
 		break;
 	}
@@ -669,7 +709,9 @@ bool exec_instruction(struct VM *vm,
 		union VMNumericValue rhs_value = {0};
 		union VMNumericValue result_value = {0};
 
-		expr_opcode = instruction->operands.u8;
+		ok = exec_read_byte(reader, &expr_opcode);
+		if (!ok)
+			break;
 
 #ifdef DEBUG
 		{
@@ -679,6 +721,7 @@ bool exec_instruction(struct VM *vm,
 				ok = false;
 				break;
 			}
+			DEBUG_PRINTF("%s\n", name);
 		}
 #endif
 
@@ -692,6 +735,7 @@ bool exec_instruction(struct VM *vm,
 		lhs = vm_stack_pop(vm->vm_stack);
 		lhs_level = get_operand_level(lhs.op_type);
 		rhs_level = get_operand_level(rhs.op_type);
+
 		if (lhs_level < 0 || rhs_level < 0) {
 			ok = false;
 			break;
@@ -716,6 +760,7 @@ bool exec_instruction(struct VM *vm,
 		break;
 	}
 	case OP_SP_PUSH: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
 		if (ok && arguments[0] >= 0)
 			vm->stack_pointer =
 				(uint8_t *)vm->stack_pointer + arguments[0];
@@ -725,6 +770,8 @@ bool exec_instruction(struct VM *vm,
 		break;
 	}
 	case OP_SP_POP: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
+
 		if (ok && arguments[0] >= 0)
 			vm->stack_pointer =
 				vm->stack_pointer - arguments[0];
@@ -733,6 +780,8 @@ bool exec_instruction(struct VM *vm,
 		break;
 	}
 	case OP_SP_LOAD: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
+
 		assert(arguments[0] >= 0 && arguments[1] >= 0 &&
 		       (size_t)arguments[1] <= sizeof(int64_t));
 
@@ -755,6 +804,8 @@ bool exec_instruction(struct VM *vm,
 		break;
 	}
 	case OP_SP_SAVE: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
+
 		assert(arguments[0] >= 0 && arguments[1] >= 0 &&
 		       (size_t)arguments[1] <= sizeof(int64_t));
 
@@ -772,91 +823,107 @@ bool exec_instruction(struct VM *vm,
 		break;
 	}
 	case OP_SP_INCRE: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
+
 		int offset = arguments[0];
 		size_t size = (size_t)arguments[1];
-		uint64_t value = 0;
+		uint8_t *p = (uint8_t *)vm->stack_pointer + offset;
 
-		if (offset < 0 || arguments[1] <= 0 || size > sizeof(value)) {
-			ok = false;
-			break;
+		uint8_t value = *p + 1;
+
+		for (size_t i = 0; i < size; i++) {
+			p[i] = value;
 		}
-
-		memcpy(&value, (uint8_t *)vm->stack_pointer + offset, size);
-		value++;
-		memcpy((uint8_t *)vm->stack_pointer + offset, &value, size);
-
+		
 		break;
 	}
 	case OP_SP_DECRE: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
+
 		int offset = arguments[0];
 		size_t size = (size_t)arguments[1];
-		uint64_t value = 0;
+		uint8_t *p = (uint8_t *)vm->stack_pointer + offset;
 
-		if (offset < 0 || arguments[1] <= 0 || size > sizeof(value)) {
-			ok = false;
-			break;
+		uint8_t value = *p - 1;
+
+		for (size_t i = 0; i < size; i++) {
+			p[i] = value;
 		}
-
-		memcpy(&value, (uint8_t *)vm->stack_pointer + offset, size);
-		value--;
-		memcpy((uint8_t *)vm->stack_pointer + offset, &value, size);
-
+		
 		break;
 	}
 	case OP_LOAD_CLASS: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_INCRE_CLASS: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_DECRE_CLASS: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_SAVE_CLASS: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_LOAD_GLOBAL: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_INCRE_GLOBAL: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_DECRE_GLOBAL: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_SAVE_GLOBAL: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_LOAD_ATTR: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_INCRE_ATTR: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_DECRE_ATTR: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_SAVE_ATTR: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_SYSCALL: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		if (ok)
 			handle_syscall(vm, arguments[0], arguments[1]);
 		break;
 	}
 	case OP_CALL: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_CALL_ATTR: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_CALL_CLASS: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_CALL_GLOBAL: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_LOAD_STR: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
 		if (ok) {
 			struct VMOperand operand = {OPRND_String, arguments[0]};
 
@@ -865,38 +932,59 @@ bool exec_instruction(struct VM *vm,
 		break;
 	}
 	case OP_RET: {
+		DEBUG_PRINTF("ret\n");
 		break;
 	}
 	case OP_RET_VAL: {
+		DEBUG_PRINTF("ret_val\n");
 		break;
 	}
 	case OP_GOTO: {
-		*instruction_index = instruction->operands.u32[0];
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
+
+		assert(arguments[0] > 0);
+		
+		if(ok){
+			vm->ir_reader->reader_cnt = vm->jump_table[arguments[0]];
+		}
+		
+		break;
+	}
+	case OP_LABEL: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
 		break;
 	}
 	case OP_JE: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
+
 		struct VMOperand cond = vm_stack_pop(vm->vm_stack);
 
 		assert(cond.op_type == OPRND_BOOL);
-		if(cond.val)
-			*instruction_index = instruction->operands.u32[0];
+		if(cond.val){
+			vm->ir_reader->reader_cnt = vm->jump_table[arguments[0]];
+		}
 		
 		break;
 	}
 	case OP_JNE: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
+		
 		struct VMOperand cond = vm_stack_pop(vm->vm_stack);
 
 		assert(cond.op_type == OPRND_BOOL);
 
-		if(!cond.val)
-			*instruction_index = instruction->operands.u32[0];
+		if(!cond.val){
+			vm->ir_reader->reader_cnt = vm->jump_table[arguments[0]];
+		}
 
 		break;
 	}
 	case OP_NEG: {
+		DEBUG_PRINTF("neg\n");
 		break;
 	}
 	case OP_LDC_I4: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
 		if (ok) {
 			struct VMOperand operand = {OPRND_INT32, arguments[0]};
 
@@ -905,50 +993,63 @@ bool exec_instruction(struct VM *vm,
 		break;
 	}
 	case OP_LDC_F4: {
-		float value = instruction->operands.f32;
+		float value;
+
+		ok = exec_read_f32(reader, &value);
 		if (ok) {
 			struct VMOperand operand = {OPRND_FLOAT32, 0};
 			
+			DEBUG_PRINTF("ldc_f4 %.9g\n", value);
 			memcpy(&operand.val, &value, sizeof(value));
 			vm_stack_push(vm->vm_stack, operand);
 		}
 		break;
 	}
 	case OP_LDC_F8: {
-		double value = instruction->operands.f64;
+		double value;
+
+		ok = exec_read_f64(reader, &value);
 		if (ok) {
 			struct VMOperand operand = {OPRND_FLOAT64, 0};
 
+			DEBUG_PRINTF("ldc_f8 %.17g\n", value);
 			memcpy(&operand.val, &value, sizeof(value));
 			vm_stack_push(vm->vm_stack, operand);
 		}
 		break;
 	}
 	case OP_NEW_OBJECT: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 5);
 		break;
 	}
 	case OP_NEW_ARRAY: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_ARRAY_LOAD: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
 		break;
 	}
 	case OP_ARRAY_SAVE: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 1);
 		break;
 	}
 	case OP_ARRAY_LENGTH: {
+		DEBUG_PRINTF("array_length\n");
 		break;
 	}
 	case OP_ARRAY_PUSH: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	case OP_ARRAY_REMOVE: {
+		ok = exec_read_i32_values(reader, opcode, arguments, 2);
 		break;
 	}
 	default: {
-		DEBUG_FPRINTF(stderr, "VM execution error at instruction %u: "
+		DEBUG_FPRINTF(stderr, "VM execution error at byte %u: "
 			      "unknown opcode 0x%02x\n",
-			      *instruction_index - 1, opcode);
+			      reader->reader_cnt - 1, opcode);
 		return false;
 	}
 	}
@@ -958,25 +1059,27 @@ bool exec_instruction(struct VM *vm,
 
 void vm_exec_function(struct VM *vm,
                       struct VMFunctionData *function_data) {
-	unsigned instruction_index = 0;
+	assert(vm->ir_reader != NULL);
 
-	while (instruction_index < function_data->instruction_count) {
-		const struct VMInstruction *instruction =
-			&function_data->instructions[instruction_index++];
+	vm->ir_reader->bytes = function_data->code;
+	vm->ir_reader->reader_cnt = 0;
+	vm->ir_reader->byte_cnt = function_data->code_size;
+
+	while(vm->ir_reader->reader_cnt < function_data->code_size){
+		byte op_code = vm->ir_reader->bytes[vm->ir_reader->reader_cnt];
 		bool ok;
 #ifdef DEBUG_STAMP_COMMAND
 		double started_at = command_time_ms();
 #endif
 
-		ok = exec_instruction(vm, instruction, &instruction_index);
+		vm->ir_reader->reader_cnt++;
+		ok = exec_instruction(vm, vm->ir_reader, op_code);
 
 #ifdef DEBUG_STAMP_COMMAND
-		const char *command_name =
-			get_instruction_name(instruction->opcode);
+		const char *command_name = get_instruction_name(op_code);
 
 		fprintf(stderr, "[command %s/0x%02x] %.3f ms\n",
-			command_name != NULL ? command_name : "unknown",
-			instruction->opcode,
+			command_name != NULL ? command_name : "unknown", op_code,
 			command_time_ms() - started_at);
 #endif
 

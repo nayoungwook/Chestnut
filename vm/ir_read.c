@@ -1,9 +1,13 @@
 #include <ir_read.h>
 #include <vm.h>
+#include <code_data.h>
 
 #include <stdint.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
+
+#define VM_LABEL_CAPACITY (1024 * 4)
 
 struct IRReader *gen_ir_reader(struct IRContext *irc) {
         struct IRReader *reader =
@@ -47,6 +51,19 @@ static bool read_u32(struct IRReader *reader, uint32_t *value) {
         return true;
 }
 
+static bool read_u64(struct IRReader *reader, uint64_t *value) {
+        uint64_t result = 0;
+        int i;
+
+        if (!has_bytes(reader, 8))
+                return false;
+        for (i = 0; i < 8; i++)
+                result |= (uint64_t)reader->bytes[reader->reader_cnt++] <<
+                          (i * 8);
+        *value = result;
+        return true;
+}
+
 static int32_t read_i32(struct IRReader *reader, bool *ok) {
         uint32_t raw;
         int32_t value;
@@ -82,31 +99,31 @@ static bool reader_error(struct IRReader *reader, const char *message) {
         return false;
 }
 
-static int get_instruction_operand_size(byte opcode) {
+static bool is_operandless_instruction(byte opcode) {
         switch (opcode) {
         case OP_PUSH_NULL:
         case OP_RET:
         case OP_RET_VAL:
         case OP_NEG:
-        case OP_ARRAY_LENGTH: {
-                return 0;
+        case OP_ARRAY_LENGTH:
+                return true;
+        default:
+                return false;
         }
-        case OP_EXPR_OP: {
-                return 1;
-        }
+}
+
+static int get_i32_operand_count(byte opcode) {
+        switch (opcode) {
         case OP_SP_PUSH:
         case OP_SP_POP:
         case OP_LOAD_STR:
         case OP_GOTO:
-        case OP_LABEL:
         case OP_JE:
         case OP_JNE:
         case OP_LDC_I4:
-        case OP_LDC_F4:
         case OP_ARRAY_LOAD:
-        case OP_ARRAY_SAVE: {
-                return 4;
-        }
+        case OP_ARRAY_SAVE:
+                return 1;
         case OP_SP_LOAD:
         case OP_SP_SAVE:
         case OP_SP_INCRE:
@@ -128,65 +145,154 @@ static int get_instruction_operand_size(byte opcode) {
         case OP_CALL_ATTR:
         case OP_CALL_CLASS:
         case OP_CALL_GLOBAL:
-        case OP_LDC_F8:
         case OP_NEW_ARRAY:
         case OP_ARRAY_PUSH:
-        case OP_ARRAY_REMOVE: {
-                return 8;
-        }
-        case OP_NEW_OBJECT: {
-                return 20;
-        }
-        default: {
+        case OP_ARRAY_REMOVE:
+                return 2;
+        case OP_NEW_OBJECT:
+                return 5;
+        default:
                 return -1;
         }
-        }
 }
 
-static bool read_instruction(struct VM *vm, struct IRReader *reader,
-                             byte opcode) {
-        int operand_size;
-
-        if (opcode == OP_LABEL) {
-                bool ok = true;
-                int32_t label_id = read_i32(reader, &ok);
-                unsigned jump_table_size =
-                        sizeof(vm->jump_table) / sizeof(vm->jump_table[0]);
-
-                if (!ok || label_id < 0 ||
-                    (unsigned)label_id >= jump_table_size)
-                        return reader_error(reader, "invalid label id");
-                vm->jump_table[label_id] = reader->reader_cnt;
-                return true;
-        }
-
-        operand_size = get_instruction_operand_size(opcode);
-        if (operand_size < 0)
-                return reader_error(reader, "unknown instruction opcode");
-        if (!has_bytes(reader, (unsigned)operand_size))
-                return reader_error(reader, "truncated instruction operand");
-
-        reader->reader_cnt += (unsigned)operand_size;
-        return true;
-}
-
-static bool register_function_labels(struct VM *vm, const byte *code,
-                                     unsigned code_size,
-                                     const struct IRReader *source_reader) {
+static bool decode_function_instructions(
+                const byte *code, unsigned code_size,
+                const struct IRReader *source_reader,
+                struct VMInstruction **decoded_instructions,
+                unsigned *decoded_instruction_count) {
         struct IRReader code_reader = *source_reader;
+        struct VMInstruction *instructions = NULL;
+        unsigned label_targets[VM_LABEL_CAPACITY];
+        unsigned instruction_count = 0;
+        const char *error_message = NULL;
+        unsigned i;
 
         code_reader.bytes = code;
         code_reader.reader_cnt = 0;
         code_reader.byte_cnt = code_size;
 
+        memset(label_targets, 0xff, sizeof(label_targets));
+        if (code_size != 0)
+                instructions = (struct VMInstruction *)S_malloc(
+                        sizeof(struct VMInstruction) * code_size);
+
         while (has_bytes(&code_reader, 1)) {
                 byte opcode;
+                struct VMInstruction *instruction;
+                int operand_count;
 
-                if (!read_byte(&code_reader, &opcode) ||
-                    !read_instruction(vm, &code_reader, opcode))
-                        return false;
+                if (!read_byte(&code_reader, &opcode)) {
+                        error_message = "truncated instruction opcode";
+                        goto fail;
+                }
+
+                if (opcode == OP_LABEL) {
+                        bool ok = true;
+                        int32_t label_id = read_i32(&code_reader, &ok);
+
+                        if (!ok || label_id < 0 ||
+                            (unsigned)label_id >= VM_LABEL_CAPACITY) {
+                                error_message = "invalid label id";
+                                goto fail;
+                        }
+                        if (label_targets[label_id] != UINT_MAX) {
+                                error_message = "duplicate label id";
+                                goto fail;
+                        }
+                        label_targets[label_id] = instruction_count;
+                        continue;
+                }
+
+                instruction = &instructions[instruction_count];
+                memset(instruction, 0, sizeof(*instruction));
+                instruction->opcode = opcode;
+
+                if (is_operandless_instruction(opcode)) {
+                        operand_count = 0;
+                } else if (opcode == OP_EXPR_OP) {
+                        operand_count = 1;
+                        if (!read_byte(&code_reader,
+                                       &instruction->operands.u8)) {
+                                error_message =
+                                        "truncated expression operand";
+                                goto fail;
+                        }
+                } else if (opcode == OP_LDC_F4) {
+                        uint32_t raw;
+
+                        operand_count = 1;
+                        if (!read_u32(&code_reader, &raw)) {
+                                error_message = "truncated float operand";
+                                goto fail;
+                        }
+                        memcpy(&instruction->operands.f32, &raw,
+                               sizeof(raw));
+                } else if (opcode == OP_LDC_F8) {
+                        uint64_t raw;
+
+                        operand_count = 1;
+                        if (!read_u64(&code_reader, &raw)) {
+                                error_message = "truncated double operand";
+                                goto fail;
+                        }
+                        memcpy(&instruction->operands.f64, &raw,
+                               sizeof(raw));
+                } else {
+                        bool ok = true;
+
+                        operand_count = get_i32_operand_count(opcode);
+                        if (operand_count < 0) {
+                                error_message = "unknown instruction opcode";
+                                goto fail;
+                        }
+                        for (i = 0; i < (unsigned)operand_count; i++)
+                                instruction->operands.i32[i] =
+                                        read_i32(&code_reader, &ok);
+                        if (!ok) {
+                                error_message =
+                                        "truncated instruction operand";
+                                goto fail;
+                        }
+                }
+
+                instruction->operand_count = (uint8_t)operand_count;
+                instruction_count++;
         }
+
+        for (i = 0; i < instruction_count; i++) {
+                struct VMInstruction *instruction = &instructions[i];
+
+                if (instruction->opcode == OP_GOTO ||
+                    instruction->opcode == OP_JE ||
+                    instruction->opcode == OP_JNE) {
+                        int32_t label_id = instruction->operands.i32[0];
+
+                        if (label_id < 0 ||
+                            (unsigned)label_id >= VM_LABEL_CAPACITY ||
+                            label_targets[label_id] == UINT_MAX) {
+                                code_reader.reader_cnt = code_size;
+                                error_message = "unresolved branch label";
+                                goto fail;
+                        }
+                        instruction->operands.u32[0] =
+                                label_targets[label_id];
+                }
+        }
+
+        if (instruction_count != 0 && instruction_count < code_size)
+                instructions = (struct VMInstruction *)S_realloc(
+                        instructions,
+                        sizeof(struct VMInstruction) * instruction_count);
+
+        *decoded_instructions = instructions;
+        *decoded_instruction_count = instruction_count;
         return true;
+
+fail:
+        reader_error(&code_reader, error_message);
+        free(instructions);
+        return false;
 }
 
 static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
@@ -310,6 +416,8 @@ static bool read_function(struct VM *vm, struct IRReader *reader,
         byte next;
         unsigned code_begin;
         unsigned code_size;
+        struct VMInstruction *instructions;
+        unsigned instruction_count;
         struct VMFunctionData *function_data;
 
         if (!ok || id < 0 || encoded_code_size < 0)
@@ -325,15 +433,20 @@ static bool read_function(struct VM *vm, struct IRReader *reader,
                 return reader_error(reader, "truncated function code");
 
         code_begin = reader->reader_cnt;
-        if (!register_function_labels(vm, &reader->bytes[code_begin],
-                                      code_size, reader))
+        if (!decode_function_instructions(&reader->bytes[code_begin],
+                                          code_size, reader,
+                                          &instructions,
+                                          &instruction_count))
                 return false;
         reader->reader_cnt += code_size;
-        if (!read_byte(reader, &next) || next != CODE_TERM)
+        if (!read_byte(reader, &next) || next != CODE_TERM) {
+                free(instructions);
                 return reader_error(reader, "unterminated function code");
+        }
 
-        vm_set_function_code(function_data, &reader->bytes[code_begin],
-                             code_size);
+        vm_set_function_instructions(function_data, instructions,
+                                     instruction_count);
+        free(instructions);
 
         return true;
 }
