@@ -124,6 +124,7 @@ static int get_i32_operand_count(byte opcode) {
         case OP_ARRAY_LOAD:
         case OP_ARRAY_SAVE:
                 return 1;
+		
         case OP_SP_LOAD:
         case OP_SP_SAVE:
         case OP_SP_INCRE:
@@ -161,6 +162,7 @@ static bool decode_function_instructions(
                 const struct IRReader *source_reader,
                 struct VMInstruction **decoded_instructions,
                 unsigned *decoded_instruction_count) {
+	
         struct IRReader code_reader = *source_reader;
         struct VMInstruction *instructions = NULL;
         unsigned label_targets[VM_LABEL_CAPACITY];
