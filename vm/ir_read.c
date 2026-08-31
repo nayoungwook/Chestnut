@@ -174,7 +174,6 @@ static bool decode_function_instructions(
         code_reader.byte_cnt = code_size;
 
         memset(label_targets, 0xff, sizeof(label_targets));
-
         if (code_size != 0)
                 instructions = (struct VMInstruction *)S_malloc(
                         sizeof(struct VMInstruction) * code_size);
@@ -202,7 +201,6 @@ static bool decode_function_instructions(
                                 error_message = "duplicate label id";
                                 goto fail;
                         }
-
                         label_targets[label_id] = instruction_count;
                         continue;
                 }
@@ -326,10 +324,8 @@ static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
                 argument_types = (const char **)S_malloc(
                         sizeof(char *) * (unsigned)argument_count);
 
-        // read argument types
 	for (i = 0; i < (unsigned)argument_count; i++) {
                 argument_types[i] = read_string(reader, &ok);
-
                 if (!ok) {
                         free(argument_types);
                         return reader_error(reader,
@@ -347,7 +343,6 @@ static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
 		free(argument_types);
 		return reader_error(reader, "duplicate function metadata");
 	}
-
         vm_add_function_data(vm, owner, (unsigned)id, name, return_type,
 			     argument_types, (unsigned)argument_count,
 			     (unsigned)stack_size,
@@ -380,10 +375,8 @@ static bool read_meta_block(struct VM *vm, struct IRReader *reader,
                 size = ok ? read_i32(reader, &ok) : 0;
                 if (!ok || id < 0 || parent_id < 0 || size < 0)
                         return reader_error(reader, "invalid class metadata");
-
                 if (owner != NULL)
                         return reader_error(reader, "nested class metadata");
-
                 if (vm_find_class_data(vm, (unsigned)id) != NULL)
                         return reader_error(reader, "duplicate class metadata");
 
@@ -393,7 +386,6 @@ static bool read_meta_block(struct VM *vm, struct IRReader *reader,
                 while (peek_byte(reader, &next) && next != META_TERM)
                         if (!read_meta_block(vm, reader, class_data))
                                 return false;
-                                
                 if (!read_byte(reader, &next) || next != META_TERM)
                         return reader_error(reader, "unterminated class metadata");
                 return true;
