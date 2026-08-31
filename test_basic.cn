@@ -4,9 +4,10 @@ func main(): void {
 
      var td: int = 0;
 
-     for(var i:int =0; i<=100; i++){
-     	     print(i);
+     for(var i:int =0; i<10; i++){
+          print(i, " ");
      }
+     print("\n");
 
      var k: int = 3;
      var f: float = 3.5f;
