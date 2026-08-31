@@ -19,6 +19,7 @@ func main(): void {
      	print("K is not three.\n");
      }
 
+     print("Linux test\n");
      print(sum, "\n");
      print(td);
 }
