@@ -6,10 +6,10 @@
 struct VM;
 
 struct IRReader {
-        struct IRContext *irc;
-        const byte *bytes;
-        unsigned reader_cnt;
-        unsigned byte_cnt;
+    struct IRContext *irc;
+    const byte *bytes;
+    unsigned reader_cnt;
+    unsigned byte_cnt;
 };
 
 struct IRReader *gen_ir_reader(struct IRContext *irc);
