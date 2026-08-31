@@ -77,15 +77,15 @@ int main(int arc, char *args[]) {
         } else {
                 // q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
                 // q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
-		// q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
-		q_push(pc->first_pass_queue, gen_tc(read_file("test_basic.cn")));
+		q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
+		// q_push(pc->first_pass_queue, gen_tc(read_file("test_basic.cn")));
         }
 
         resolve_first_pass_queue(pc);
         resolve_second_pass_queue(pc);
         resolve_sementic_analysis(pc);
-
-        // debug_view_data(pc);
+	
+	debug_view_data(pc);
 
         // back end
         struct IRContext *irc = gen_irc();

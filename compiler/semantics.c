@@ -19,10 +19,28 @@ static struct Token *type_token_for(struct Type *type) {
 	return tok;
 }
 
-struct FuncData *gen_func_data(const char *func_name, struct Type *ret_type, unsigned id, bool varargs) {
+static void set_function_stack_layout(struct ParserContext *pc,
+				      struct FuncData *function_data,
+				      struct VarData **variables,
+				      unsigned variable_count) {
+	unsigned offset = 0;
+	unsigned i;
+
+	for (i = 0; i < variable_count; i++) {
+		struct VarData *variable = variables[i];
+
+		variable->offset = offset;
+		offset += get_size_of_type(pc, variable->type);
+	}
+	function_data->stack_size = offset;
+}
+
+struct FuncData *gen_func_data(const char *func_name, struct Type *ret_type,
+			       unsigned id, bool varargs) {
         struct FuncData *data =
 		(struct FuncData *)S_malloc(sizeof(struct FuncData));
 
+	data->stack_size = 0;
 	data->is_constructor = false;
         data->return_type = ret_type;
         data->func_name = func_name;
@@ -40,9 +58,10 @@ struct FuncData *gen_func_data(const char *func_name, struct Type *ret_type, uns
 //----------------------------
 
 struct FuncData *register_constructor_data(const char *func_name,
-						  struct ParserContext *pc) {
+					  struct ParserContext *pc) {
         // id is -1 in this code but we will assign id after.
-        struct FuncData *data = gen_func_data(func_name, find_type(pc, "void"), -1, false);
+        struct FuncData *data = gen_func_data(
+		func_name, find_type(pc, "void"), -1, false);
 
 	data->is_constructor = true;
 	data->scope_data = ScopeClass;
@@ -64,9 +83,11 @@ struct FuncData *register_constructor_data(const char *func_name,
 }
 
 struct FuncData *register_func_data(const char *func_name,
-				    struct Type *ret_type, struct ParserContext *pc) {
+				    struct Type *ret_type,
+				    struct ParserContext *pc) {
         // id is -1 in this code but we will assign id after.
-        struct FuncData *data = gen_func_data(func_name, ret_type, -1, false);
+        struct FuncData *data = gen_func_data(
+		func_name, ret_type, -1, false);
 
         // id assign.
         if (pc->current_class) {
@@ -772,6 +793,9 @@ void register_data(struct ParserContext *pc, struct Node *node){
 
 		func_decl_ast->declared_var_count = pc->declared_local_var_count;
 		func_decl_ast->declared_vars = pc->declared_local_vars;
+		set_function_stack_layout(
+			pc, func_data, func_decl_ast->declared_vars,
+			func_decl_ast->declared_var_count);
 
 		close_scope(pc);
 		pc->current_func = NULL;
@@ -906,6 +930,9 @@ void register_data(struct ParserContext *pc, struct Node *node){
 
 		constructor_ast->declared_var_count = pc->declared_local_var_count;
 		constructor_ast->declared_vars = pc->declared_local_vars;
+		set_function_stack_layout(
+			pc, func_data, constructor_ast->declared_vars,
+			constructor_ast->declared_var_count);
 		
 		break;
 	}

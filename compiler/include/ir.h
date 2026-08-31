@@ -21,14 +21,14 @@
 #define META_CLASS 0x04
 
 // META_FUNC func_id(uint) func_str(char*) return_type(char*)
-//           arg_count(uint) arg_types(char* ...)
+//           arg_count(uint) arg_types(char* ...) stack_size(uint)
 #define META_FUNC 0x05
 
 // META_VAR var_id(uint) var_str(char*)
 #define META_VAR 0x06
 
 // META_CONSTRUCTOR func_id(uint) func_str(char*)
-//                  arg_count(uint) arg_types(char* ...)
+//                  arg_count(uint) arg_types(char* ...) stack_size(uint)
 #define META_CONSTRUCTOR 0X07
 
 #define CODE_BEGIN 0x51 // begining of code section
@@ -66,7 +66,6 @@
 #define OP_LOAD_STR 0x60 // load_str id(uint)
 
 #define OP_RET 0x70 // ret
-#define OP_RET_VAL 0x71 // ret with value. store return value from top of the stack into ret register 
 
 #define OP_GOTO 0x73 // goto label(uint)
 #define OP_LABEL 0x74 // label(uint)

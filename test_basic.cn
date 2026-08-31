@@ -5,8 +5,7 @@ func main(): void {
      var td: int = 0;
 
      for(var i:int =0; i<=100; i++){
-     	     print(i, "\n");
-	     td += i;
+     	     print(i);
      }
 
      var k: int = 3;

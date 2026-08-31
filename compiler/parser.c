@@ -1393,9 +1393,10 @@ static void debug_view_func_smtb(struct HTable *htable) {
                 while (dn != NULL) {
                         struct FuncData *fd = (struct FuncData *)dn->ptr;
 
-                        printf("Function Data : %s(%d), ret type : %s ",
+                        printf("Function Data : %s(%d), ret type : %s, stack size : %d ",
                                fd->func_name, fd->id,
-                               fd->return_type->type_str);
+                               fd->return_type->type_str,
+			       fd->stack_size);
 
                         printf("Arguments : ");
                         for (j = 0; j < fd->arg_count; j++) {

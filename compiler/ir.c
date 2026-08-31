@@ -114,6 +114,8 @@ static void gen_func_metadata(struct IRContext *irc, struct ParserContext *pc,
 	emit_int(irc, fd->arg_count);
 	for (i = 0; i < fd->arg_count; i++)
 		emit_str(irc, fd->arg_types[i]->type_str);
+
+	emit_int(irc, fd->stack_size);
 }
 
 static void gen_var_metadata(struct IRContext *irc, struct ParserContext *pc,
@@ -190,40 +192,6 @@ void print_bytes(struct IRContext *irc) {
 }
 
 const byte *get_bytes(struct IRContext *irc) { return irc->bytes; }
-
-static unsigned get_total_stack_size_of_func(struct ParserContext *pc,
-                                             struct FuncDeclAST *func_decl) {
-        int i;
-        unsigned stack_offset = 0;
-
-        for (i = 0; i < func_decl->declared_var_count; i++) {
-                struct VarData *var_data = func_decl->declared_vars[i];
-                unsigned data_size = get_size_of_type(pc, var_data->type);
-
-                var_data->offset = stack_offset;
-
-                stack_offset += data_size;
-        }
-
-        return stack_offset;
-}
-
-static unsigned
-get_total_stack_size_of_constructor(struct ParserContext *pc,
-                                    struct ConstructorAST *constructor) {
-        int i;
-        unsigned stack_offset = 0;
-
-        for (i = 0; i < constructor->declared_var_count; i++) {
-                struct VarData *var_data = constructor->declared_vars[i];
-                unsigned data_size = get_size_of_type(pc, var_data->type);
-
-                var_data->offset = stack_offset;
-                stack_offset += data_size;
-        }
-
-        return stack_offset;
-}
 
 static struct RODATA_Str *gen_str_rodata(unsigned id, const char *str) {
         struct RODATA_Str *result =
@@ -910,8 +878,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 struct ConstructorAST *constructor_ast =
                     (struct ConstructorAST *)node->ast;
                 struct FuncData *func_data = constructor_ast->func_data;
-                unsigned total_stack_size =
-                    get_total_stack_size_of_constructor(pc, constructor_ast);
+		unsigned total_stack_size = func_data->stack_size;
 		unsigned code_size_offset;
 		unsigned code_begin;
 		irc->current_func = func_data;
@@ -936,6 +903,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                 bool has_terminal_return = constructor_ast->body_count != 0 &&
 			constructor_ast->body[constructor_ast->body_count - 1]->type ==
 				AST_Return;
+		
                 if (!has_terminal_return && total_stack_size != 0) {
                         emit_byte(irc, OP_SP_POP);
                         emit_int(irc, total_stack_size);
@@ -943,6 +911,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
                 if (!has_terminal_return)
 			emit_byte(irc, OP_RET);
+		
 		patch_int(irc, code_size_offset,
 			  (int)(irc->byte_cnt - code_begin));
                 emit_byte(irc, CODE_TERM);
@@ -955,15 +924,13 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
         case AST_Return: {
                 struct ReturnAST *ret_ast = (struct ReturnAST *)node->ast;
 
-		if (ret_ast->expr == NULL){
-		} else {
+		if (ret_ast->expr != NULL)
 			gen_node_ir(irc, pc, ret_ast->expr);
-		}
 		if (irc->current_stack_size != 0) {
 			emit_byte(irc, OP_SP_POP);
 			emit_int(irc, irc->current_stack_size);
 		}
-		emit_byte(irc, ret_ast->expr == NULL ? OP_RET : OP_RET_VAL);
+		emit_byte(irc, OP_RET);
                 break;
         }
 
@@ -982,8 +949,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
                 struct FuncData *func_data = func_decl_ast->func_data;
 
-                unsigned total_stack_size =
-                    get_total_stack_size_of_func(pc, func_decl_ast);
+		unsigned total_stack_size = func_data->stack_size;
 		unsigned code_size_offset;
 		unsigned code_begin;
 		irc->current_func = func_data;
@@ -999,7 +965,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                         emit_byte(irc, OP_SP_PUSH);
                         emit_int(irc, total_stack_size);
                 }
-
+		
                 int i;
                 for (i = 0; i < func_decl_ast->body_count; i++) {
                         struct Node *body_node = func_decl_ast->body[i];
@@ -1057,11 +1023,12 @@ static void gen_rodata(struct IRContext *irc, struct ParserContext *pc) {
 }
 
 void gen_ir(struct IRContext *irc, struct ParserContext *pc) {
+	int i;
+
         gen_metadata(irc, pc);
 
         emit_byte(irc, CODE_BEGIN);
 
-        int i;
         for (i = 0; i < pc->node_count; i++) {
                 struct Node *node = pc->nodes[i];
 

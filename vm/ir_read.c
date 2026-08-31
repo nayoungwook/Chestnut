@@ -103,7 +103,6 @@ static bool is_operandless_instruction(byte opcode) {
         switch (opcode) {
         case OP_PUSH_NULL:
         case OP_RET:
-        case OP_RET_VAL:
         case OP_NEG:
         case OP_ARRAY_LENGTH:
                 return true;
@@ -307,12 +306,15 @@ static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
         const char *return_type = "void";
         const char **argument_types = NULL;
         unsigned i;
+	int32_t stack_size;
 
         id = read_i32(reader, &ok);
         name = ok ? read_string(reader, &ok) : NULL;
         if (!is_constructor)
                 return_type = ok ? read_string(reader, &ok) : NULL;
+	
         argument_count = ok ? read_i32(reader, &ok) : 0;
+	
         if (!ok || id < 0 || argument_count < 0 ||
             (unsigned)argument_count >
                     reader->byte_cnt - reader->reader_cnt)
@@ -321,7 +323,8 @@ static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
         if (argument_count != 0)
                 argument_types = (const char **)S_malloc(
                         sizeof(char *) * (unsigned)argument_count);
-        for (i = 0; i < (unsigned)argument_count; i++) {
+
+	for (i = 0; i < (unsigned)argument_count; i++) {
                 argument_types[i] = read_string(reader, &ok);
                 if (!ok) {
                         free(argument_types);
@@ -330,13 +333,21 @@ static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
                 }
         }
 
-        if (vm_find_function_data(vm, owner, (unsigned)id) != NULL) {
-                free(argument_types);
-                return reader_error(reader, "duplicate function metadata");
-        }
+	stack_size = read_i32(reader, &ok);
+	if (!ok || stack_size < 0) {
+		free(argument_types);
+		return reader_error(reader, "invalid function stack size");
+	}
+
+	if (vm_find_function_data(vm, owner, (unsigned)id) != NULL) {
+		free(argument_types);
+		return reader_error(reader, "duplicate function metadata");
+	}
         vm_add_function_data(vm, owner, (unsigned)id, name, return_type,
-                             argument_types, (unsigned)argument_count,
+			     argument_types, (unsigned)argument_count,
+			     (unsigned)stack_size,
                              is_constructor);
+	
         free(argument_types);
         return true;
 }
@@ -557,4 +568,6 @@ void read_ir(struct VM *vm, struct IRReader *reader) {
                 if (!ok)
                         return;
         }
+
+        vm_debug_print_bytecode(vm);
 }

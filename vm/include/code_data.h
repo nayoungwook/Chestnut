@@ -25,6 +25,7 @@ struct VMInstruction {
 
 struct VMFunctionData {
 	unsigned id;
+	unsigned stack_size;
 
 	const char *name;
 	const char *return_type;

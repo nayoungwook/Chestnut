@@ -11,6 +11,8 @@ struct VMFunctionData;
 struct VMInstruction;
 struct VM;
 
+// When adding new operand type, you have to check two functions,
+// get_operand_size and get_operand_level
 enum VMOPType {
 	OPRND_NULL = 0,
 	OPRND_String = 1,
@@ -19,6 +21,8 @@ enum VMOPType {
 	OPRND_FLOAT64 = 4,
 	OPRND_BOOL = 5,
 };
+
+size_t get_operand_size(enum VMOPType op_type);
 
 struct VMOperand {
 	enum VMOPType op_type;
@@ -63,23 +67,25 @@ struct VM {
 
 struct VM *gen_vm();
 struct VMClassData *vm_add_class_data(struct VM *vm, unsigned id,
-				 const char *name, unsigned parent_id,
-				 unsigned size);
+				      const char *name, unsigned parent_id,
+				      unsigned size);
 struct VMFunctionData *vm_add_function_data(struct VM *vm,
-				       struct VMClassData *owner,
-				       unsigned id, const char *name,
-				       const char *return_type,
-				       const char **argument_types,
-				       unsigned argument_count,
-				       bool is_constructor);
+					    struct VMClassData *owner,
+					    unsigned id, const char *name,
+					    const char *return_type,
+					    const char **argument_types,
+					    unsigned argument_count,
+					    unsigned stack_size,
+					    bool is_constructor);
 struct VMClassData *vm_find_class_data(const struct VM *vm, unsigned id);
 struct VMFunctionData *vm_find_function_data(const struct VM *vm,
-					struct VMClassData *owner,
-					unsigned id);
+					     struct VMClassData *owner,
+					     unsigned id);
 void vm_set_function_instructions(
-		struct VMFunctionData *function_data,
-		const struct VMInstruction *instructions,
-		unsigned instruction_count);
+				  struct VMFunctionData *function_data,
+				  const struct VMInstruction *instructions,
+				  unsigned instruction_count);
+void vm_debug_print_bytecode(const struct VM *vm);
 
 bool exec_instruction(struct VM *vm,
 		      const struct VMInstruction *instruction,

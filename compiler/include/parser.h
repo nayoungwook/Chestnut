@@ -265,6 +265,7 @@ enum ScopeData {
 
 struct FuncData {
         unsigned id;
+	unsigned stack_size;
         const char *func_name;
         struct Type *return_type;
 
