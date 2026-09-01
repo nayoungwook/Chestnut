@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 void unix_error(char *msg) {
     fprintf(stderr, "%s: %s\n", msg, strerror(errno));
 }
@@ -18,7 +18,7 @@ void win_error(char *msg) { fprintf(stderr, "win error | %s\n", msg); }
 #endif
 
 static void error(char *msg) {
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
     unix_error(msg);
 #endif
 
@@ -29,7 +29,7 @@ static void error(char *msg) {
 
 // ----- file system -----
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 static char *read_file_unix(const char *path) {
     FILE *fp = fopen(path, "rb");
 
@@ -118,7 +118,8 @@ static char *read_file_win(const char *path) {
 
 char *read_file(char *path) {
     char *result = NULL;
-#ifdef __unix__
+
+#if defined(__unix__) || defined(__APPLE__)
     result = read_file_unix(path);
 #endif
 
@@ -131,7 +132,7 @@ char *read_file(char *path) {
     return result;
 }
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 
 static void unix_write_file(const char *path, const size_t len,
                             const char *data) {
@@ -151,7 +152,7 @@ static void unix_write_file(const char *path, const size_t len,
 #endif
 
 void write_file(const char *path, const size_t len, const char *data) {
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
     unix_write_file(path, len, data);
 #endif
 #ifdef _WIN32

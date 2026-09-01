@@ -3,7 +3,7 @@
 #include <windows.h>
 #endif
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 #include <sys/mman.h>
 #endif
 
@@ -75,7 +75,7 @@ struct VM *gen_vm() {
     const unsigned HEAP_SIZE = 1024 * 1024 * 16;
     const unsigned STACK_SIZE = 1024 * 1024;
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
     vm->heap = mmap(NULL, HEAP_SIZE, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     vm->stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
