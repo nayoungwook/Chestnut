@@ -244,135 +244,9 @@ void vm_set_function_instructions(struct VMFunctionData *function_data,
                sizeof(struct VMInstruction) * instruction_count);
 }
 
-#if defined(DEBUG) || defined(DEBUG_STAMP_COMMAND)
-static const char *get_instruction_name(unsigned char opcode) {
-    switch (opcode) {
-    case OP_PUSH_NULL:
-        return "push_null";
-    case OP_EXPR_OP:
-        return "expr_op";
-    case OP_SP_PUSH:
-        return "sp_push";
-    case OP_SP_POP:
-        return "sp_pop";
-    case OP_SP_LOAD:
-        return "sp_load";
-    case OP_SP_SAVE:
-        return "sp_save";
-    case OP_SP_INCRE:
-        return "sp_incre";
-    case OP_SP_DECRE:
-        return "sp_decre";
-    case OP_LOAD_CLASS:
-        return "load_class";
-    case OP_INCRE_CLASS:
-        return "incre_class";
-    case OP_DECRE_CLASS:
-        return "decre_class";
-    case OP_SAVE_CLASS:
-        return "save_class";
-    case OP_LOAD_GLOBAL:
-        return "load_global";
-    case OP_INCRE_GLOBAL:
-        return "incre_global";
-    case OP_DECRE_GLOBAL:
-        return "decre_global";
-    case OP_SAVE_GLOBAL:
-        return "save_global";
-    case OP_LOAD_ATTR:
-        return "load_attr";
-    case OP_INCRE_ATTR:
-        return "incre_attr";
-    case OP_DECRE_ATTR:
-        return "decre_attr";
-    case OP_SAVE_ATTR:
-        return "save_attr";
-    case OP_SYSCALL:
-        return "syscall";
-    case OP_CALL:
-        return "call";
-    case OP_CALL_ATTR:
-        return "call_attr";
-    case OP_CALL_CLASS:
-        return "call_class";
-    case OP_CALL_GLOBAL:
-        return "call_global";
-    case OP_LOAD_STR:
-        return "load_str";
-    case OP_GOTO:
-        return "goto";
-    case OP_JE:
-        return "je";
-    case OP_JNE:
-        return "jne";
-    case OP_RET:
-        return "ret";
-    case OP_NEG:
-        return "neg";
-    case OP_LDC_I4:
-        return "ldc_i4";
-    case OP_LDC_F4:
-        return "ldc_f4";
-    case OP_LDC_F8:
-        return "ldc_f8";
-    case OP_NEW_OBJECT:
-        return "new_object";
-    case OP_NEW_ARRAY:
-        return "new_array";
-    case OP_ARRAY_LOAD:
-        return "array_load";
-    case OP_ARRAY_SAVE:
-        return "array_save";
-    case OP_ARRAY_LENGTH:
-        return "array_length";
-    case OP_ARRAY_PUSH:
-        return "array_push";
-    case OP_ARRAY_REMOVE:
-        return "array_remove";
-    default:
-        return NULL;
-    }
-}
-#endif
-
-#ifdef DEBUG
-static const char *get_expr_op_name(unsigned char opcode) {
-    switch (opcode) {
-    case OP_ADD:
-        return "add";
-    case OP_SUB:
-        return "sub";
-    case OP_MUL:
-        return "mul";
-    case OP_DIV:
-        return "div";
-    case OP_EQUAL:
-        return "equal";
-    case OP_NOTEQUAL:
-        return "notequal";
-    case OP_GREATER:
-        return "greater";
-    case OP_LESS:
-        return "less";
-    case OP_EQUALGREATER:
-        return "eqgreater";
-    case OP_EQUALLESS:
-        return "eqless";
-    case OP_ASSIGN:
-        return "assign";
-    case OP_OR:
-        return "or";
-    case OP_AND:
-        return "and";
-    default:
-        return NULL;
-    }
-}
-#endif
-
 #ifdef DEBUG
 static void debug_print_instruction(const struct VMInstruction *instruction) {
-    const char *name = get_instruction_name(instruction->opcode);
+    const char *name = GET_INSTRUCTION_STR(instruction->opcode);
     unsigned i;
 
     if (name == NULL) {
@@ -381,7 +255,8 @@ static void debug_print_instruction(const struct VMInstruction *instruction) {
     }
 
     if (instruction->opcode == OP_EXPR_OP) {
-        const char *expr_name = get_expr_op_name(instruction->operands.u8);
+        const char *expr_name =
+            GET_EXPRESSION_OP_STR(instruction->operands.u8);
 
         DEBUG_PRINTF("%s\n", expr_name != NULL ? expr_name : "unknown");
         return;
@@ -490,6 +365,7 @@ static void handle_syscall(struct VM *vm, int id, int argc) {
     }
 }
 
+// union of numeric value.
 union VMNumericValue {
     int32_t i32;
     float f32;
@@ -516,6 +392,9 @@ enum VMOperatorIndex {
     VM_OPERATOR_COUNT,
 };
 
+// pre definition of operator set,
+// for example if prefix is i32
+// static bool i32_add will be made.
 #define DEFINE_VM_OPERATOR_SET(prefix, type, member)                           \
     static bool prefix##_add(const union VMNumericValue *lhs_value,            \
                              const union VMNumericValue *rhs_value,            \
@@ -822,7 +701,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
 
 #ifdef DEBUG
         {
-            const char *name = get_expr_op_name(expr_opcode);
+            const char *name = GET_EXPRESSION_OP_STR(expr_opcode);
 
             if (name == NULL) {
                 ok = false;
@@ -1172,7 +1051,7 @@ void vm_exec_function(struct VM *vm, struct VMFunctionData *function_data) {
         ok = exec_instruction(vm, instruction, &instruction_index);
 
 #ifdef DEBUG_STAMP_COMMAND
-        const char *command_name = get_instruction_name(instruction->opcode);
+        const char *command_name = GET_INSTRUCTION_STR(instruction->opcode);
 
         fprintf(stderr, "[command %s/0x%02x] %.3f ms\n",
                 command_name != NULL ? command_name : "unknown",

@@ -49,98 +49,89 @@
 // ** Operations **
 // --------------------------
 
-#define OP_SP_PUSH 0x56 // sp_push amount(uint)
-#define OP_SP_POP 0x57  // sp_pop amount(uint)
+#define IR_INSTRUCTION_LIST(X)                                                 \
+    X(OP_SP_PUSH, 0x56, "sp_push")                                            \
+    X(OP_SP_POP, 0x57, "sp_pop")                                              \
+    X(OP_SP_LOAD, 0x58, "sp_load")                                            \
+    X(OP_SP_SAVE, 0x59, "sp_save")                                            \
+    X(OP_SP_INCRE, 0x5a, "sp_incre")                                          \
+    X(OP_SP_DECRE, 0x5b, "sp_decre")                                          \
+    X(OP_SYSCALL, 0x5c, "syscall")                                            \
+    X(OP_CALL, 0x5d, "call")                                                  \
+    X(OP_CALL_ATTR, 0x5e, "call_attr")                                        \
+    X(OP_CALL_CLASS, 0x5f, "call_class")                                      \
+    X(OP_LOAD_STR, 0x60, "load_str")                                          \
+    X(OP_CALL_GLOBAL, 0x61, "call_global")                                    \
+    X(OP_RET, 0x70, "ret")                                                    \
+    X(OP_EXPR_OP, 0x72, "expr_op")                                            \
+    X(OP_GOTO, 0x73, "goto")                                                  \
+    X(OP_LABEL, 0x74, "label")                                                \
+    X(OP_JE, 0x75, "je")                                                      \
+    X(OP_JNE, 0x76, "jne")                                                    \
+    X(OP_NEG, 0x77, "neg")                                                    \
+    X(OP_LDC_I4, 0x81, "ldc_i4")                                              \
+    X(OP_LDC_F4, 0x82, "ldc_f4")                                              \
+    X(OP_LDC_F8, 0x83, "ldc_f8")                                              \
+    X(OP_PUSH_NULL, 0x84, "push_null")                                        \
+    X(OP_LOAD_CLASS, 0x85, "load_class")                                      \
+    X(OP_INCRE_CLASS, 0x8a, "incre_class")                                    \
+    X(OP_DECRE_CLASS, 0x8b, "decre_class")                                    \
+    X(OP_LOAD_GLOBAL, 0x8c, "load_global")                                    \
+    X(OP_INCRE_GLOBAL, 0x8d, "incre_global")                                  \
+    X(OP_DECRE_GLOBAL, 0x8e, "decre_global")                                  \
+    X(OP_LOAD_ATTR, 0x8f, "load_attr")                                        \
+    X(OP_INCRE_ATTR, 0x90, "incre_attr")                                      \
+    X(OP_DECRE_ATTR, 0x91, "decre_attr")                                      \
+    X(OP_SAVE_CLASS, 0x92, "save_class")                                      \
+    X(OP_SAVE_GLOBAL, 0x93, "save_global")                                    \
+    X(OP_SAVE_ATTR, 0x94, "save_attr")                                        \
+    X(OP_NEW_OBJECT, 0x95, "new_object")                                      \
+    X(OP_NEW_ARRAY, 0x96, "new_array")                                        \
+    X(OP_ARRAY_LOAD, 0x97, "array_load")                                      \
+    X(OP_ARRAY_SAVE, 0x98, "array_save")                                      \
+    X(OP_ARRAY_LENGTH, 0x99, "array_length")                                  \
+    X(OP_ARRAY_PUSH, 0x9a, "array_push")                                      \
+    X(OP_ARRAY_REMOVE, 0x9b, "array_remove")
 
-#define OP_SP_LOAD 0x58  // sp_load offset(uint) size(uint)
-#define OP_SP_SAVE 0x59  // sp_save offset(uint) size(uint)
-#define OP_SP_INCRE 0x5a // sp_incre offset(uint) size(uint)
-#define OP_SP_DECRE 0x5b // sp_decre offset(uint) size(uint)
+#define IR_EXPRESSION_OP_LIST(X)                                               \
+    X(OP_ADD, 0x01, "add")                                                    \
+    X(OP_SUB, 0x02, "sub")                                                    \
+    X(OP_MUL, 0x03, "mul")                                                    \
+    X(OP_DIV, 0x04, "div")                                                    \
+    X(OP_EQUAL, 0x05, "equal")                                                \
+    X(OP_NOTEQUAL, 0x06, "notequal")                                          \
+    X(OP_GREATER, 0x07, "greater")                                            \
+    X(OP_LESS, 0x08, "less")                                                  \
+    X(OP_EQUALGREATER, 0x09, "eqgreater")                                    \
+    X(OP_EQUALLESS, 0x0a, "eqless")                                           \
+    X(OP_ASSIGN, 0x0b, "assign")                                              \
+    X(OP_OR, 0x0c, "or")                                                      \
+    X(OP_AND, 0x0d, "and")
 
-#define OP_SYSCALL 0x5c     // syscall id(uint) arg_cnt(uint)
-#define OP_CALL 0x5d        // call id(uint) arg_cnt(uint)
-#define OP_CALL_ATTR 0x5e   // call_attr id(uint) arg_cnt(uint)
-#define OP_CALL_CLASS 0x5f  // call_class id(uint) arg_cnt(uint)
-#define OP_CALL_GLOBAL 0x61 // call_global id(uint) arg_cnt(uint)
+#define DEF_INSTRUCTION(OP_NAME, HEX, OP_STR)                                  \
+    enum { OP_NAME = HEX };                                                    \
+    static const char OP_NAME##_STR[] = OP_STR;
 
-#define OP_LOAD_STR 0x60 // load_str id(uint)
+IR_INSTRUCTION_LIST(DEF_INSTRUCTION)
+IR_EXPRESSION_OP_LIST(DEF_INSTRUCTION)
 
-#define OP_RET 0x70 // ret
+#define DEF_INSTRUCTION_STR(OP_NAME, HEX, OP_STR) [OP_NAME] = OP_NAME##_STR,
 
-#define OP_GOTO 0x73  // goto label(uint)
-#define OP_LABEL 0x74 // label(uint)
-#define OP_JE 0x75    // je label(uint)
-#define OP_JNE 0x76   // jne label(uint)
+static const char *const IR_INSTRUCTION_STRS[256] = {
+    IR_INSTRUCTION_LIST(DEF_INSTRUCTION_STR)
+};
 
-#define OP_NEG 0x77 // neg
+static const char *const IR_EXPRESSION_OP_STRS[256] = {
+    IR_EXPRESSION_OP_LIST(DEF_INSTRUCTION_STR)
+};
 
-// --------------------------
-// ** Binary expression **
-// --------------------------
+#define GET_INSTRUCTION_STR(OP_CODE)                                           \
+    (IR_INSTRUCTION_STRS[(unsigned char)(OP_CODE)])
 
-#define OP_EXPR_OP 0x72
+#define GET_EXPRESSION_OP_STR(OP_CODE)                                         \
+    (IR_EXPRESSION_OP_STRS[(unsigned char)(OP_CODE)])
 
-#define OP_ADD 0x01
-#define OP_SUB 0x02
-#define OP_MUL 0x03
-#define OP_DIV 0x04
-#define OP_EQUAL 0x05
-#define OP_NOTEQUAL 0x06
-#define OP_GREATER 0x07
-#define OP_LESS 0x08
-#define OP_EQUALGREATER 0x09
-#define OP_EQUALLESS 0x0a
-#define OP_ASSIGN 0x0b
-#define OP_OR 0x0c
-#define OP_AND 0x0d
-
-// --------------------------
-// ** Load and push data **
-// --------------------------
-
-#define OP_LDC_I4 0x81 // load const integer 4byte
-#define OP_LDC_F4 0x82 // load const float 4byte
-#define OP_LDC_F8 0x83 // load const float 8byte
-
-#define OP_PUSH_NULL 0x84 // push null
-#define OP_LOAD_CLASS                                                          \
-    0x85 // load_class offset(uint) size(uint) # load from current class and
-         // push into stack.
-#define OP_INCRE_CLASS                                                         \
-    0x8a // incre_global offset(uint) size(uint) # increase from current class
-#define OP_DECRE_CLASS                                                         \
-    0x8b // decre_global offset(uint) size(uint) # decrease from current class
-
-#define OP_LOAD_GLOBAL                                                         \
-    0x8c // load_global offset(uint) sizeof(uint) # load from global and push
-         // into stack.
-#define OP_INCRE_GLOBAL                                                        \
-    0x8d // incre_global offset(uint) sizeof(uint) # increase from global
-#define OP_DECRE_GLOBAL                                                        \
-    0x8e // decre_global offset(uint) sizeof(uint) # decrease from global
-
-#define OP_LOAD_ATTR                                                           \
-    0x8f // load_attr offset(uint) size(uint) # load from data from top of the
-         // stack.
-
-#define OP_INCRE_ATTR                                                          \
-    0x90 // incre_attr offset(uint) size(uint) # increase from data from top of
-         // the stack.
-#define OP_DECRE_ATTR                                                          \
-    0x91 // decre_attr offset(uint) size(uint) # decrease from data from top of
-         // the stack.
-
-#define OP_SAVE_CLASS 0x92
-#define OP_SAVE_GLOBAL 0x93
-#define OP_SAVE_ATTR 0x94
-#define OP_NEW_OBJECT                                                          \
-    0x95 // class id, size, alignment, constructor id, arg count
-#define OP_NEW_ARRAY 0x96  // element size, element count
-#define OP_ARRAY_LOAD 0x97 // element size
-#define OP_ARRAY_SAVE 0x98 // element size
-#define OP_ARRAY_LENGTH 0x99
-#define OP_ARRAY_PUSH 0x9a   // method id, argument count
-#define OP_ARRAY_REMOVE 0x9b // method id, argument count
+#undef DEF_INSTRUCTION_STR
 
 typedef unsigned char byte;
 

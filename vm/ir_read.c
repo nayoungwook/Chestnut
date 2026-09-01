@@ -97,6 +97,19 @@ static bool reader_error(struct IRReader *reader, const char *message) {
     return false;
 }
 
+static bool reader_instruction_error(struct IRReader *reader, byte opcode,
+                                     const char *message) {
+    const char *instruction_str = GET_INSTRUCTION_STR(opcode);
+
+    if (instruction_str == NULL)
+        fprintf(stderr, "IR read error at byte %u: unknown instruction 0x%02x\n",
+                reader->reader_cnt, opcode);
+    else
+        fprintf(stderr, "IR read error at byte %u (%s): %s\n",
+                reader->reader_cnt, instruction_str, message);
+    return false;
+}
+
 static bool is_operandless_instruction(byte opcode) {
     switch (opcode) {
     case OP_PUSH_NULL:
@@ -165,6 +178,7 @@ decode_function_instructions(const byte *code, unsigned code_size,
     unsigned label_targets[VM_LABEL_CAPACITY];
     unsigned instruction_count = 0;
     const char *error_message = NULL;
+    byte error_opcode = 0;
     unsigned i;
 
     code_reader.bytes = code;
@@ -185,6 +199,7 @@ decode_function_instructions(const byte *code, unsigned code_size,
             error_message = "truncated instruction opcode";
             goto fail;
         }
+        error_opcode = opcode;
 
         if (opcode == OP_LABEL) {
             bool ok = true;
@@ -260,6 +275,8 @@ decode_function_instructions(const byte *code, unsigned code_size,
             instruction->opcode == OP_JNE) {
             int32_t label_id = instruction->operands.i32[0];
 
+            error_opcode = instruction->opcode;
+
             if (label_id < 0 || (unsigned)label_id >= VM_LABEL_CAPACITY ||
                 label_targets[label_id] == UINT_MAX) {
                 code_reader.reader_cnt = code_size;
@@ -279,7 +296,7 @@ decode_function_instructions(const byte *code, unsigned code_size,
     return true;
 
 fail:
-    reader_error(&code_reader, error_message);
+    reader_instruction_error(&code_reader, error_opcode, error_message);
     free(instructions);
     return false;
 }
