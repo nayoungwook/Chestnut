@@ -24,7 +24,7 @@
 //           arg_count(uint) arg_types(char* ...) stack_size(uint)
 #define META_FUNC 0x05
 
-// META_VAR var_id(uint) var_str(char*)
+// META_VAR var_id(uint) var_str(char*) type(char*) offset(uint) size(uint)
 #define META_VAR 0x06
 
 // META_CONSTRUCTOR func_id(uint) func_str(char*)
@@ -39,6 +39,8 @@
 #define CODE_CLASS 0x54 // CODE_CLASS class_id(uint)
 
 #define CODE_FUNC 0x55 // CODE_FUNC func_id(uint) code_size(uint) code(bytes)
+
+#define CODE_INITIALIZER 0x50 // CODE_INITIALIZER code_size(uint) code(bytes)
 
 #define RODATA_BEGIN 0x11
 #define RODATA_END 0x12

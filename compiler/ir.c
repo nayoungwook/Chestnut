@@ -5,8 +5,7 @@
 #include <util.h>
 
 struct IRContext *gen_irc() {
-    struct IRContext *irc =
-        (struct IRContext *)S_malloc(sizeof(struct IRContext));
+    struct IRContext *irc = (struct IRContext *)S_malloc(sizeof(struct IRContext));
 
     irc->node = NULL;
     irc->byte_cnt = 0;
@@ -33,8 +32,7 @@ void emit_byte(struct IRContext *irc, byte _b) {
 
     if (irc->byte_cnt >= irc->byte_size) {
         irc->byte_size *= 2;
-        irc->bytes =
-            (byte *)S_realloc(irc->bytes, sizeof(byte) * irc->byte_size);
+        irc->bytes = (byte *)S_realloc(irc->bytes, sizeof(byte) * irc->byte_size);
     }
 }
 
@@ -117,13 +115,14 @@ static void gen_func_metadata(struct IRContext *irc, struct ParserContext *pc,
     emit_int(irc, fd->stack_size);
 }
 
-static void gen_var_metadata(struct IRContext *irc, struct ParserContext *pc,
-                             struct VarData *vd) {
+static void gen_var_metadata(struct IRContext *irc, struct ParserContext *pc, struct VarData *vd) {
     emit_byte(irc, META_VAR);
 
     emit_int(irc, vd->id);
     emit_str(irc, vd->var_name);
     emit_str(irc, vd->type->type_str);
+    emit_int(irc, vd->offset);
+    emit_int(irc, get_size_of_type(pc, vd->type));
 }
 
 static void gen_class_metadata(struct IRContext *irc, struct ParserContext *pc,
@@ -132,9 +131,7 @@ static void gen_class_metadata(struct IRContext *irc, struct ParserContext *pc,
 
     emit_int(irc, cd->id);
     emit_str(irc, cd->class_type->type_str);
-    emit_int(irc, cd->parent_type == NULL
-                      ? 0
-                      : cd->parent_type->data.class_data->id);
+    emit_int(irc, cd->parent_type == NULL ? 0 : cd->parent_type->data.class_data->id);
     emit_int(irc, cd->instance_size);
 
     int i;
@@ -190,11 +187,12 @@ void print_bytes(struct IRContext *irc) {
     }
 }
 
-const byte *get_bytes(struct IRContext *irc) { return irc->bytes; }
+const byte *get_bytes(struct IRContext *irc) {
+    return irc->bytes;
+}
 
 static struct RODATA_Str *gen_str_rodata(unsigned id, const char *str) {
-    struct RODATA_Str *result =
-        (struct RODATA_Str *)S_malloc(sizeof(struct RODATA_Str));
+    struct RODATA_Str *result = (struct RODATA_Str *)S_malloc(sizeof(struct RODATA_Str));
 
     result->id = id;
     result->str = str;
@@ -202,11 +200,9 @@ static struct RODATA_Str *gen_str_rodata(unsigned id, const char *str) {
     return result;
 }
 
-static struct RODATA_Str *add_str_rodata(struct IRContext *irc,
-                                         const char *str) {
+static struct RODATA_Str *add_str_rodata(struct IRContext *irc, const char *str) {
 
-    struct RODATA_Str *rodata_str =
-        (struct RODATA_Str *)ht_find(irc->str_rodata, str);
+    struct RODATA_Str *rodata_str = (struct RODATA_Str *)ht_find(irc->str_rodata, str);
 
     if (rodata_str == NULL) {
         rodata_str = gen_str_rodata(irc->str_rodata->size, str);
@@ -296,9 +292,8 @@ static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type) {
 }
 
 static bool is_assignment_op(enum OperatorType op_type) {
-    return op_type == OpASSIGN || op_type == OpPLUSASSIGN ||
-           op_type == OpMINUSASSIGN || op_type == OpMULTASSIGN ||
-           op_type == OpDIVASSIGN;
+    return op_type == OpASSIGN || op_type == OpPLUSASSIGN || op_type == OpMINUSASSIGN ||
+           op_type == OpMULTASSIGN || op_type == OpDIVASSIGN;
 }
 
 static enum OperatorType get_compound_binary_op(struct ParserContext *pc,
@@ -318,11 +313,30 @@ static enum OperatorType get_compound_binary_op(struct ParserContext *pc,
     }
 }
 
-static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
-                        struct Node *node);
+static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc, struct Node *node);
+
+static void gen_class_initializer_ir(struct IRContext *irc, struct ParserContext *pc,
+                                     struct ClassAST *class_ast) {
+    unsigned code_size_offset;
+    unsigned code_begin;
+    unsigned i;
+
+    emit_byte(irc, CODE_INITIALIZER);
+    code_size_offset = irc->byte_cnt;
+    emit_int(irc, 0);
+    code_begin = irc->byte_cnt;
+
+    for (i = 0; i < class_ast->body_count; i++)
+        if (class_ast->body[i]->type == AST_VariableDeclarationBundle)
+            gen_node_ir(irc, pc, class_ast->body[i]);
+
+    emit_byte(irc, OP_RET);
+    patch_int(irc, code_size_offset, (int)(irc->byte_cnt - code_begin));
+    emit_byte(irc, CODE_TERM);
+}
 
 static void gen_ident_load_ir(struct IRContext *irc, struct ParserContext *pc,
-                              enum ScopeData scope_data, unsigned offset,
+                              enum ScopeData scope_data, unsigned id, unsigned offset,
                               unsigned size) {
     switch (scope_data) {
     case ScopeLocal:
@@ -342,12 +356,14 @@ static void gen_ident_load_ir(struct IRContext *irc, struct ParserContext *pc,
         break;
     }
 
+    if (scope_data == ScopeClass)
+        emit_int(irc, id);
     emit_int(irc, offset);
     emit_int(irc, size);
 }
 
 static void gen_ident_incre_ir(struct IRContext *irc, struct ParserContext *pc,
-                               enum ScopeData scope_data, unsigned offset,
+                               enum ScopeData scope_data, unsigned id, unsigned offset,
                                unsigned size) {
     switch (scope_data) {
     case ScopeLocal:
@@ -367,12 +383,14 @@ static void gen_ident_incre_ir(struct IRContext *irc, struct ParserContext *pc,
         break;
     }
 
+    if (scope_data == ScopeClass)
+        emit_int(irc, id);
     emit_int(irc, offset);
     emit_int(irc, size);
 }
 
 static void gen_ident_decre_ir(struct IRContext *irc, struct ParserContext *pc,
-                               enum ScopeData scope_data, unsigned offset,
+                               enum ScopeData scope_data, unsigned id, unsigned offset,
                                unsigned size) {
     switch (scope_data) {
     case ScopeLocal:
@@ -392,33 +410,37 @@ static void gen_ident_decre_ir(struct IRContext *irc, struct ParserContext *pc,
         break;
     }
 
+    if (scope_data == ScopeClass)
+        emit_int(irc, id);
     emit_int(irc, offset);
     emit_int(irc, size);
 }
 
-static void gen_attr_load_ir(struct IRContext *irc, struct ParserContext *pc,
+static void gen_attr_load_ir(struct IRContext *irc, struct ParserContext *pc, unsigned id,
                              unsigned offset, unsigned size) {
     emit_byte(irc, OP_LOAD_ATTR);
+    emit_int(irc, id);
     emit_int(irc, offset);
     emit_int(irc, size);
 }
 
-static void gen_attr_incre_ir(struct IRContext *irc, struct ParserContext *pc,
+static void gen_attr_incre_ir(struct IRContext *irc, struct ParserContext *pc, unsigned id,
                               unsigned offset, unsigned size) {
     emit_byte(irc, OP_INCRE_ATTR);
+    emit_int(irc, id);
     emit_int(irc, offset);
     emit_int(irc, size);
 }
 
-static void gen_attr_decre_ir(struct IRContext *irc, struct ParserContext *pc,
+static void gen_attr_decre_ir(struct IRContext *irc, struct ParserContext *pc, unsigned id,
                               unsigned offset, unsigned size) {
     emit_byte(irc, OP_DECRE_ATTR);
+    emit_int(irc, id);
     emit_int(irc, offset);
     emit_int(irc, size);
 }
 
-static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc,
-                         struct Node *node) {
+static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc, struct Node *node) {
 
     struct IdentifierAST *ident_ast = NULL;
 
@@ -429,15 +451,13 @@ static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc,
     }
 
     case AST_IdentIncrease: {
-        struct IdentIncreAST *ident_incre_ast =
-            ((struct IdentIncreAST *)node->ast);
+        struct IdentIncreAST *ident_incre_ast = ((struct IdentIncreAST *)node->ast);
         ident_ast = (struct IdentifierAST *)ident_incre_ast->ident_node->ast;
         break;
     }
 
     case AST_IdentDecrease: {
-        struct IdentDecreAST *ident_decre_ast =
-            ((struct IdentDecreAST *)node->ast);
+        struct IdentDecreAST *ident_decre_ast = ((struct IdentDecreAST *)node->ast);
         ident_ast = (struct IdentifierAST *)ident_decre_ast->ident_node->ast;
         break;
     }
@@ -460,27 +480,27 @@ static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc,
         if (var_data->scope_data == ScopeArray) {
             emit_byte(irc, OP_ARRAY_LENGTH);
         } else if (ident_ast->is_attr) {
-            gen_attr_load_ir(irc, pc, offset, size);
+            gen_attr_load_ir(irc, pc, var_data->id, offset, size);
         } else {
-            gen_ident_load_ir(irc, pc, var_data->scope_data, offset, size);
+            gen_ident_load_ir(irc, pc, var_data->scope_data, var_data->id, offset, size);
         }
         break;
     }
 
     case AST_IdentIncrease: {
         if (ident_ast->is_attr) {
-            gen_attr_incre_ir(irc, pc, offset, size);
+            gen_attr_incre_ir(irc, pc, var_data->id, offset, size);
         } else {
-            gen_ident_incre_ir(irc, pc, var_data->scope_data, offset, size);
+            gen_ident_incre_ir(irc, pc, var_data->scope_data, var_data->id, offset, size);
         }
         break;
     }
 
     case AST_IdentDecrease: {
         if (ident_ast->is_attr) {
-            gen_attr_decre_ir(irc, pc, offset, size);
+            gen_attr_decre_ir(irc, pc, var_data->id, offset, size);
         } else {
-            gen_ident_decre_ir(irc, pc, var_data->scope_data, offset, size);
+            gen_ident_decre_ir(irc, pc, var_data->scope_data, var_data->id, offset, size);
         }
         break;
     }
@@ -495,8 +515,7 @@ static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc,
     }
 }
 
-static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
-                        struct Node *node) {
+static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc, struct Node *node) {
     switch (node->type) {
 
     case AST_Null: {
@@ -514,11 +533,9 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
     }
 
     case AST_StringLiteral: {
-        struct StringLiteralAST *str_lit_ast =
-            (struct StringLiteralAST *)node->ast;
+        struct StringLiteralAST *str_lit_ast = (struct StringLiteralAST *)node->ast;
 
-        struct RODATA_Str *rodata =
-            add_str_rodata(irc, str_lit_ast->str_tok->str);
+        struct RODATA_Str *rodata = add_str_rodata(irc, str_lit_ast->str_tok->str);
 
         emit_byte(irc, OP_LOAD_STR);
         emit_int(irc, rodata->id);
@@ -527,8 +544,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
     }
 
     case AST_VariableDeclarationBundle: {
-        struct VarDeclBundleAST *var_decl_bundle_ast =
-            (struct VarDeclBundleAST *)node->ast;
+        struct VarDeclBundleAST *var_decl_bundle_ast = (struct VarDeclBundleAST *)node->ast;
 
         int i;
         for (i = 0; i < var_decl_bundle_ast->var_count; i++) {
@@ -566,6 +582,8 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
             default:
                 panic("Invalid variable storage scope.", pc->tc);
             }
+            if (var_data->scope_data == ScopeClass)
+                emit_int(irc, var_data->id);
             emit_int(irc, offset);
             emit_int(irc, size);
 
@@ -581,11 +599,12 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
         if (is_assignment_op(bin_expr_ast->op_type)) {
             bool is_compound = bin_expr_ast->op_type != OpASSIGN;
             enum OperatorType compound_op = OpNone;
+
             if (is_compound)
                 compound_op = get_compound_binary_op(pc, bin_expr_ast->op_type);
+
             if (bin_expr_ast->left->type == AST_ArrayAccess) {
-                struct ArrayAccessAST *access =
-                    (struct ArrayAccessAST *)bin_expr_ast->left->ast;
+                struct ArrayAccessAST *access = (struct ArrayAccessAST *)bin_expr_ast->left->ast;
                 gen_node_ir(irc, pc, access->target_array);
                 gen_node_ir(irc, pc, access->indexes[0]);
                 if (is_compound)
@@ -596,40 +615,51 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
                     emit_byte(irc, get_op_byte(pc, compound_op));
                 }
                 emit_byte(irc, OP_ARRAY_SAVE);
-                emit_int(irc, get_size_of_type(
-                                  pc, infer_type(pc, bin_expr_ast->left)));
+                emit_int(irc, get_size_of_type(pc, infer_type(pc, bin_expr_ast->left)));
                 break;
             }
-            struct IdentifierAST *ident_ast =
-                (struct IdentifierAST *)bin_expr_ast->left->ast;
+
+            struct IdentifierAST *ident_ast = (struct IdentifierAST *)bin_expr_ast->left->ast;
             struct VarData *var_data = ident_ast->var_data;
+
             if (bin_expr_ast->left->attr != NULL) {
                 struct Node *parent = bin_expr_ast->left;
                 while (parent->attr->attr != NULL)
                     parent = parent->attr;
                 struct Node *target = parent->attr;
+
                 if (target->type != AST_Identifier)
                     panic("Invalid attribute assignment target.", pc->tc);
+
                 parent->attr = NULL;
+
                 gen_node_ir(irc, pc, bin_expr_ast->left);
                 parent->attr = target;
+
                 if (is_compound)
                     gen_node_ir(irc, pc, bin_expr_ast->left);
+
                 gen_node_ir(irc, pc, bin_expr_ast->right);
+
                 if (is_compound) {
                     emit_byte(irc, OP_EXPR_OP);
                     emit_byte(irc, get_op_byte(pc, compound_op));
                 }
-                struct VarData *target_var =
-                    ((struct IdentifierAST *)target->ast)->var_data;
+
+                struct VarData *target_var = ((struct IdentifierAST *)target->ast)->var_data;
+
                 emit_byte(irc, OP_SAVE_ATTR);
+                emit_int(irc, target_var->id);
                 emit_int(irc, target_var->offset);
                 emit_int(irc, get_size_of_type(pc, target_var->type));
                 break;
             }
+
             if (is_compound)
                 gen_node_ir(irc, pc, bin_expr_ast->left);
+
             gen_node_ir(irc, pc, bin_expr_ast->right);
+
             if (is_compound) {
                 emit_byte(irc, OP_EXPR_OP);
                 emit_byte(irc, get_op_byte(pc, compound_op));
@@ -647,6 +677,9 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
             default:
                 panic("Invalid assignment scope.", pc->tc);
             }
+
+            if (var_data->scope_data == ScopeClass)
+                emit_int(irc, var_data->id);
             emit_int(irc, var_data->offset);
             emit_int(irc, get_size_of_type(pc, var_data->type));
         } else {
@@ -661,8 +694,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
     }
 
     case AST_NumberLiteral: {
-        struct NumberLiteralAST *num_lit_ast =
-            (struct NumberLiteralAST *)node->ast;
+        struct NumberLiteralAST *num_lit_ast = (struct NumberLiteralAST *)node->ast;
         struct Type *numeric_type = num_lit_ast->type;
         struct NumericData *numeric_data = numeric_type->data.numeric_data;
 
@@ -719,15 +751,16 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
     case AST_New: {
         struct NewAST *new_ast = (struct NewAST *)node->ast;
         int i;
-        for (i = 0; i < new_ast->param_count; i++)
+        for (i = new_ast->param_count - 1; i >= 0; i--)
             gen_node_ir(irc, pc, new_ast->params[i]);
+
         emit_byte(irc, OP_NEW_OBJECT);
         emit_int(irc, new_ast->class_data->id);
         emit_int(irc, new_ast->class_data->instance_size);
-        emit_int(irc, new_ast->class_data->instance_align);
         emit_int(irc, new_ast->class_data->constructor == NULL
                           ? -1
                           : (int)new_ast->class_data->constructor->id);
+
         emit_int(irc, new_ast->param_count);
         break;
     }
@@ -783,8 +816,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
         enum ScopeData scope_data = func_data->scope_data;
 
         if (scope_data == ScopeArray) {
-            emit_byte(irc,
-                      func_data->id == 0 ? OP_ARRAY_PUSH : OP_ARRAY_REMOVE);
+            emit_byte(irc, func_data->id == 0 ? OP_ARRAY_PUSH : OP_ARRAY_REMOVE);
         } else if (func_call_ast->is_attr) {
             emit_byte(irc, OP_CALL_ATTR);
         } else {
@@ -819,17 +851,19 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
         emit_byte(irc, CODE_CLASS);
 
         emit_int(irc, class_data->id);
+        irc->current_class = class_data;
+        gen_class_initializer_ir(irc, pc, class_ast);
 
         int i;
         for (i = 0; i < class_ast->body_count; i++) {
-            /* Instance fields are zero-initialized by OP_NEW_OBJECT;
-             * declarations describe layout and are not class-level code. */
+            /* Field declarations are emitted in CODE_INITIALIZER. */
             if (class_ast->body[i]->type == AST_VariableDeclarationBundle)
                 continue;
             gen_node_ir(irc, pc, class_ast->body[i]);
         }
 
         emit_byte(irc, CODE_TERM);
+        irc->current_class = NULL;
 
         break;
     }
@@ -873,8 +907,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
     }
 
     case AST_Constructor: {
-        struct ConstructorAST *constructor_ast =
-            (struct ConstructorAST *)node->ast;
+        struct ConstructorAST *constructor_ast = (struct ConstructorAST *)node->ast;
         struct FuncData *func_data = constructor_ast->func_data;
         unsigned total_stack_size = func_data->stack_size;
         unsigned code_size_offset;
@@ -900,8 +933,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
         bool has_terminal_return =
             constructor_ast->body_count != 0 &&
-            constructor_ast->body[constructor_ast->body_count - 1]->type ==
-                AST_Return;
+            constructor_ast->body[constructor_ast->body_count - 1]->type == AST_Return;
 
         if (!has_terminal_return && total_stack_size != 0) {
             emit_byte(irc, OP_SP_POP);
@@ -972,8 +1004,7 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc,
 
         bool has_terminal_return =
             func_decl_ast->body_count != 0 &&
-            func_decl_ast->body[func_decl_ast->body_count - 1]->type ==
-                AST_Return;
+            func_decl_ast->body[func_decl_ast->body_count - 1]->type == AST_Return;
         if (!has_terminal_return && total_stack_size != 0) {
             emit_byte(irc, OP_SP_POP);
             emit_int(irc, total_stack_size);

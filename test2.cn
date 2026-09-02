@@ -1,24 +1,26 @@
 
-class Foo {
-	var bar: Bar = null;
-	var num: int = 0;
-
-	constructor Foo(){
-		
-	}
-	
-	func foo(): void {
-
-	}
-}
-
 class Bar extends Foo {
 	var foo: Foo = null;
 
 	func bar(): void {
-		print("asdf");
+		print("asdf\n");
 	}
 
 	func test(): void {
+		print("test from bar!\n");
 	}
 }
+
+class Foo {
+	var bar: Bar = null;
+	var num: int = 4;
+
+	constructor Foo(){
+		print("constructor from foo!\n");
+	}
+	
+	func foo(): void {
+		print("foo from foo!", num, "\n");
+	}
+}
+

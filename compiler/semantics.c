@@ -7,8 +7,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-static struct FuncData *find_member_func_data(struct ParserContext *pc,
-                                              struct ClassData *attr_of,
+static struct FuncData *find_member_func_data(struct ParserContext *pc, struct ClassData *attr_of,
                                               const char *key);
 
 static struct Token *type_token_for(struct Type *type) {
@@ -19,10 +18,8 @@ static struct Token *type_token_for(struct Type *type) {
     return tok;
 }
 
-static void set_function_stack_layout(struct ParserContext *pc,
-                                      struct FuncData *function_data,
-                                      struct VarData **variables,
-                                      unsigned variable_count) {
+static void set_function_stack_layout(struct ParserContext *pc, struct FuncData *function_data,
+                                      struct VarData **variables, unsigned variable_count) {
     unsigned offset = 0;
     unsigned i;
 
@@ -35,10 +32,9 @@ static void set_function_stack_layout(struct ParserContext *pc,
     function_data->stack_size = offset;
 }
 
-struct FuncData *gen_func_data(const char *func_name, struct Type *ret_type,
-                               unsigned id, bool varargs) {
-    struct FuncData *data =
-        (struct FuncData *)S_malloc(sizeof(struct FuncData));
+struct FuncData *gen_func_data(const char *func_name, struct Type *ret_type, unsigned id,
+                               bool varargs) {
+    struct FuncData *data = (struct FuncData *)S_malloc(sizeof(struct FuncData));
 
     data->stack_size = 0;
     data->is_constructor = false;
@@ -57,11 +53,9 @@ struct FuncData *gen_func_data(const char *func_name, struct Type *ret_type,
 //     DATA REGISTERATION
 //----------------------------
 
-struct FuncData *register_constructor_data(const char *func_name,
-                                           struct ParserContext *pc) {
+struct FuncData *register_constructor_data(const char *func_name, struct ParserContext *pc) {
     // id is -1 in this code but we will assign id after.
-    struct FuncData *data =
-        gen_func_data(func_name, find_type(pc, "void"), -1, false);
+    struct FuncData *data = gen_func_data(func_name, find_type(pc, "void"), -1, false);
 
     data->is_constructor = true;
     data->scope_data = ScopeClass;
@@ -82,8 +76,7 @@ struct FuncData *register_constructor_data(const char *func_name,
     return NULL;
 }
 
-struct FuncData *register_func_data(const char *func_name,
-                                    struct Type *ret_type,
+struct FuncData *register_func_data(const char *func_name, struct Type *ret_type,
                                     struct ParserContext *pc) {
     // id is -1 in this code but we will assign id after.
     struct FuncData *data = gen_func_data(func_name, ret_type, -1, false);
@@ -96,13 +89,12 @@ struct FuncData *register_func_data(const char *func_name,
         data->scope_data = ScopeClass;
         struct FuncData *parent_func = NULL;
         if (current_class->parent_type != NULL)
-            parent_func = find_member_func_data(
-                pc, current_class->parent_type->data.class_data, func_name);
+            parent_func =
+                find_member_func_data(pc, current_class->parent_type->data.class_data, func_name);
         if (parent_func != NULL && !parent_func->is_constructor)
             data->id = parent_func->id;
         else
-            data->id = current_class->inherited_func_count +
-                       current_class->member_funcs->size + 1;
+            data->id = current_class->inherited_func_count + current_class->member_funcs->size + 1;
 
         ht_insert(current_class->member_funcs, func_name, data);
     } else {
@@ -129,8 +121,7 @@ struct VarData *register_local_var_data(const char *name, struct Type *type,
     if (pc->declared_local_var_capacity <= pc->declared_local_var_count + 1) {
         pc->declared_local_var_capacity *= 2;
         pc->declared_local_vars = (struct VarData **)S_realloc(
-            pc->declared_local_vars,
-            sizeof(struct VarData **) * pc->declared_local_var_capacity);
+            pc->declared_local_vars, sizeof(struct VarData **) * pc->declared_local_var_capacity);
     }
 
     pc->declared_local_vars[pc->declared_local_var_count++] = data;
@@ -167,11 +158,15 @@ struct VarData *register_non_local_var_data(const char *name, struct Type *type,
         data->scope_data = ScopeClass;
         target_smtb = pc->current_class->member_vars;
         unsigned align = type->nbyte > 8 ? 8 : type->nbyte;
+
         if (align == 0)
             align = 1;
+
         unsigned offset = pc->current_class->instance_size;
-        offset = (offset + align - 1) / align * align;
+
+        offset = (offset + align - 1) / align * align; // nbyte align
         data->offset = offset;
+
         pc->current_class->instance_size = offset + type->nbyte;
         if (align > pc->current_class->instance_align)
             pc->current_class->instance_align = align;
@@ -186,18 +181,15 @@ struct VarData *register_non_local_var_data(const char *name, struct Type *type,
         return NULL;
     }
 
-    data->id =
-        member ? pc->current_class->inherited_var_count + target_smtb->size + 1
-               : target_smtb->size + 1;
+    data->id = member ? pc->current_class->inherited_var_count + target_smtb->size + 1
+                      : target_smtb->size + 1;
     ht_insert(target_smtb, name, data);
 
     return data;
 }
 
-struct ClassData *register_class_data(const char *class_name,
-                                      struct ParserContext *pc) {
-    struct ClassData *data =
-        (struct ClassData *)S_malloc(sizeof(struct ClassData));
+struct ClassData *register_class_data(const char *class_name, struct ParserContext *pc) {
+    struct ClassData *data = (struct ClassData *)S_malloc(sizeof(struct ClassData));
     data->id = pc->class_data_count + 1;
 
     data->member_funcs = gen_htable();
@@ -206,7 +198,7 @@ struct ClassData *register_class_data(const char *class_name,
     data->constructor = NULL;
     data->class_type = NULL;
     data->parent_type = NULL;
-    data->instance_size = 8;
+    data->instance_size = 0;
     data->instance_align = 8;
     data->inherited_var_count = 0;
     data->inherited_func_count = 0;
@@ -222,8 +214,7 @@ struct ClassData *register_class_data(const char *class_name,
 //     DATA FIND
 //------------------
 
-static struct VarData *find_member_var_data(struct ParserContext *pc,
-                                            struct ClassData *attr_of,
+static struct VarData *find_member_var_data(struct ParserContext *pc, struct ClassData *attr_of,
                                             const char *key) {
     struct VarData *var_data = NULL;
     while (attr_of != NULL) {
@@ -248,8 +239,7 @@ static struct VarData *find_member_var_data(struct ParserContext *pc,
     return var_data;
 }
 
-static struct FuncData *find_member_func_data(struct ParserContext *pc,
-                                              struct ClassData *attr_of,
+static struct FuncData *find_member_func_data(struct ParserContext *pc, struct ClassData *attr_of,
                                               const char *key) {
     struct FuncData *func_data = NULL;
 
@@ -275,14 +265,13 @@ static struct FuncData *find_member_func_data(struct ParserContext *pc,
     return func_data;
 }
 
-struct FuncData *find_func_data(struct ParserContext *pc,
-                                const char *func_name) {
+struct FuncData *find_func_data(struct ParserContext *pc, const char *func_name) {
     struct ClassData *current_class = pc->current_class;
     struct FuncData *result = NULL;
 
     // Find in the current class and its ancestors.
-    if (current_class != NULL && (result = find_member_func_data(
-                                      pc, current_class, func_name)) != NULL) {
+    if (current_class != NULL &&
+        (result = find_member_func_data(pc, current_class, func_name)) != NULL) {
         return result;
     }
 
@@ -313,16 +302,14 @@ struct ClassData *find_class_data(struct ParserContext *pc, struct Type *type) {
     return class_data;
 }
 
-static struct VarData *find_var_data(struct ParserContext *pc,
-                                     const char *var_name) {
+static struct VarData *find_var_data(struct ParserContext *pc, const char *var_name) {
     struct VarData *result = NULL;
 
     if (pc->current_scope != NULL) { // first find in local
         struct Scope *scope_searcher = pc->current_scope;
 
         while (scope_searcher != NULL) {
-            result = (struct VarData *)ht_find(scope_searcher->local_var_smtb,
-                                               var_name);
+            result = (struct VarData *)ht_find(scope_searcher->local_var_smtb, var_name);
 
             if (result != NULL)
                 break;
@@ -381,18 +368,15 @@ static void check_semantics_body(struct ParserContext *pc, struct Node **body,
     }
 }
 
-static void resolve_attr(struct ParserContext *pc, struct Type *type_of_node,
-                         struct Node *node);
+static void resolve_attr(struct ParserContext *pc, struct Type *type_of_node, struct Node *node);
 
-static void bind_array_attr(struct ParserContext *pc, struct Type *array_type,
-                            struct Node *node) {
+static void bind_array_attr(struct ParserContext *pc, struct Type *array_type, struct Node *node) {
     if (node->type == AST_Identifier) {
         struct IdentifierAST *ident = (struct IdentifierAST *)node->ast;
 
         if (strcmp(ident->ident->str, "length") != 0)
             panic("Unknown array attribute.", pc->tc);
-        struct VarData *data =
-            (struct VarData *)S_malloc(sizeof(struct VarData));
+        struct VarData *data = (struct VarData *)S_malloc(sizeof(struct VarData));
 
         data->id = 0;
         data->offset = 0;
@@ -415,13 +399,11 @@ static void bind_array_attr(struct ParserContext *pc, struct Type *array_type,
         if (!push && !remove)
             panic("Unknown array method.", pc->tc);
         struct FuncData *data =
-            gen_func_data(call->func_name_tok->str, find_type(pc, "void"),
-                          push ? 0 : 1, false);
+            gen_func_data(call->func_name_tok->str, find_type(pc, "void"), push ? 0 : 1, false);
         data->scope_data = ScopeArray;
         data->arg_count = 1;
         data->arg_types = (struct Type **)S_malloc(sizeof(struct Type *));
-        data->arg_types[0] =
-            push ? array_type->data.element_type : find_type(pc, "int");
+        data->arg_types[0] = push ? array_type->data.element_type : find_type(pc, "int");
         call->func_data = data;
         call->is_attr = true;
         return;
@@ -432,8 +414,8 @@ static void bind_array_attr(struct ParserContext *pc, struct Type *array_type,
 // check semantics of attribute node.
 // attr_of will be targeted class we have to find variable or function from this
 // class. and node will be attribute.
-static void check_attr_semantics(struct ParserContext *pc,
-                                 struct ClassData *attr_of, struct Node *node) {
+static void check_attr_semantics(struct ParserContext *pc, struct ClassData *attr_of,
+                                 struct Node *node) {
     struct Type *type_of_node = NULL;
 
     switch (node->type) {
@@ -479,8 +461,7 @@ static void check_attr_semantics(struct ParserContext *pc,
     resolve_attr(pc, type_of_node, node);
 }
 
-static void resolve_attr(struct ParserContext *pc, struct Type *type_of_node,
-                         struct Node *node) {
+static void resolve_attr(struct ParserContext *pc, struct Type *type_of_node, struct Node *node) {
     if (node->attr != NULL) {
         if (type_of_node == NULL) {
             panic("We can\'t find attribute from non-type.", pc->tc);
@@ -501,8 +482,7 @@ static void resolve_attr(struct ParserContext *pc, struct Type *type_of_node,
     }
 }
 
-static void check_class_semantics(struct ParserContext *pc,
-                                  struct ClassAST *class_ast) {
+static void check_class_semantics(struct ParserContext *pc, struct ClassAST *class_ast) {
     struct ClassData *class_data = class_ast->class_data;
 
     pc->current_class = class_data;
@@ -510,16 +490,14 @@ static void check_class_semantics(struct ParserContext *pc,
     pc->current_class = NULL;
 }
 
-static void check_func_decl_semantics(struct ParserContext *pc,
-                                      struct FuncDeclAST *func_decl_ast) {
+static void check_func_decl_semantics(struct ParserContext *pc, struct FuncDeclAST *func_decl_ast) {
     pc->current_func = func_decl_ast->func_data;
     check_semantics(pc, func_decl_ast->params);
     check_semantics_body(pc, func_decl_ast->body, func_decl_ast->body_count);
     pc->current_func = NULL;
 }
 
-static void check_if_stmt_semantics(struct ParserContext *pc,
-                                    struct IfStmtAST *if_stmt_ast) {
+static void check_if_stmt_semantics(struct ParserContext *pc, struct IfStmtAST *if_stmt_ast) {
     if (if_stmt_ast->cond != NULL) {
         check_semantics(pc, if_stmt_ast->cond);
     }
@@ -527,17 +505,15 @@ static void check_if_stmt_semantics(struct ParserContext *pc,
     check_semantics(pc, if_stmt_ast->next_stmt);
 }
 
-static void check_for_stmt_semantics(struct ParserContext *pc,
-                                     struct ForStmtAST *for_stmt_ast) {
+static void check_for_stmt_semantics(struct ParserContext *pc, struct ForStmtAST *for_stmt_ast) {
     check_semantics(pc, for_stmt_ast->init);
     check_semantics(pc, for_stmt_ast->cond);
     check_semantics(pc, for_stmt_ast->step);
     check_semantics_body(pc, for_stmt_ast->body, for_stmt_ast->body_count);
 }
 
-static void
-check_var_decl_bundle_semantics(struct ParserContext *pc,
-                                struct VarDeclBundleAST *var_decl_bundle) {
+static void check_var_decl_bundle_semantics(struct ParserContext *pc,
+                                            struct VarDeclBundleAST *var_decl_bundle) {
 
     int i;
     for (i = 0; i < var_decl_bundle->var_count; i++) {
@@ -545,8 +521,7 @@ check_var_decl_bundle_semantics(struct ParserContext *pc,
     }
 }
 
-static void check_var_decl_semantics(struct ParserContext *pc,
-                                     struct VarDeclAST *var_decl_ast) {
+static void check_var_decl_semantics(struct ParserContext *pc, struct VarDeclAST *var_decl_ast) {
     if (var_decl_ast->decl != NULL) {
         if (var_decl_ast->decl->type == AST_ArrayDeclaration) {
             struct Type *expected = var_decl_ast->var_data->type;
@@ -556,10 +531,8 @@ static void check_var_decl_semantics(struct ParserContext *pc,
                 type_token_for(expected);
         }
         check_semantics(pc, var_decl_ast->decl);
-        if (!is_castable(infer_type(pc, var_decl_ast->decl),
-                         var_decl_ast->var_data->type))
-            panic("Variable initializer is not assignable to its type.",
-                  pc->tc);
+        if (!is_castable(infer_type(pc, var_decl_ast->decl), var_decl_ast->var_data->type))
+            panic("Variable initializer is not assignable to its type.", pc->tc);
     }
 }
 
@@ -570,20 +543,18 @@ static void check_ident_semantics(struct ParserContext *pc, struct Node *node,
     resolve_attr(pc, type, node);
 }
 
-static void check_parameter_type(struct ParserContext *pc,
-                                 struct Type *arg_type, struct Node *param) {
+static void check_parameter_type(struct ParserContext *pc, struct Type *arg_type,
+                                 struct Node *param) {
     if (param->type == AST_ArrayDeclaration) {
         if (arg_type->type_kind != TK_Array)
             panic("Array literal requires an array parameter.", pc->tc);
-        ((struct ArrayDeclAST *)param->ast)->ele_type_tok =
-            type_token_for(arg_type);
+        ((struct ArrayDeclAST *)param->ast)->ele_type_tok = type_token_for(arg_type);
     }
     if (!is_castable(infer_type(pc, param), arg_type))
         panic("Function argument type mismatch.", pc->tc);
 }
 
-static void check_func_call_semantics(struct ParserContext *pc,
-                                      struct Node *node,
+static void check_func_call_semantics(struct ParserContext *pc, struct Node *node,
                                       struct FuncCallAST *func_call_ast) {
     struct FuncData *func_data = func_call_ast->func_data;
     struct Type *ret_type = func_data->return_type;
@@ -596,19 +567,17 @@ static void check_func_call_semantics(struct ParserContext *pc,
 
     int i;
     for (i = 0; i < func_call_ast->param_count; i++) {
-        if (!func_data->varargs &&
-            func_call_ast->params[i]->type == AST_ArrayDeclaration) {
+        if (!func_data->varargs && func_call_ast->params[i]->type == AST_ArrayDeclaration) {
             struct Type *expected = func_data->arg_types[i];
             if (expected->type_kind != TK_Array)
                 panic("Array literal requires an array parameter.", pc->tc);
-            ((struct ArrayDeclAST *)func_call_ast->params[i]->ast)
-                ->ele_type_tok = type_token_for(expected);
+            ((struct ArrayDeclAST *)func_call_ast->params[i]->ast)->ele_type_tok =
+                type_token_for(expected);
         }
         check_semantics(pc, func_call_ast->params[i]);
 
         if (!func_data->varargs) {
-            check_parameter_type(pc, func_data->arg_types[i],
-                                 func_call_ast->params[i]);
+            check_parameter_type(pc, func_data->arg_types[i], func_call_ast->params[i]);
         }
     }
 
@@ -619,8 +588,7 @@ static void reset_declared_local_var_data(struct ParserContext *pc) {
     // reset local var declaration.
     pc->declared_local_var_count = 0;
     pc->declared_local_var_capacity = 1;
-    pc->declared_local_vars =
-        (struct VarData **)S_malloc(sizeof(struct VarData *));
+    pc->declared_local_vars = (struct VarData **)S_malloc(sizeof(struct VarData *));
 }
 
 static void register_data_of_body(struct ParserContext *pc, struct Node **body,
@@ -634,8 +602,7 @@ static void register_data_of_body(struct ParserContext *pc, struct Node **body,
     close_scope(pc);
 }
 
-static struct ClassAST *find_class_ast(struct ParserContext *pc,
-                                       const char *name) {
+static struct ClassAST *find_class_ast(struct ParserContext *pc, const char *name) {
     unsigned i;
     for (i = 0; i < pc->node_count; i++) {
         struct Node *node = pc->nodes[i];
@@ -663,8 +630,7 @@ static unsigned max_member_func_id(struct ClassData *class_data) {
     return result;
 }
 
-static void ensure_class_registered(struct ParserContext *pc,
-                                    struct ClassAST *class_ast) {
+static void ensure_class_registered(struct ParserContext *pc, struct ClassAST *class_ast) {
     struct Type *class_type = find_type(pc, class_ast->name_tok->str);
     struct ClassData *class_data = class_type->data.class_data;
     class_ast->class_data = class_data;
@@ -676,8 +642,7 @@ static void ensure_class_registered(struct ParserContext *pc,
     class_data->registration_state = 1;
 
     if (class_ast->parent_name_tok != NULL) {
-        struct Type *parent_type =
-            find_type(pc, class_ast->parent_name_tok->str);
+        struct Type *parent_type = find_type(pc, class_ast->parent_name_tok->str);
         if (parent_type->type_kind != TK_Class || parent_type == class_type)
             panic("Invalid parent class.", pc->tc);
         struct ClassAST *parent_ast = find_class_ast(pc, parent_type->type_str);
@@ -688,8 +653,7 @@ static void ensure_class_registered(struct ParserContext *pc,
         struct ClassData *parent = parent_type->data.class_data;
         class_data->instance_size = parent->instance_size;
         class_data->instance_align = parent->instance_align;
-        class_data->inherited_var_count =
-            parent->inherited_var_count + parent->member_vars->size;
+        class_data->inherited_var_count = parent->inherited_var_count + parent->member_vars->size;
         class_data->inherited_func_count = max_member_func_id(parent);
     }
 
@@ -698,14 +662,13 @@ static void ensure_class_registered(struct ParserContext *pc,
     register_data(pc, class_ast->constructor);
     register_data(pc, class_ast->initializer);
     pc->current_class = NULL;
-    class_data->instance_size =
-        (class_data->instance_size + class_data->instance_align - 1) /
-        class_data->instance_align * class_data->instance_align;
+    class_data->instance_size = (class_data->instance_size + class_data->instance_align - 1) /
+                                class_data->instance_align * class_data->instance_align;
     class_data->registration_state = 2;
 }
 
-static void register_attr_data(struct ParserContext *pc,
-                               struct ClassData *attr_of, struct Node *node) {
+static void register_attr_data(struct ParserContext *pc, struct ClassData *attr_of,
+                               struct Node *node) {
     struct Type *type_of_node = NULL;
 
     switch (node->type) {
@@ -772,11 +735,9 @@ void register_data(struct ParserContext *pc, struct Node *node) {
         struct Type *ret_type = find_type(pc, func_decl_ast->ret_type_tok->str);
         struct FuncData *func_data =
             register_func_data(func_decl_ast->func_name_tok->str, ret_type, pc);
-        struct VarDeclBundleAST *params_ast =
-            (struct VarDeclBundleAST *)func_decl_ast->params->ast;
+        struct VarDeclBundleAST *params_ast = (struct VarDeclBundleAST *)func_decl_ast->params->ast;
 
-        func_data->arg_types =
-            S_malloc(params_ast->var_count * sizeof(struct Type *));
+        func_data->arg_types = S_malloc(params_ast->var_count * sizeof(struct Type *));
         func_data->arg_count = params_ast->var_count;
         func_decl_ast->func_data = func_data;
 
@@ -785,33 +746,26 @@ void register_data(struct ParserContext *pc, struct Node *node) {
 
         int i;
         for (i = 0; i < params_ast->var_count; i++) {
-            struct VarDeclAST *param_ast =
-                (struct VarDeclAST *)(params_ast->var_decls[i]->ast);
+            struct VarDeclAST *param_ast = (struct VarDeclAST *)(params_ast->var_decls[i]->ast);
 
             register_data(pc, params_ast->var_decls[i]);
-            func_data->arg_types[i] =
-                find_type(pc, param_ast->var_type_tok->str);
+            func_data->arg_types[i] = find_type(pc, param_ast->var_type_tok->str);
         }
 
-        if (pc->current_class != NULL &&
-            pc->current_class->parent_type != NULL) {
+        if (pc->current_class != NULL && pc->current_class->parent_type != NULL) {
             struct FuncData *parent_func = find_member_func_data(
-                pc, pc->current_class->parent_type->data.class_data,
-                func_data->func_name);
+                pc, pc->current_class->parent_type->data.class_data, func_data->func_name);
             if (parent_func != NULL) {
                 if (parent_func->return_type != func_data->return_type ||
                     parent_func->arg_count != func_data->arg_count)
-                    panic("Overriding method signature does not match parent.",
-                          pc->tc);
+                    panic("Overriding method signature does not match parent.", pc->tc);
                 for (i = 0; i < params_ast->var_count; i++)
                     if (parent_func->arg_types[i] != func_data->arg_types[i])
-                        panic("Overriding method parameter type mismatch.",
-                              pc->tc);
+                        panic("Overriding method parameter type mismatch.", pc->tc);
             }
         }
 
-        register_data_of_body(pc, func_decl_ast->body,
-                              func_decl_ast->body_count);
+        register_data_of_body(pc, func_decl_ast->body, func_decl_ast->body_count);
 
         func_decl_ast->declared_var_count = pc->declared_local_var_count;
         func_decl_ast->declared_vars = pc->declared_local_vars;
@@ -825,8 +779,7 @@ void register_data(struct ParserContext *pc, struct Node *node) {
 
     case AST_FunctionCall: {
         struct FuncCallAST *func_call_ast = (struct FuncCallAST *)node->ast;
-        struct FuncData *func_data =
-            find_func_data(pc, func_call_ast->func_name_tok->str);
+        struct FuncData *func_data = find_func_data(pc, func_call_ast->func_name_tok->str);
 
         if (func_data == NULL) {
             panic("Failed to find function", pc->tc);
@@ -843,8 +796,7 @@ void register_data(struct ParserContext *pc, struct Node *node) {
     }
 
     case AST_VariableDeclarationBundle: {
-        struct VarDeclBundleAST *var_decl_bundle_ast =
-            (struct VarDeclBundleAST *)node->ast;
+        struct VarDeclBundleAST *var_decl_bundle_ast = (struct VarDeclBundleAST *)node->ast;
 
         int i;
         for (i = 0; i < var_decl_bundle_ast->var_count; i++) {
@@ -861,11 +813,9 @@ void register_data(struct ParserContext *pc, struct Node *node) {
         struct Type *var_type = find_type(pc, var_decl_ast->var_type_tok->str);
 
         if (pc->current_func != NULL) {
-            var_data = register_local_var_data(var_decl_ast->var_name_tok->str,
-                                               var_type, pc);
+            var_data = register_local_var_data(var_decl_ast->var_name_tok->str, var_type, pc);
         } else {
-            var_data = register_non_local_var_data(
-                var_decl_ast->var_name_tok->str, var_type, pc);
+            var_data = register_non_local_var_data(var_decl_ast->var_name_tok->str, var_type, pc);
         }
 
         var_decl_ast->var_data = var_data;
@@ -897,8 +847,7 @@ void register_data(struct ParserContext *pc, struct Node *node) {
     }
 
     case AST_IdentIncrease: {
-        struct IdentIncreAST *ident_incre_ast =
-            (struct IdentIncreAST *)node->ast;
+        struct IdentIncreAST *ident_incre_ast = (struct IdentIncreAST *)node->ast;
 
         register_data(pc, ident_incre_ast->ident_node);
 
@@ -906,8 +855,7 @@ void register_data(struct ParserContext *pc, struct Node *node) {
     }
 
     case AST_IdentDecrease: {
-        struct IdentDecreAST *ident_decre_ast =
-            (struct IdentDecreAST *)node->ast;
+        struct IdentDecreAST *ident_decre_ast = (struct IdentDecreAST *)node->ast;
 
         register_data(pc, ident_decre_ast->ident_node);
 
@@ -915,30 +863,24 @@ void register_data(struct ParserContext *pc, struct Node *node) {
     }
 
     case AST_Constructor: {
-        struct ConstructorAST *constructor_ast =
-            (struct ConstructorAST *)node->ast;
+        struct ConstructorAST *constructor_ast = (struct ConstructorAST *)node->ast;
 
         reset_declared_local_var_data(pc);
 
-        struct FuncData *func_data =
-            register_constructor_data(constructor_ast->func_name->str, pc);
-        if (strcmp(constructor_ast->func_name->str,
-                   pc->current_class->class_type->type_str) != 0)
+        struct FuncData *func_data = register_constructor_data(constructor_ast->func_name->str, pc);
+        if (strcmp(constructor_ast->func_name->str, pc->current_class->class_type->type_str) != 0)
             panic("Constructor name must match its class.", pc->tc);
         struct VarDeclBundleAST *params_ast =
             (struct VarDeclBundleAST *)constructor_ast->params->ast;
 
-        func_data->arg_types =
-            S_malloc(params_ast->var_count * sizeof(struct Type *));
+        func_data->arg_types = S_malloc(params_ast->var_count * sizeof(struct Type *));
         func_data->arg_count = params_ast->var_count;
 
         int i;
         for (i = 0; i < params_ast->var_count; i++) {
-            struct VarDeclAST *param_ast =
-                (struct VarDeclAST *)(params_ast->var_decls[i]->ast);
+            struct VarDeclAST *param_ast = (struct VarDeclAST *)(params_ast->var_decls[i]->ast);
 
-            func_data->arg_types[i] =
-                find_type(pc, param_ast->var_type_tok->str);
+            func_data->arg_types[i] = find_type(pc, param_ast->var_type_tok->str);
         }
 
         if (pc->current_class == NULL) {
@@ -955,8 +897,7 @@ void register_data(struct ParserContext *pc, struct Node *node) {
             register_data(pc, params_ast->var_decls[i]);
         }
 
-        register_data_of_body(pc, constructor_ast->body,
-                              constructor_ast->body_count);
+        register_data_of_body(pc, constructor_ast->body, constructor_ast->body_count);
 
         close_scope(pc);
         pc->current_func = NULL;
@@ -1084,8 +1025,7 @@ void check_semantics(struct ParserContext *pc, struct Node *node) {
     }
 
     case AST_VariableDeclarationBundle: {
-        struct VarDeclBundleAST *var_decl_bundle =
-            (struct VarDeclBundleAST *)node->ast;
+        struct VarDeclBundleAST *var_decl_bundle = (struct VarDeclBundleAST *)node->ast;
         check_var_decl_bundle_semantics(pc, var_decl_bundle);
         break;
     }
@@ -1105,15 +1045,14 @@ void check_semantics(struct ParserContext *pc, struct Node *node) {
     }
 
     case AST_IdentIncrease: {
-        struct IdentIncreAST *ident_incre_ast =
-            (struct IdentIncreAST *)node->ast;
+        struct IdentIncreAST *ident_incre_ast = (struct IdentIncreAST *)node->ast;
 
         check_semantics(pc, ident_incre_ast->ident_node);
 
         // struct Type *type = infer_type(pc, node);
 
         //		if(!(type->type_kind == TK_Numeric &&
-        //type->data.numeric_data->is_integer)){ panic("Increasement operator
+        // type->data.numeric_data->is_integer)){ panic("Increasement operator
         // (++) must be used with integer", pc->tc);
         //}
 
@@ -1121,8 +1060,7 @@ void check_semantics(struct ParserContext *pc, struct Node *node) {
     }
 
     case AST_IdentDecrease: {
-        struct IdentDecreAST *ident_decre_ast =
-            (struct IdentDecreAST *)node->ast;
+        struct IdentDecreAST *ident_decre_ast = (struct IdentDecreAST *)node->ast;
 
         check_semantics(pc, ident_decre_ast->ident_node);
 
@@ -1148,10 +1086,8 @@ void check_semantics(struct ParserContext *pc, struct Node *node) {
         struct BinExprAST *bin_expr_ast = (struct BinExprAST *)node->ast;
 
         check_semantics(pc, bin_expr_ast->left);
-        if (bin_expr_ast->op_type == OpASSIGN ||
-            bin_expr_ast->op_type == OpPLUSASSIGN ||
-            bin_expr_ast->op_type == OpMINUSASSIGN ||
-            bin_expr_ast->op_type == OpMULTASSIGN ||
+        if (bin_expr_ast->op_type == OpASSIGN || bin_expr_ast->op_type == OpPLUSASSIGN ||
+            bin_expr_ast->op_type == OpMINUSASSIGN || bin_expr_ast->op_type == OpMULTASSIGN ||
             bin_expr_ast->op_type == OpDIVASSIGN) {
             if (bin_expr_ast->left->type != AST_Identifier &&
                 bin_expr_ast->left->type != AST_ArrayAccess)
@@ -1160,8 +1096,8 @@ void check_semantics(struct ParserContext *pc, struct Node *node) {
             if (bin_expr_ast->right->type == AST_ArrayDeclaration) {
                 if (target->type_kind != TK_Array)
                     panic("Array literal requires an array target.", pc->tc);
-                ((struct ArrayDeclAST *)bin_expr_ast->right->ast)
-                    ->ele_type_tok = type_token_for(target);
+                ((struct ArrayDeclAST *)bin_expr_ast->right->ast)->ele_type_tok =
+                    type_token_for(target);
             }
         }
         check_semantics(pc, bin_expr_ast->right);
@@ -1189,8 +1125,7 @@ void check_semantics(struct ParserContext *pc, struct Node *node) {
             if (pc->current_func->return_type == find_type(pc, "void"))
                 panic("Void function cannot return a value.", pc->tc);
             check_semantics(pc, ret_ast->expr);
-            if (!is_castable(infer_type(pc, ret_ast->expr),
-                             pc->current_func->return_type))
+            if (!is_castable(infer_type(pc, ret_ast->expr), pc->current_func->return_type))
                 panic("Return value type mismatch.", pc->tc);
         }
 
@@ -1198,15 +1133,13 @@ void check_semantics(struct ParserContext *pc, struct Node *node) {
     }
 
     case AST_Constructor: {
-        struct ConstructorAST *constructor_ast =
-            (struct ConstructorAST *)node->ast;
+        struct ConstructorAST *constructor_ast = (struct ConstructorAST *)node->ast;
 
         constructor_ast->class_data = pc->current_class;
         pc->current_class->constructor = constructor_ast->func_data;
 
         pc->current_func = constructor_ast->func_data;
-        check_semantics_body(pc, constructor_ast->body,
-                             constructor_ast->body_count);
+        check_semantics_body(pc, constructor_ast->body, constructor_ast->body_count);
         pc->current_func = NULL;
 
         break;
@@ -1229,14 +1162,12 @@ void check_semantics(struct ParserContext *pc, struct Node *node) {
                 if (new_ast->params[i]->type == AST_ArrayDeclaration) {
                     struct Type *expected = constructor->arg_types[i];
                     if (expected->type_kind != TK_Array)
-                        panic("Array literal requires an array parameter.",
-                              pc->tc);
-                    ((struct ArrayDeclAST *)new_ast->params[i]->ast)
-                        ->ele_type_tok = type_token_for(expected);
+                        panic("Array literal requires an array parameter.", pc->tc);
+                    ((struct ArrayDeclAST *)new_ast->params[i]->ast)->ele_type_tok =
+                        type_token_for(expected);
                 }
                 check_semantics(pc, new_ast->params[i]);
-                check_parameter_type(pc, constructor->arg_types[i],
-                                     new_ast->params[i]);
+                check_parameter_type(pc, constructor->arg_types[i], new_ast->params[i]);
             }
         }
 
@@ -1255,13 +1186,11 @@ void check_semantics(struct ParserContext *pc, struct Node *node) {
             if (array_ast->elements[i]->type == AST_ArrayDeclaration) {
                 if (array_type->data.element_type->type_kind != TK_Array)
                     panic("Nested array literal type mismatch.", pc->tc);
-                ((struct ArrayDeclAST *)array_ast->elements[i]->ast)
-                    ->ele_type_tok =
+                ((struct ArrayDeclAST *)array_ast->elements[i]->ast)->ele_type_tok =
                     type_token_for(array_type->data.element_type);
             }
             check_semantics(pc, array_ast->elements[i]);
-            if (!is_castable(infer_type(pc, array_ast->elements[i]),
-                             array_type->data.element_type))
+            if (!is_castable(infer_type(pc, array_ast->elements[i]), array_type->data.element_type))
                 panic("Array element type mismatch.", pc->tc);
         }
         break;

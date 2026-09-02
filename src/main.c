@@ -74,9 +74,9 @@ int main(int arc, char *args[]) {
         for (i = 1; i < arc; i++)
             q_push(pc->first_pass_queue, gen_tc(read_file(args[i])));
     } else {
-        // q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
-        // q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
-        q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
+        q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
+        q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
+        // q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
         // q_push(pc->first_pass_queue, gen_tc(read_file("test_basic.cn")));
     }
 
@@ -102,10 +102,9 @@ int main(int arc, char *args[]) {
 
     read_ir(vm, ir_reader);
 
-    struct VMFunctionData *func_data =
-        vm_find_function_data(vm, NULL, vm->main_func_id);
+    struct VMFunctionData *func_data = vm_find_function_data(vm, NULL, vm->main_func_id);
 
-    vm_exec_function(vm, func_data);
+    vm_exec_function(vm, func_data, -1);
 
     return 0;
 }

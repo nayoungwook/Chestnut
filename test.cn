@@ -1,5 +1,5 @@
 func log(value: string): void {
-	print(value);
+	print(value, "\n");
 }
 
 func exercise_numbers(seed: int): void {
@@ -18,11 +18,11 @@ func exercise_numbers(seed: int): void {
 	precise = 1.5 + 2.0;
 
 	if (sum >= 6 && i == seed) {
-		log("number branch");
+		log("number branch\n");
 	} else if (sum != 0 || i < seed) {
-		log("else-if branch");
+		log("else-if branch\n");
 	} else {
-		log("else branch");
+		log("else branch\n");
 	}
 }
 
@@ -34,23 +34,25 @@ func exercise_loop(): void {
 		total = total + i;
 	}
 
-	log("loop done");
+	log("loop done\n");
 }
 
 func exercise_objects(): void {
-	var foo: Foo = null;
-	var bar: Bar = null;
+	var foo: Foo = new Foo();
+	var bar: Bar = new Bar();
 
 	bar.bar();
 	bar.foo();
+	foo.num = 3;
+	foo.bar = new Bar();
 }
 
 func main(): void {
-	log("test start");
+	log("test start\n");
 	exercise_numbers(0);
 	exercise_loop();
 	exercise_objects();
-	log("test end");
+	log("test end\n");
 
 	var test: array<int> = {2, 3, 4, 5};
 	test = {1, 2, 3, 4};

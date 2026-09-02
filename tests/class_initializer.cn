@@ -1,0 +1,39 @@
+class NestedValue {
+	var value: int = 9;
+
+	func print_value(): void {
+		print("nested=", value, "\n");
+	}
+}
+
+class TypedFields {
+	var integer: int = 7;
+	var ratio: float = 1.25f;
+	var precise: double = 2.5;
+	var text: string = "ready";
+	var enabled: bool = true;
+	var nested: NestedValue = new NestedValue();
+
+	constructor TypedFields() {
+		print("constructor integer=", integer, "\n");
+	}
+
+	func verify(): void {
+		print("integer=", integer, "\n");
+		print("ratio=", ratio, "\n");
+		print("precise=", precise, "\n");
+		print("text=", text, "\n");
+		if (enabled) {
+			print("enabled\n");
+		}
+		nested.print_value();
+	}
+}
+
+func main(): void {
+	var value: TypedFields = new TypedFields();
+	value.verify();
+	print("direct=", value.integer, "\n");
+	value.integer = 12;
+	print("updated=", value.integer, "\n");
+}

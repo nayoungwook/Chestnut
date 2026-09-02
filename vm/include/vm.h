@@ -6,8 +6,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define HEAP_MAX_OBJECT_COUNT 10000
+
 struct VMClassData;
 struct VMFunctionData;
+struct VMVariableData;
 struct VMInstruction;
 struct VM;
 
@@ -20,6 +23,8 @@ enum VMOPType {
     OPRND_FLOAT32 = 3,
     OPRND_FLOAT64 = 4,
     OPRND_BOOL = 5,
+    OPRND_ADDRESS = 6,
+    OPRND_CHAR16 = 7,
 };
 
 size_t get_operand_size(enum VMOPType op_type);
@@ -48,6 +53,7 @@ void register_string_pool(struct VM *vm, char *str, int index);
 const char *get_string_pool(struct VM *vm, int index);
 
 struct VM {
+    /* Class and global function tables are indexed by metadata id. */
     struct VMClassData **class_data;
     unsigned class_data_count, class_data_capacity;
 
@@ -60,30 +66,37 @@ struct VM {
     void *stack_pointer;
     char *stack_pointer_type;
 
+    unsigned heap_index;
+    struct Queue *heap_index_queue;
+    void *heap_alloc_loc;
+
+    void *heap_mapper[HEAP_MAX_OBJECT_COUNT];
+
     struct VMStack *vm_stack;
     struct VMStringPool *vm_string_pool;
 };
 
 struct VM *gen_vm();
-struct VMClassData *vm_add_class_data(struct VM *vm, unsigned id,
-                                      const char *name, unsigned parent_id,
-                                      unsigned size);
-struct VMFunctionData *
-vm_add_function_data(struct VM *vm, struct VMClassData *owner, unsigned id,
-                     const char *name, const char *return_type,
-                     const char **argument_types, unsigned argument_count,
-                     unsigned stack_size, bool is_constructor);
+struct VMClassData *vm_add_class_data(struct VM *vm, unsigned id, const char *name,
+                                      unsigned parent_id, unsigned size);
+struct VMFunctionData *vm_add_function_data(struct VM *vm, struct VMClassData *owner, unsigned id,
+                                            const char *name, const char *return_type,
+                                            const char **argument_types, unsigned argument_count,
+                                            unsigned stack_size, bool is_constructor);
+struct VMVariableData *vm_add_variable_data(struct VMClassData *owner, unsigned id,
+                                            const char *name, const char *type, unsigned offset,
+                                            unsigned size, enum VMOPType operand_type);
 struct VMClassData *vm_find_class_data(const struct VM *vm, unsigned id);
-struct VMFunctionData *vm_find_function_data(const struct VM *vm,
-                                             struct VMClassData *owner,
+struct VMFunctionData *vm_find_function_data(const struct VM *vm, struct VMClassData *owner,
                                              unsigned id);
+struct VMVariableData *vm_find_variable_data(struct VMClassData *owner, unsigned id);
 void vm_set_function_instructions(struct VMFunctionData *function_data,
                                   const struct VMInstruction *instructions,
                                   unsigned instruction_count);
 void vm_debug_print_bytecode(const struct VM *vm);
 
 bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
-                      unsigned *instruction_index);
-void vm_exec_function(struct VM *vm, struct VMFunctionData *function_data);
+                      unsigned *instruction_index, unsigned heap_index);
+void vm_exec_function(struct VM *vm, struct VMFunctionData *function_data, unsigned heap_index);
 
 #endif

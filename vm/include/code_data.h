@@ -8,6 +8,7 @@
 
 typedef struct VMFunctionData FunctionData;
 typedef struct VMClassData ClassData;
+typedef struct VMVariableData VariableData;
 
 union VMInstructionOperands {
     uint8_t u8;
@@ -38,15 +39,32 @@ struct VMFunctionData {
     unsigned instruction_count;
 };
 
+struct VMVariableData {
+    unsigned id;
+    unsigned offset;
+    unsigned size;
+    unsigned operand_type;
+
+    const char *name;
+    const char *type;
+};
+
 struct VMClassData {
     unsigned id;
     const char *name;
     unsigned parent_id;
     unsigned size;
 
+    FunctionData *initializer;
+
     FunctionData **function_data;
+    /* Member functions are stored in slots indexed by function id. */
     unsigned function_data_count;
     unsigned function_data_capacity;
+
+    VariableData **variable_data;
+    unsigned variable_data_count;
+    unsigned variable_data_capacity;
 };
 
 #endif

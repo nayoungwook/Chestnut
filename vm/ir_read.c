@@ -10,8 +10,7 @@
 #define VM_LABEL_CAPACITY (1024 * 4)
 
 struct IRReader *gen_ir_reader(struct IRContext *irc) {
-    struct IRReader *reader =
-        (struct IRReader *)S_malloc(sizeof(struct IRReader));
+    struct IRReader *reader = (struct IRReader *)S_malloc(sizeof(struct IRReader));
     reader->bytes = irc->bytes;
     reader->irc = irc;
     reader->reader_cnt = 0;
@@ -20,8 +19,7 @@ struct IRReader *gen_ir_reader(struct IRContext *irc) {
 }
 
 static bool has_bytes(const struct IRReader *reader, unsigned count) {
-    return reader->reader_cnt <= reader->byte_cnt &&
-           count <= reader->byte_cnt - reader->reader_cnt;
+    return reader->reader_cnt <= reader->byte_cnt && count <= reader->byte_cnt - reader->reader_cnt;
 }
 
 static bool read_byte(struct IRReader *reader, byte *value) {
@@ -56,8 +54,10 @@ static bool read_u64(struct IRReader *reader, uint64_t *value) {
 
     if (!has_bytes(reader, 8))
         return false;
+
     for (i = 0; i < 8; i++)
         result |= (uint64_t)reader->bytes[reader->reader_cnt++] << (i * 8);
+
     *value = result;
     return true;
 }
@@ -92,21 +92,19 @@ static const char *read_string(struct IRReader *reader, bool *ok) {
 }
 
 static bool reader_error(struct IRReader *reader, const char *message) {
-    fprintf(stderr, "IR read error at byte %u: %s\n", reader->reader_cnt,
-            message);
+    fprintf(stderr, "IR read error at byte %u: %s\n", reader->reader_cnt, message);
     return false;
 }
 
-static bool reader_instruction_error(struct IRReader *reader, byte opcode,
-                                     const char *message) {
+static bool reader_instruction_error(struct IRReader *reader, byte opcode, const char *message) {
     const char *instruction_str = GET_INSTRUCTION_STR(opcode);
 
     if (instruction_str == NULL)
         fprintf(stderr, "IR read error at byte %u: unknown instruction 0x%02x\n",
                 reader->reader_cnt, opcode);
     else
-        fprintf(stderr, "IR read error at byte %u (%s): %s\n",
-                reader->reader_cnt, instruction_str, message);
+        fprintf(stderr, "IR read error at byte %u (%s): %s\n", reader->reader_cnt, instruction_str,
+                message);
     return false;
 }
 
@@ -139,18 +137,10 @@ static int get_i32_operand_count(byte opcode) {
     case OP_SP_SAVE:
     case OP_SP_INCRE:
     case OP_SP_DECRE:
-    case OP_LOAD_CLASS:
-    case OP_INCRE_CLASS:
-    case OP_DECRE_CLASS:
-    case OP_SAVE_CLASS:
     case OP_LOAD_GLOBAL:
     case OP_INCRE_GLOBAL:
     case OP_DECRE_GLOBAL:
     case OP_SAVE_GLOBAL:
-    case OP_LOAD_ATTR:
-    case OP_INCRE_ATTR:
-    case OP_DECRE_ATTR:
-    case OP_SAVE_ATTR:
     case OP_SYSCALL:
     case OP_CALL:
     case OP_CALL_ATTR:
@@ -160,18 +150,26 @@ static int get_i32_operand_count(byte opcode) {
     case OP_ARRAY_PUSH:
     case OP_ARRAY_REMOVE:
         return 2;
+    case OP_LOAD_CLASS:
+    case OP_INCRE_CLASS:
+    case OP_DECRE_CLASS:
+    case OP_SAVE_CLASS:
+    case OP_LOAD_ATTR:
+    case OP_INCRE_ATTR:
+    case OP_DECRE_ATTR:
+    case OP_SAVE_ATTR:
+        return 3;
     case OP_NEW_OBJECT:
-        return 5;
+        return 4;
     default:
         return -1;
     }
 }
 
-static bool
-decode_function_instructions(const byte *code, unsigned code_size,
-                             const struct IRReader *source_reader,
-                             struct VMInstruction **decoded_instructions,
-                             unsigned *decoded_instruction_count) {
+static bool decode_function_instructions(const byte *code, unsigned code_size,
+                                         const struct IRReader *source_reader,
+                                         struct VMInstruction **decoded_instructions,
+                                         unsigned *decoded_instruction_count) {
 
     struct IRReader code_reader = *source_reader;
     struct VMInstruction *instructions = NULL;
@@ -187,8 +185,7 @@ decode_function_instructions(const byte *code, unsigned code_size,
 
     memset(label_targets, 0xff, sizeof(label_targets));
     if (code_size != 0)
-        instructions = (struct VMInstruction *)S_malloc(
-            sizeof(struct VMInstruction) * code_size);
+        instructions = (struct VMInstruction *)S_malloc(sizeof(struct VMInstruction) * code_size);
 
     while (has_bytes(&code_reader, 1)) {
         byte opcode;
@@ -205,8 +202,7 @@ decode_function_instructions(const byte *code, unsigned code_size,
             bool ok = true;
             int32_t label_id = read_i32(&code_reader, &ok);
 
-            if (!ok || label_id < 0 ||
-                (unsigned)label_id >= VM_LABEL_CAPACITY) {
+            if (!ok || label_id < 0 || (unsigned)label_id >= VM_LABEL_CAPACITY) {
                 error_message = "invalid label id";
                 goto fail;
             }
@@ -302,8 +298,7 @@ fail:
 }
 
 static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
-                                   struct VMClassData *owner,
-                                   bool is_constructor) {
+                                   struct VMClassData *owner, bool is_constructor) {
     bool ok = true;
     int32_t id;
     int32_t argument_count;
@@ -325,8 +320,7 @@ static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
         return reader_error(reader, "invalid function metadata");
 
     if (argument_count != 0)
-        argument_types =
-            (const char **)S_malloc(sizeof(char *) * (unsigned)argument_count);
+        argument_types = (const char **)S_malloc(sizeof(char *) * (unsigned)argument_count);
 
     for (i = 0; i < (unsigned)argument_count; i++) {
         argument_types[i] = read_string(reader, &ok);
@@ -346,16 +340,30 @@ static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
         free(argument_types);
         return reader_error(reader, "duplicate function metadata");
     }
-    vm_add_function_data(vm, owner, (unsigned)id, name, return_type,
-                         argument_types, (unsigned)argument_count,
-                         (unsigned)stack_size, is_constructor);
+    vm_add_function_data(vm, owner, (unsigned)id, name, return_type, argument_types,
+                         (unsigned)argument_count, (unsigned)stack_size, is_constructor);
 
     free(argument_types);
     return true;
 }
 
-static bool read_meta_block(struct VM *vm, struct IRReader *reader,
-                            struct VMClassData *owner) {
+static enum VMOPType get_variable_operand_type(const char *type) {
+    if (strcmp(type, "int") == 0)
+        return OPRND_INT32;
+    if (strcmp(type, "float") == 0)
+        return OPRND_FLOAT32;
+    if (strcmp(type, "double") == 0)
+        return OPRND_FLOAT64;
+    if (strcmp(type, "bool") == 0)
+        return OPRND_BOOL;
+    if (strcmp(type, "char") == 0)
+        return OPRND_CHAR16;
+    if (strcmp(type, "string") == 0)
+        return OPRND_String;
+    return OPRND_ADDRESS;
+}
+
+static bool read_meta_block(struct VM *vm, struct IRReader *reader, struct VMClassData *owner) {
     byte kind;
     bool ok = true;
     int32_t id;
@@ -375,6 +383,7 @@ static bool read_meta_block(struct VM *vm, struct IRReader *reader,
         name = ok ? read_string(reader, &ok) : NULL;
         parent_id = ok ? read_i32(reader, &ok) : 0;
         size = ok ? read_i32(reader, &ok) : 0;
+
         if (!ok || id < 0 || parent_id < 0 || size < 0)
             return reader_error(reader, "invalid class metadata");
         if (owner != NULL)
@@ -382,13 +391,14 @@ static bool read_meta_block(struct VM *vm, struct IRReader *reader,
         if (vm_find_class_data(vm, (unsigned)id) != NULL)
             return reader_error(reader, "duplicate class metadata");
 
-        class_data = vm_add_class_data(vm, (unsigned)id, name,
-                                       (unsigned)parent_id, (unsigned)size);
+        class_data = vm_add_class_data(vm, (unsigned)id, name, (unsigned)parent_id, (unsigned)size);
         while (peek_byte(reader, &next) && next != META_TERM)
             if (!read_meta_block(vm, reader, class_data))
                 return false;
+
         if (!read_byte(reader, &next) || next != META_TERM)
             return reader_error(reader, "unterminated class metadata");
+
         return true;
     }
     case META_FUNC:
@@ -397,13 +407,21 @@ static bool read_meta_block(struct VM *vm, struct IRReader *reader,
         return read_function_metadata(vm, reader, owner, true);
     case META_VAR: {
         const char *type;
+        int32_t offset;
+        int32_t size;
 
         id = read_i32(reader, &ok);
         name = ok ? read_string(reader, &ok) : NULL;
         type = ok ? read_string(reader, &ok) : NULL;
-        if (!ok)
-            return reader_error(reader, "truncated variable metadata");
-        (void)type;
+        offset = ok ? read_i32(reader, &ok) : 0;
+        size = ok ? read_i32(reader, &ok) : 0;
+        if (!ok || owner == NULL || id < 0 || offset < 0 || size <= 0)
+            return reader_error(reader, "invalid variable metadata");
+        if (vm_find_variable_data(owner, (unsigned)id) != NULL)
+            return reader_error(reader, "duplicate variable metadata");
+
+        vm_add_variable_data(owner, (unsigned)id, name, type, (unsigned)offset, (unsigned)size,
+                             get_variable_operand_type(type));
         return true;
     }
     default:
@@ -422,8 +440,7 @@ static bool read_meta(struct VM *vm, struct IRReader *reader) {
     return true;
 }
 
-static bool read_function(struct VM *vm, struct IRReader *reader,
-                          struct VMClassData *owner) {
+static bool read_function(struct VM *vm, struct IRReader *reader, struct VMClassData *owner) {
     bool ok = true;
     int32_t id = read_i32(reader, &ok);
     int32_t encoded_code_size = ok ? read_i32(reader, &ok) : 0;
@@ -446,8 +463,7 @@ static bool read_function(struct VM *vm, struct IRReader *reader,
         return reader_error(reader, "truncated function code");
 
     code_begin = reader->reader_cnt;
-    if (!decode_function_instructions(&reader->bytes[code_begin], code_size,
-                                      reader, &instructions,
+    if (!decode_function_instructions(&reader->bytes[code_begin], code_size, reader, &instructions,
                                       &instruction_count))
         return false;
     reader->reader_cnt += code_size;
@@ -456,10 +472,42 @@ static bool read_function(struct VM *vm, struct IRReader *reader,
         return reader_error(reader, "unterminated function code");
     }
 
-    vm_set_function_instructions(function_data, instructions,
-                                 instruction_count);
+    vm_set_function_instructions(function_data, instructions, instruction_count);
     free(instructions);
 
+    return true;
+}
+
+static bool read_initializer(struct IRReader *reader, struct VMClassData *owner) {
+    bool ok = true;
+    int32_t encoded_code_size = read_i32(reader, &ok);
+    byte next;
+    unsigned code_begin;
+    unsigned code_size;
+    struct VMInstruction *instructions;
+    unsigned instruction_count;
+
+    if (!ok || encoded_code_size < 0)
+        return reader_error(reader, "invalid initializer code header");
+    if (owner->initializer->instructions != NULL)
+        return reader_error(reader, "duplicate class initializer");
+
+    code_size = (unsigned)encoded_code_size;
+    if (!has_bytes(reader, code_size))
+        return reader_error(reader, "truncated initializer code");
+
+    code_begin = reader->reader_cnt;
+    if (!decode_function_instructions(&reader->bytes[code_begin], code_size, reader, &instructions,
+                                      &instruction_count))
+        return false;
+    reader->reader_cnt += code_size;
+    if (!read_byte(reader, &next) || next != CODE_TERM) {
+        free(instructions);
+        return reader_error(reader, "unterminated initializer code");
+    }
+
+    vm_set_function_instructions(owner->initializer, instructions, instruction_count);
+    free(instructions);
     return true;
 }
 
@@ -471,19 +519,29 @@ static bool read_class(struct VM *vm, struct IRReader *reader) {
 
     if (!ok || id < 0)
         return reader_error(reader, "invalid class id");
+
     class_data = vm_find_class_data(vm, (unsigned)id);
+
     if (class_data == NULL)
         return reader_error(reader, "class code has no matching metadata");
+
     while (peek_byte(reader, &next) && next != CODE_TERM) {
         if (!read_byte(reader, &next))
             return reader_error(reader, "truncated class code");
-        if (next != CODE_FUNC)
+        if (next == CODE_FUNC) {
+            if (!read_function(vm, reader, class_data))
+                return false;
+        } else if (next == CODE_INITIALIZER) {
+            if (!read_initializer(reader, class_data))
+                return false;
+        } else {
             return reader_error(reader, "unknown class code block");
-        if (!read_function(vm, reader, class_data))
-            return false;
+        }
     }
+
     if (!read_byte(reader, &next) || next != CODE_TERM)
         return reader_error(reader, "unterminated class code");
+
     return true;
 }
 
