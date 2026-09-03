@@ -1043,9 +1043,60 @@ bool exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_INCRE_CLASS: {
+        unsigned variable_id;
+        unsigned offset;
+        unsigned size;
+        uint64_t val = 0;
+        struct VMVariableData* variable_data;
+
+        if (heap_index == (unsigned)-1 || arguments[0] < 0 || arguments[1] < 0 ||
+            arguments[2] <= 0 || (size_t)arguments[2] > sizeof(val)) {
+            ok = false;
+            break;
+        }
+
+        variable_id = (unsigned)arguments[0];
+        offset = (unsigned)arguments[1];
+        size = (unsigned)arguments[2];
+
+        variable_data = vm_find_heap_variable_data(vm, heap_index, variable_id);
+        if (variable_data == NULL || variable_data->offset != offset || variable_data->size != size) {
+            ok = false;
+            break;
+        }
+
+        memcpy(&val, (uint8_t *)vm->heap_mapper[heap_index] + 8 + offset, size);
+        val++;
+        memcpy((uint8_t*) vm->heap_mapper[heap_index] + 8 + offset, &val, size);
+        
         break;
     }
     case OP_DECRE_CLASS: {
+        unsigned variable_id;
+        unsigned offset;
+        unsigned size;
+        uint64_t val = 0;
+        struct VMVariableData* variable_data;
+
+        if (heap_index == (unsigned)-1 || arguments[0] < 0 || arguments[1] < 0 ||
+            arguments[2] <= 0 || (size_t)arguments[2] > sizeof(val)) {
+            ok = false;
+            break;
+        }
+
+        variable_id = (unsigned)arguments[0];
+        offset = (unsigned)arguments[1];
+        size = (unsigned)arguments[2];
+
+        variable_data = vm_find_heap_variable_data(vm, heap_index, variable_id);
+        if (variable_data == NULL || variable_data->offset != offset || variable_data->size != size) {
+            ok = false;
+            break;
+        }
+
+        memcpy(&val, (uint8_t *)vm->heap_mapper[heap_index] + 8 + offset, size);
+        val--;
+        memcpy((uint8_t*) vm->heap_mapper[heap_index] + 8 + offset, &val, size);
         break;
     }
     case OP_SAVE_CLASS: {

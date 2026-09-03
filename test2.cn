@@ -36,7 +36,8 @@ class Base {
 	}
 
 	func value(): int {
-		return base;
+        base++;
+        return base;
 	}
 }
 
@@ -48,6 +49,9 @@ class Child extends Base {
 	}
 
 	func value(): int {
+        print("extra", extra, "\n");
+        extra--;
+        print("extra", extra, "\n");
 		return base * extra;
 	}
 }
