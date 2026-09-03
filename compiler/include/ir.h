@@ -64,6 +64,7 @@
     X(OP_CALL_CLASS, 0x5f, "call_class")                                      \
     X(OP_LOAD_STR, 0x60, "load_str")                                          \
     X(OP_CALL_GLOBAL, 0x61, "call_global")                                    \
+    X(OP_CALL_SUPER, 0x62, "call_super")                                      \
     X(OP_RET, 0x70, "ret")                                                    \
     X(OP_EXPR_OP, 0x72, "expr_op")                                            \
     X(OP_GOTO, 0x73, "goto")                                                  \

@@ -13,6 +13,10 @@ class Base {
 class Child extends Base {
 	var extra: double = 2.0;
 
+	constructor Child() {
+		super(1);
+	}
+
 	func value(): int {
 		return base;
 	}

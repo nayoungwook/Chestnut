@@ -32,6 +32,7 @@ func exercise_loop(): void {
 
 	for (i = 0; i < 5; i++) {
 		total = total + i;
+		print("total ", total, " i ", i, "\n");
 	}
 
 	log("loop done\n");
@@ -45,6 +46,12 @@ func exercise_objects(): void {
 	bar.foo();
 	foo.num = 3;
 	foo.bar = new Bar();
+
+	var child: Child = new Child(4);
+	var base: Base = new Base(3);
+
+	print("child : ", child.value(), "\n");
+	print("base : ", base.value(), "\n");
 }
 
 func main(): void {

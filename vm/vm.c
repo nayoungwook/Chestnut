@@ -53,24 +53,24 @@ static double command_time_ms(void) {
 }
 #endif
 
-static const char *copy_string(const char *value) {
+static const char* copy_string(const char* value) {
     size_t size = strlen(value) + 1;
-    char *copy = (char *)S_malloc(size);
+    char* copy = (char*)S_malloc(size);
     memcpy(copy, value, size);
     return copy;
 }
 
-struct VM *gen_vm() {
-    struct VM *vm = (struct VM *)S_malloc(sizeof(struct VM));
+struct VM* gen_vm() {
+    struct VM* vm = (struct VM*)S_malloc(sizeof(struct VM));
 
     vm->class_data_count = 0;
     vm->class_data_capacity = 1;
-    vm->class_data = (struct VMClassData **)S_malloc(sizeof(struct VMClassData *));
+    vm->class_data = (struct VMClassData**)S_malloc(sizeof(struct VMClassData*));
     vm->class_data[0] = NULL;
 
     vm->function_data_count = 0;
     vm->function_data_capacity = 1;
-    vm->function_data = (struct VMFunctionData **)S_malloc(sizeof(struct VMFunctionData *));
+    vm->function_data = (struct VMFunctionData**)S_malloc(sizeof(struct VMFunctionData*));
     vm->function_data[0] = NULL;
 
     const unsigned HEAP_SIZE = 1024 * 1024 * 16;
@@ -87,19 +87,20 @@ struct VM *gen_vm() {
     HANDLE s_map =
         CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, STACK_SIZE, NULL);
 
-    vm->heap = (uint8_t *)MapViewOfFile(h_map, FILE_MAP_ALL_ACCESS, 0, 0, HEAP_SIZE);
-    vm->stack = (uint8_t *)MapViewOfFile(s_map, FILE_MAP_ALL_ACCESS, 0, 0, STACK_SIZE);
+    vm->heap = (uint8_t*)MapViewOfFile(h_map, FILE_MAP_ALL_ACCESS, 0, 0, HEAP_SIZE);
+    vm->stack = (uint8_t*)MapViewOfFile(s_map, FILE_MAP_ALL_ACCESS, 0, 0, STACK_SIZE);
 #endif
 
     assert(vm->heap != NULL && vm->stack != NULL);
 
     vm->stack_pointer = vm->stack;
+    vm->stack_frame = vm->stack;
     vm->stack_pointer_type = S_malloc(STACK_SIZE);
 
-    vm->vm_stack = (struct VMStack *)S_malloc(sizeof(struct VMStack));
+    vm->vm_stack = (struct VMStack*)S_malloc(sizeof(struct VMStack));
     memset(vm->vm_stack, 0, sizeof(struct VMStack));
 
-    vm->vm_string_pool = (struct VMStringPool *)S_malloc(sizeof(struct VMStringPool));
+    vm->vm_string_pool = (struct VMStringPool*)S_malloc(sizeof(struct VMStringPool));
     vm->vm_string_pool->str_pool = NULL;
 
     vm->heap_index = 1;
@@ -110,25 +111,25 @@ struct VM *gen_vm() {
     return vm;
 }
 
-void reset_string_pool(struct VM *vm, unsigned size) {
+void reset_string_pool(struct VM* vm, unsigned size) {
     vm->vm_string_pool->size = size;
-    vm->vm_string_pool->str_pool = (char **)S_malloc(sizeof(char *) * size);
+    vm->vm_string_pool->str_pool = (char**)S_malloc(sizeof(char*) * size);
 }
 
-void register_string_pool(struct VM *vm, char *str, int index) {
+void register_string_pool(struct VM* vm, char* str, int index) {
     assert(index < vm->vm_string_pool->size);
 
     vm->vm_string_pool->str_pool[index] = str;
 }
 
-const char *get_string_pool(struct VM *vm, int index) {
+const char* get_string_pool(struct VM* vm, int index) {
     assert(index < vm->vm_string_pool->size);
 
     return vm->vm_string_pool->str_pool[index];
 }
 
-static void ensure_function_data_capacity(struct VMFunctionData ***items, unsigned *capacity,
-                                          unsigned id) {
+static void ensure_function_data_capacity(struct VMFunctionData*** items, unsigned* capacity,
+    unsigned id) {
     unsigned old_capacity = *capacity;
 
     while (id >= *capacity)
@@ -138,13 +139,14 @@ static void ensure_function_data_capacity(struct VMFunctionData ***items, unsign
         return;
 
     *items =
-        (struct VMFunctionData **)S_realloc(*items, sizeof(struct VMFunctionData *) * (*capacity));
+        (struct VMFunctionData**)S_realloc(*items, sizeof(struct VMFunctionData*) * (*capacity));
+
     memset(&(*items)[old_capacity], 0,
-           sizeof(struct VMFunctionData *) * (*capacity - old_capacity));
+        sizeof(struct VMFunctionData*) * (*capacity - old_capacity));
 }
 
-static void ensure_variable_data_capacity(struct VMVariableData ***items, unsigned *capacity,
-                                          unsigned id) {
+static void ensure_variable_data_capacity(struct VMVariableData*** items, unsigned* capacity,
+    unsigned id) {
     unsigned old_capacity = *capacity;
 
     while (id >= *capacity)
@@ -153,43 +155,43 @@ static void ensure_variable_data_capacity(struct VMVariableData ***items, unsign
     if (old_capacity == *capacity)
         return;
 
-    *items = (struct VMVariableData **)S_realloc(
-        *items, sizeof(struct VMVariableData *) * (*capacity));
+    *items = (struct VMVariableData**)S_realloc(
+        *items, sizeof(struct VMVariableData*) * (*capacity));
     memset(&(*items)[old_capacity], 0,
-           sizeof(struct VMVariableData *) * (*capacity - old_capacity));
+        sizeof(struct VMVariableData*) * (*capacity - old_capacity));
 }
 
-struct VMClassData *vm_add_class_data(struct VM *vm, unsigned id, const char *name,
-                                      unsigned parent_id, unsigned size) {
-    struct VMClassData *class_data;
+struct VMClassData* vm_add_class_data(struct VM* vm, unsigned id, const char* name,
+    unsigned parent_id, unsigned size) {
+    struct VMClassData* class_data;
     unsigned old_capacity = vm->class_data_capacity;
 
     while (id >= vm->class_data_capacity)
         vm->class_data_capacity *= 2;
 
     if (old_capacity != vm->class_data_capacity) {
-        vm->class_data = (struct VMClassData **)S_realloc(
-            vm->class_data, sizeof(struct VMClassData *) * vm->class_data_capacity);
+        vm->class_data = (struct VMClassData**)S_realloc(
+            vm->class_data, sizeof(struct VMClassData*) * vm->class_data_capacity);
         memset(&vm->class_data[old_capacity], 0,
-               sizeof(struct VMClassData *) * (vm->class_data_capacity - old_capacity));
+            sizeof(struct VMClassData*) * (vm->class_data_capacity - old_capacity));
     }
 
     assert(vm->class_data[id] == NULL);
-    class_data = (struct VMClassData *)S_malloc(sizeof(struct VMClassData));
+    class_data = (struct VMClassData*)S_malloc(sizeof(struct VMClassData));
     class_data->id = id;
     class_data->name = copy_string(name);
     class_data->parent_id = parent_id;
     class_data->size = size;
     class_data->function_data_count = 0;
     class_data->function_data_capacity = 1;
-    class_data->function_data = (FunctionData **)S_malloc(sizeof(FunctionData *));
+    class_data->function_data = (FunctionData**)S_malloc(sizeof(FunctionData*));
     class_data->function_data[0] = NULL;
     class_data->variable_data_count = 0;
     class_data->variable_data_capacity = 1;
-    class_data->variable_data = (VariableData **)S_malloc(sizeof(VariableData *));
+    class_data->variable_data = (VariableData**)S_malloc(sizeof(VariableData*));
     class_data->variable_data[0] = NULL;
 
-    class_data->initializer = (FunctionData *)S_malloc(sizeof(FunctionData));
+    class_data->initializer = (FunctionData*)S_malloc(sizeof(FunctionData));
     memset(class_data->initializer, 0, sizeof(FunctionData));
     class_data->initializer->name = copy_string("<initializer>");
     class_data->initializer->return_type = copy_string("void");
@@ -199,14 +201,14 @@ struct VMClassData *vm_add_class_data(struct VM *vm, unsigned id, const char *na
     return class_data;
 }
 
-struct VMFunctionData *vm_add_function_data(struct VM *vm, struct VMClassData *owner, unsigned id,
-                                            const char *name, const char *return_type,
-                                            const char **argument_types, unsigned argument_count,
-                                            unsigned stack_size, bool is_constructor) {
-    struct VMFunctionData *function_data;
+struct VMFunctionData* vm_add_function_data(struct VM* vm, struct VMClassData* owner, unsigned id,
+    const char* name, const char* return_type,
+    const char** argument_types, unsigned argument_count,
+    unsigned stack_size, bool is_constructor) {
+    struct VMFunctionData* function_data;
     unsigned i;
 
-    function_data = (struct VMFunctionData *)S_malloc(sizeof(struct VMFunctionData));
+    function_data = (struct VMFunctionData*)S_malloc(sizeof(struct VMFunctionData));
     function_data->id = id;
     function_data->stack_size = stack_size;
     function_data->name = copy_string(name);
@@ -221,7 +223,7 @@ struct VMFunctionData *vm_add_function_data(struct VM *vm, struct VMClassData *o
     }
 
     function_data->argument_types =
-        argument_count == 0 ? NULL : (const char **)S_malloc(sizeof(char *) * argument_count);
+        argument_count == 0 ? NULL : (const char**)S_malloc(sizeof(char*) * argument_count);
 
     for (i = 0; i < argument_count; i++)
         function_data->argument_types[i] = copy_string(argument_types[i]);
@@ -232,7 +234,8 @@ struct VMFunctionData *vm_add_function_data(struct VM *vm, struct VMClassData *o
         assert(vm->function_data[id] == NULL);
         vm->function_data[id] = function_data;
         vm->function_data_count++;
-    } else {
+    }
+    else {
         ensure_function_data_capacity(&owner->function_data, &owner->function_data_capacity, id);
 
         assert(owner->function_data[id] == NULL);
@@ -243,15 +246,15 @@ struct VMFunctionData *vm_add_function_data(struct VM *vm, struct VMClassData *o
     return function_data;
 }
 
-struct VMVariableData *vm_add_variable_data(struct VMClassData *owner, unsigned id,
-                                            const char *name, const char *type, unsigned offset,
-                                            unsigned size, enum VMOPType operand_type) {
-    struct VMVariableData *variable_data;
+struct VMVariableData* vm_add_variable_data(struct VMClassData* owner, unsigned id,
+    const char* name, const char* type, unsigned offset,
+    unsigned size, enum VMOPType operand_type) {
+    struct VMVariableData* variable_data;
 
     ensure_variable_data_capacity(&owner->variable_data, &owner->variable_data_capacity, id);
     assert(owner->variable_data[id] == NULL);
 
-    variable_data = (struct VMVariableData *)S_malloc(sizeof(struct VMVariableData));
+    variable_data = (struct VMVariableData*)S_malloc(sizeof(struct VMVariableData));
     variable_data->id = id;
     variable_data->offset = offset;
     variable_data->size = size;
@@ -264,28 +267,28 @@ struct VMVariableData *vm_add_variable_data(struct VMClassData *owner, unsigned 
     return variable_data;
 }
 
-struct VMClassData *vm_find_class_data(const struct VM *vm, unsigned id) {
+struct VMClassData* vm_find_class_data(const struct VM* vm, unsigned id) {
     return id < vm->class_data_capacity ? vm->class_data[id] : NULL;
 }
 
-struct VMFunctionData *vm_find_function_data(const struct VM *vm, struct VMClassData *owner,
-                                             unsigned id) {
+struct VMFunctionData* vm_find_function_data(const struct VM* vm, struct VMClassData* owner,
+    unsigned id) {
     if (owner != NULL)
         return id < owner->function_data_capacity ? owner->function_data[id] : NULL;
 
     return id < vm->function_data_capacity ? vm->function_data[id] : NULL;
 }
 
-struct VMVariableData *vm_find_variable_data(struct VMClassData *owner, unsigned id) {
+struct VMVariableData* vm_find_variable_data(struct VMClassData* owner, unsigned id) {
     return owner != NULL && id < owner->variable_data_capacity ? owner->variable_data[id] : NULL;
 }
 
-static struct VMFunctionData *vm_find_member_function_data(const struct VM *vm,
-                                                           struct VMClassData *owner, unsigned id) {
+static struct VMFunctionData* vm_find_member_function_data(const struct VM* vm,
+    struct VMClassData* owner, unsigned id) {
     unsigned visited_class_count = 0;
 
     while (owner != NULL && visited_class_count++ < vm->class_data_count) {
-        struct VMFunctionData *function_data = vm_find_function_data(vm, owner, id);
+        struct VMFunctionData* function_data = vm_find_function_data(vm, owner, id);
 
         if (function_data != NULL)
             return function_data;
@@ -297,13 +300,13 @@ static struct VMFunctionData *vm_find_member_function_data(const struct VM *vm,
     return NULL;
 }
 
-static struct VMVariableData *vm_find_member_variable_data(const struct VM *vm,
-                                                           struct VMClassData *owner,
-                                                           unsigned id) {
+static struct VMVariableData* vm_find_member_variable_data(const struct VM* vm,
+    struct VMClassData* owner,
+    unsigned id) {
     unsigned visited_class_count = 0;
 
     while (owner != NULL && visited_class_count++ < vm->class_data_count) {
-        struct VMVariableData *variable_data = vm_find_variable_data(owner, id);
+        struct VMVariableData* variable_data = vm_find_variable_data(owner, id);
 
         if (variable_data != NULL)
             return variable_data;
@@ -315,36 +318,36 @@ static struct VMVariableData *vm_find_member_variable_data(const struct VM *vm,
     return NULL;
 }
 
-static struct VMVariableData *vm_find_heap_variable_data(const struct VM *vm, unsigned heap_index,
-                                                         unsigned id) {
+static struct VMVariableData* vm_find_heap_variable_data(const struct VM* vm, unsigned heap_index,
+    unsigned id) {
     uint64_t header;
-    struct VMClassData *class_data;
+    struct VMClassData* class_data;
 
     if (heap_index >= HEAP_MAX_OBJECT_COUNT || vm->heap_mapper[heap_index] == NULL)
         return NULL;
 
-    header = *(uint64_t *)vm->heap_mapper[heap_index];
+    header = *(uint64_t*)vm->heap_mapper[heap_index];
     class_data = vm_find_class_data(vm, (unsigned)(header & 0xffffffffu));
     return vm_find_member_variable_data(vm, class_data, id);
 }
 
-void vm_set_function_instructions(struct VMFunctionData *function_data,
-                                  const struct VMInstruction *instructions,
-                                  unsigned instruction_count) {
+void vm_set_function_instructions(struct VMFunctionData* function_data,
+    const struct VMInstruction* instructions,
+    unsigned instruction_count) {
     function_data->instruction_count = instruction_count;
     function_data->instructions =
         instruction_count == 0
-            ? NULL
-            : (struct VMInstruction *)S_malloc(sizeof(struct VMInstruction) * instruction_count);
+        ? NULL
+        : (struct VMInstruction*)S_malloc(sizeof(struct VMInstruction) * instruction_count);
 
     if (instruction_count != 0)
         memcpy(function_data->instructions, instructions,
-               sizeof(struct VMInstruction) * instruction_count);
+            sizeof(struct VMInstruction) * instruction_count);
 }
 
 #ifdef DEBUG
-static void debug_print_instruction(const struct VMInstruction *instruction) {
-    const char *name = GET_INSTRUCTION_STR(instruction->opcode);
+static void debug_print_instruction(const struct VMInstruction* instruction) {
+    const char* name = GET_INSTRUCTION_STR(instruction->opcode);
     unsigned i;
 
     if (name == NULL) {
@@ -353,7 +356,7 @@ static void debug_print_instruction(const struct VMInstruction *instruction) {
     }
 
     if (instruction->opcode == OP_EXPR_OP) {
-        const char *expr_name = GET_EXPRESSION_OP_STR(instruction->operands.u8);
+        const char* expr_name = GET_EXPRESSION_OP_STR(instruction->operands.u8);
 
         DEBUG_PRINTF("%s\n", expr_name != NULL ? expr_name : "unknown");
         return;
@@ -362,24 +365,27 @@ static void debug_print_instruction(const struct VMInstruction *instruction) {
     DEBUG_PRINTF("%s", name);
     if (instruction->opcode == OP_LDC_F4) {
         DEBUG_PRINTF(" %.9g", instruction->operands.f32);
-    } else if (instruction->opcode == OP_LDC_F8) {
+    }
+    else if (instruction->opcode == OP_LDC_F8) {
         DEBUG_PRINTF(" %.17g", instruction->operands.f64);
-    } else {
+    }
+    else {
         for (i = 0; i < instruction->operand_count; i++)
             DEBUG_PRINTF(" %d", instruction->operands.i32[i]);
     }
     DEBUG_PRINTF("\n");
 }
 
-static void debug_print_function_bytecode(const struct VMClassData *owner,
-                                          const struct VMFunctionData *function_data) {
+static void debug_print_function_bytecode(const struct VMClassData* owner,
+    const struct VMFunctionData* function_data) {
     unsigned i;
 
     if (owner == NULL) {
         DEBUG_PRINTF("[function %s (id: %u)]\n", function_data->name, function_data->id);
-    } else {
+    }
+    else {
         DEBUG_PRINTF("[class %s (id: %u), function %s (id: %u)]\n", owner->name, owner->id,
-                     function_data->name, function_data->id);
+            function_data->name, function_data->id);
     }
 
     for (i = 0; i < function_data->instruction_count; i++) {
@@ -389,7 +395,7 @@ static void debug_print_function_bytecode(const struct VMClassData *owner,
 }
 #endif
 
-void vm_debug_print_bytecode(const struct VM *vm) {
+void vm_debug_print_bytecode(const struct VM* vm) {
 #ifdef DEBUG
     unsigned i;
     unsigned j;
@@ -400,7 +406,7 @@ void vm_debug_print_bytecode(const struct VM *vm) {
             debug_print_function_bytecode(NULL, vm->function_data[i]);
 
     for (i = 0; i < vm->class_data_capacity; i++) {
-        const struct VMClassData *class_data = vm->class_data[i];
+        const struct VMClassData* class_data = vm->class_data[i];
 
         if (class_data == NULL)
             continue;
@@ -416,7 +422,7 @@ void vm_debug_print_bytecode(const struct VM *vm) {
 #endif
 }
 
-static void handle_syscall(struct VM *vm, int id, int argc) {
+static void handle_syscall(struct VM* vm, int id, int argc) {
     switch (id) {
     case 0: {
         int i;
@@ -426,7 +432,7 @@ static void handle_syscall(struct VM *vm, int id, int argc) {
 
             switch (op.op_type) {
             case OPRND_String: {
-                const char *str = get_string_pool(vm, (int)op.val);
+                const char* str = get_string_pool(vm, (int)op.val);
 
                 fputs(str, stdout);
 
@@ -476,9 +482,9 @@ union VMNumericValue {
     double f64;
 };
 
-typedef bool (*VMOperatorFunc)(const union VMNumericValue *lhs_value,
-                               const union VMNumericValue *rhs_value,
-                               union VMNumericValue *result_value);
+typedef bool (*VMOperatorFunc)(const union VMNumericValue* lhs_value,
+    const union VMNumericValue* rhs_value,
+    union VMNumericValue* result_value);
 
 enum VMOperatorIndex {
     VM_OPERATOR_ADD,
@@ -499,80 +505,80 @@ enum VMOperatorIndex {
 // pre definition of operator set,
 // for example if prefix is i32
 // static bool i32_add will be made.
-#define DEFINE_VM_OPERATOR_SET(prefix, type, member)                                               \
-    static bool prefix##_add(const union VMNumericValue *lhs_value,                                \
-                             const union VMNumericValue *rhs_value,                                \
-                             union VMNumericValue *result_value) {                                 \
-        result_value->member = lhs_value->member + rhs_value->member;                              \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_sub(const union VMNumericValue *lhs_value,                                \
-                             const union VMNumericValue *rhs_value,                                \
-                             union VMNumericValue *result_value) {                                 \
-        result_value->member = lhs_value->member - rhs_value->member;                              \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_mul(const union VMNumericValue *lhs_value,                                \
-                             const union VMNumericValue *rhs_value,                                \
-                             union VMNumericValue *result_value) {                                 \
-        result_value->member = lhs_value->member * rhs_value->member;                              \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_div(const union VMNumericValue *lhs_value,                                \
-                             const union VMNumericValue *rhs_value,                                \
-                             union VMNumericValue *result_value) {                                 \
-        if (rhs_value->member == (type)0)                                                          \
-            return false;                                                                          \
-        result_value->member = lhs_value->member / rhs_value->member;                              \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_equal(const union VMNumericValue *lhs_value,                              \
-                               const union VMNumericValue *rhs_value,                              \
-                               union VMNumericValue *result_value) {                               \
-        result_value->i32 = lhs_value->member == rhs_value->member;                                \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_notequal(const union VMNumericValue *lhs_value,                           \
-                                  const union VMNumericValue *rhs_value,                           \
-                                  union VMNumericValue *result_value) {                            \
-        result_value->i32 = lhs_value->member != rhs_value->member;                                \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_greater(const union VMNumericValue *lhs_value,                            \
-                                 const union VMNumericValue *rhs_value,                            \
-                                 union VMNumericValue *result_value) {                             \
-        result_value->i32 = lhs_value->member > rhs_value->member;                                 \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_less(const union VMNumericValue *lhs_value,                               \
-                              const union VMNumericValue *rhs_value,                               \
-                              union VMNumericValue *result_value) {                                \
-        result_value->i32 = lhs_value->member < rhs_value->member;                                 \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_equalgreater(const union VMNumericValue *lhs_value,                       \
-                                      const union VMNumericValue *rhs_value,                       \
-                                      union VMNumericValue *result_value) {                        \
-        result_value->i32 = lhs_value->member >= rhs_value->member;                                \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_equalless(const union VMNumericValue *lhs_value,                          \
-                                   const union VMNumericValue *rhs_value,                          \
-                                   union VMNumericValue *result_value) {                           \
-        result_value->i32 = lhs_value->member <= rhs_value->member;                                \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_or(const union VMNumericValue *lhs_value,                                 \
-                            const union VMNumericValue *rhs_value,                                 \
-                            union VMNumericValue *result_value) {                                  \
-        result_value->i32 = lhs_value->member != (type)0 || rhs_value->member != (type)0;          \
-        return true;                                                                               \
-    }                                                                                              \
-    static bool prefix##_and(const union VMNumericValue *lhs_value,                                \
-                             const union VMNumericValue *rhs_value,                                \
-                             union VMNumericValue *result_value) {                                 \
-        result_value->i32 = lhs_value->member != (type)0 && rhs_value->member != (type)0;          \
-        return true;                                                                               \
+#define DEFINE_VM_OPERATOR_SET(prefix, type, member)                                      \
+    static bool prefix##_add(const union VMNumericValue *lhs_value,                       \
+                             const union VMNumericValue *rhs_value,                       \
+                             union VMNumericValue *result_value) {                        \
+        result_value->member = lhs_value->member + rhs_value->member;                     \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_sub(const union VMNumericValue *lhs_value,                       \
+                             const union VMNumericValue *rhs_value,                       \
+                             union VMNumericValue *result_value) {                        \
+        result_value->member = lhs_value->member - rhs_value->member;                     \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_mul(const union VMNumericValue *lhs_value,                       \
+                             const union VMNumericValue *rhs_value,                       \
+                             union VMNumericValue *result_value) {                        \
+        result_value->member = lhs_value->member * rhs_value->member;                     \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_div(const union VMNumericValue *lhs_value,                       \
+                             const union VMNumericValue *rhs_value,                       \
+                             union VMNumericValue *result_value) {                        \
+        if (rhs_value->member == (type)0)                                                 \
+            return false;                                                                 \
+        result_value->member = lhs_value->member / rhs_value->member;                     \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_equal(const union VMNumericValue *lhs_value,                     \
+                               const union VMNumericValue *rhs_value,                     \
+                               union VMNumericValue *result_value) {                      \
+        result_value->i32 = lhs_value->member == rhs_value->member;                       \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_notequal(const union VMNumericValue *lhs_value,                  \
+                                  const union VMNumericValue *rhs_value,                  \
+                                  union VMNumericValue *result_value) {                   \
+        result_value->i32 = lhs_value->member != rhs_value->member;                       \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_greater(const union VMNumericValue *lhs_value,                   \
+                                 const union VMNumericValue *rhs_value,                   \
+                                 union VMNumericValue *result_value) {                    \
+        result_value->i32 = lhs_value->member > rhs_value->member;                        \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_less(const union VMNumericValue *lhs_value,                      \
+                              const union VMNumericValue *rhs_value,                      \
+                              union VMNumericValue *result_value) {                       \
+        result_value->i32 = lhs_value->member < rhs_value->member;                        \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_equalgreater(const union VMNumericValue *lhs_value,              \
+                                      const union VMNumericValue *rhs_value,              \
+                                      union VMNumericValue *result_value) {               \
+        result_value->i32 = lhs_value->member >= rhs_value->member;                       \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_equalless(const union VMNumericValue *lhs_value,                 \
+                                   const union VMNumericValue *rhs_value,                 \
+                                   union VMNumericValue *result_value) {                  \
+        result_value->i32 = lhs_value->member <= rhs_value->member;                       \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_or(const union VMNumericValue *lhs_value,                        \
+                            const union VMNumericValue *rhs_value,                        \
+                            union VMNumericValue *result_value) {                         \
+        result_value->i32 = lhs_value->member != (type)0 || rhs_value->member != (type)0; \
+        return true;                                                                      \
+    }                                                                                     \
+    static bool prefix##_and(const union VMNumericValue *lhs_value,                       \
+                             const union VMNumericValue *rhs_value,                       \
+                             union VMNumericValue *result_value) {                        \
+        result_value->i32 = lhs_value->member != (type)0 && rhs_value->member != (type)0; \
+        return true;                                                                      \
     }
 
 DEFINE_VM_OPERATOR_SET(i32, int32_t, i32)
@@ -680,8 +686,8 @@ static int get_operand_level(enum VMOPType op_type) {
     }
 }
 
-static bool unpack_numeric_operand(const struct VMOperand *operand, int op_level,
-                                   union VMNumericValue *value) {
+static bool unpack_numeric_operand(const struct VMOperand* operand, int op_level,
+    union VMNumericValue* value) {
     int operand_level = get_operand_level(operand->op_type);
 
     if (operand_level < 0 || operand_level > op_level)
@@ -695,7 +701,8 @@ static bool unpack_numeric_operand(const struct VMOperand *operand, int op_level
     case 1: {
         if (operand_level == 0) {
             value->f32 = (float)(int32_t)operand->val;
-        } else {
+        }
+        else {
             memcpy(&value->f32, &operand->val, sizeof(value->f32));
         }
 
@@ -704,12 +711,14 @@ static bool unpack_numeric_operand(const struct VMOperand *operand, int op_level
     case 2: {
         if (operand_level == 0) {
             value->f64 = (double)(int32_t)operand->val;
-        } else if (operand_level == 1) {
+        }
+        else if (operand_level == 1) {
             float float_value;
 
             memcpy(&float_value, &operand->val, sizeof(float_value));
             value->f64 = (double)float_value;
-        } else {
+        }
+        else {
             memcpy(&value->f64, &operand->val, sizeof(value->f64));
         }
 
@@ -721,8 +730,8 @@ static bool unpack_numeric_operand(const struct VMOperand *operand, int op_level
     }
 }
 
-static void pack_numeric_result(struct VMOperand *result, int op_level,
-                                const union VMNumericValue *result_value, bool boolean_result) {
+static void pack_numeric_result(struct VMOperand* result, int op_level,
+    const union VMNumericValue* result_value, bool boolean_result) {
     result->val = 0;
     if (boolean_result) {
         result->op_type = OPRND_BOOL;
@@ -774,50 +783,65 @@ size_t get_operand_size(enum VMOPType op_type) {
     }
 }
 
-static void update_function_arguments(struct VM *vm, struct VMFunctionData *function_data,
-                                      unsigned argument_count) {
-    unsigned frame_size;
-    unsigned offset = 0;
-    unsigned i;
-    uint8_t *frame_pointer;
-    struct VMOperand *call_arguments;
-
-    frame_size = function_data->stack_size;
-
-    // first, store call arguments
-    call_arguments = argument_count == 0
-                         ? NULL
-                         : (struct VMOperand *)S_malloc(sizeof(struct VMOperand) * argument_count);
-
-    for (i = 0; i < argument_count; i++) {
-        call_arguments[i] = vm_stack_pop(vm->vm_stack);
-        offset += (unsigned)get_operand_size(call_arguments[i].op_type);
-    }
-
-    assert(offset <= frame_size);
-
-    // and write into stack.
-    frame_pointer = (uint8_t *)vm->stack_pointer + frame_size;
-    offset = 0;
-
-    for (i = 0; i < argument_count; i++) {
-        size_t size = get_operand_size(call_arguments[i].op_type);
-
-        memcpy(frame_pointer + offset, &call_arguments[i].val, size);
-        vm->stack_pointer_type[offset] = (char)call_arguments[i].op_type;
-        offset += (unsigned)size;
-    }
-
-    free(call_arguments);
+enum VMOPType vm_operand_type(const char* type) {
+    if (strcmp(type, "int") == 0)
+        return OPRND_INT32;
+    if (strcmp(type, "float") == 0)
+        return OPRND_FLOAT32;
+    if (strcmp(type, "double") == 0)
+        return OPRND_FLOAT64;
+    if (strcmp(type, "bool") == 0)
+        return OPRND_BOOL;
+    if (strcmp(type, "char") == 0)
+        return OPRND_CHAR16;
+    if (strcmp(type, "string") == 0)
+        return OPRND_String;
+    return OPRND_ADDRESS;
 }
 
-static bool vm_exec_class_initializers(struct VM *vm, struct VMClassData *class_data,
-                                       unsigned heap_index, unsigned depth) {
+static struct VMOperand convert_argument(struct VMOperand operand, enum VMOPType target) {
+    if (operand.op_type == target)
+        return operand;
+    if (operand.op_type == OPRND_NULL && target == OPRND_ADDRESS) {
+        operand.op_type = target;
+        return operand;
+    }
+
+    int level = get_operand_level(target);
+    union VMNumericValue value;
+    bool converted = unpack_numeric_operand(&operand, level, &value);
+    assert(converted);
+    pack_numeric_result(&operand, level, &value, false);
+    return operand;
+}
+
+static void update_function_arguments(struct VM* vm, struct VMFunctionData* function_data,
+    unsigned argument_count) {
+    uint8_t* frame = (uint8_t*)vm->stack_pointer;
+    size_t frame_offset = frame - (uint8_t*)vm->stack;
+    unsigned offset = 0;
+    unsigned i;
+
+    assert(argument_count == function_data->argument_count);
+    for (i = 0; i < argument_count; i++) {
+        enum VMOPType type = vm_operand_type(function_data->argument_types[i]);
+        struct VMOperand operand = convert_argument(vm_stack_pop(vm->vm_stack), type);
+        size_t size = get_operand_size(type);
+        assert(offset + size <= function_data->stack_size);
+
+        memcpy(frame + offset, &operand.val, size);
+        vm->stack_pointer_type[frame_offset + offset] = (char)type;
+        offset += (unsigned)size;
+    }
+}
+
+static bool vm_exec_class_initializers(struct VM* vm, struct VMClassData* class_data,
+    unsigned heap_index, unsigned depth) {
     if (class_data == NULL || depth >= vm->class_data_count)
         return false;
 
     if (class_data->parent_id != 0) {
-        struct VMClassData *parent = vm_find_class_data(vm, class_data->parent_id);
+        struct VMClassData* parent = vm_find_class_data(vm, class_data->parent_id);
 
         if (!vm_exec_class_initializers(vm, parent, heap_index, depth + 1))
             return false;
@@ -827,9 +851,9 @@ static bool vm_exec_class_initializers(struct VM *vm, struct VMClassData *class_
     return true;
 }
 
-bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
-                      unsigned *instruction_index, unsigned heap_index) {
-    const int32_t *arguments = instruction->operands.i32;
+bool exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
+    unsigned* instruction_index, unsigned heap_index) {
+    const int32_t* arguments = instruction->operands.i32;
     unsigned char opcode = instruction->opcode;
     bool ok = true;
 
@@ -837,7 +861,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     assert(instruction_index != NULL);
     switch (opcode) {
     case OP_PUSH_NULL: {
-        struct VMOperand operand = {OPRND_NULL, 0};
+        struct VMOperand operand = { OPRND_NULL, 0 };
 
         vm_stack_push(vm->vm_stack, operand);
         break;
@@ -851,16 +875,16 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
         VMOperatorFunc operator_func;
         struct VMOperand lhs;
         struct VMOperand rhs;
-        struct VMOperand result = {OPRND_NULL, 0};
-        union VMNumericValue lhs_value = {0};
-        union VMNumericValue rhs_value = {0};
-        union VMNumericValue result_value = {0};
+        struct VMOperand result = { OPRND_NULL, 0 };
+        union VMNumericValue lhs_value = { 0 };
+        union VMNumericValue rhs_value = { 0 };
+        union VMNumericValue result_value = { 0 };
 
         expr_opcode = instruction->operands.u8;
 
 #ifdef DEBUG
         {
-            const char *name = GET_EXPRESSION_OP_STR(expr_opcode);
+            const char* name = GET_EXPRESSION_OP_STR(expr_opcode);
 
             if (name == NULL) {
                 ok = false;
@@ -886,7 +910,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
 
         op_level = lhs_level > rhs_level ? lhs_level : rhs_level;
         ok = unpack_numeric_operand(&lhs, op_level, &lhs_value) &&
-             unpack_numeric_operand(&rhs, op_level, &rhs_value);
+            unpack_numeric_operand(&rhs, op_level, &rhs_value);
 
         if (!ok)
             break;
@@ -903,7 +927,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     }
     case OP_SP_PUSH: {
         if (ok && arguments[0] >= 0)
-            vm->stack_pointer = (uint8_t *)vm->stack_pointer + arguments[0];
+            vm->stack_pointer = (uint8_t*)vm->stack_pointer + arguments[0];
         else
             ok = false;
 
@@ -926,10 +950,11 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
         size_t size = (size_t)arguments[1];
 
         int64_t value = 0;
-        enum VMOPType type = (enum VMOPType)vm->stack_pointer_type[offset];
+        size_t frame_offset = (uint8_t*)vm->stack_frame - (uint8_t*)vm->stack;
+        enum VMOPType type = (enum VMOPType)vm->stack_pointer_type[frame_offset + offset];
         struct VMOperand operand;
 
-        memcpy(&value, vm->stack_pointer + offset, size);
+        memcpy(&value, (uint8_t*)vm->stack_frame + offset, size);
         operand.op_type = type;
         operand.val = value;
         vm_stack_push(vm->vm_stack, operand);
@@ -946,8 +971,9 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
         int offset = arguments[0];
         size_t size = (size_t)arguments[1];
 
-        memcpy(vm->stack_pointer + offset, &operand.val, size);
-        vm->stack_pointer_type[offset] = (char)operand.op_type;
+        size_t frame_offset = (uint8_t*)vm->stack_frame - (uint8_t*)vm->stack;
+        memcpy((uint8_t*)vm->stack_frame + offset, &operand.val, size);
+        vm->stack_pointer_type[frame_offset + offset] = (char)operand.op_type;
 
         break;
     }
@@ -961,9 +987,9 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
             break;
         }
 
-        memcpy(&value, (uint8_t *)vm->stack_pointer + offset, size);
+        memcpy(&value, (uint8_t*)vm->stack_frame + offset, size);
         value++;
-        memcpy((uint8_t *)vm->stack_pointer + offset, &value, size);
+        memcpy((uint8_t*)vm->stack_frame + offset, &value, size);
 
         break;
     }
@@ -977,9 +1003,9 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
             break;
         }
 
-        memcpy(&value, (uint8_t *)vm->stack_pointer + offset, size);
+        memcpy(&value, (uint8_t*)vm->stack_frame + offset, size);
         value--;
-        memcpy((uint8_t *)vm->stack_pointer + offset, &value, size);
+        memcpy((uint8_t*)vm->stack_frame + offset, &value, size);
 
         break;
     }
@@ -988,7 +1014,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
         unsigned offset;
         unsigned size;
         uint64_t val = 0;
-        struct VMVariableData *variable_data;
+        struct VMVariableData* variable_data;
         struct VMOperand operand;
 
         if (heap_index == (unsigned)-1 || arguments[0] < 0 || arguments[1] < 0 ||
@@ -1000,13 +1026,14 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
         variable_id = (unsigned)arguments[0];
         offset = (unsigned)arguments[1];
         size = (unsigned)arguments[2];
+
         variable_data = vm_find_heap_variable_data(vm, heap_index, variable_id);
         if (variable_data == NULL || variable_data->offset != offset || variable_data->size != size) {
             ok = false;
             break;
         }
 
-        memcpy(&val, (uint8_t *)vm->heap_mapper[heap_index] + 8 + offset, size);
+        memcpy(&val, (uint8_t*)vm->heap_mapper[heap_index] + 8 + offset, size);
         operand.op_type = (enum VMOPType)variable_data->operand_type;
         if (operand.op_type == OPRND_ADDRESS && val == 0)
             operand.op_type = OPRND_NULL;
@@ -1026,7 +1053,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
         unsigned variable_id;
         unsigned offset;
         unsigned size;
-        struct VMVariableData *variable_data;
+        struct VMVariableData* variable_data;
 
         if (heap_index == (unsigned)-1 || arguments[0] < 0 || arguments[1] < 0 ||
             arguments[2] <= 0 || (size_t)arguments[2] > sizeof(operand.val)) {
@@ -1044,7 +1071,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
         }
 
         operand = vm_stack_pop(vm->vm_stack);
-        memcpy((uint8_t *)vm->heap_mapper[heap_index] + 8 + offset, &operand.val, size);
+        memcpy((uint8_t*)vm->heap_mapper[heap_index] + 8 + offset, &operand.val, size);
         break;
     }
     case OP_LOAD_GLOBAL: {
@@ -1062,7 +1089,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     case OP_LOAD_ATTR: {
         struct VMOperand object;
         struct VMOperand value;
-        struct VMVariableData *variable_data;
+        struct VMVariableData* variable_data;
         unsigned variable_id;
         unsigned offset;
         unsigned size;
@@ -1090,7 +1117,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
 
         value.op_type = (enum VMOPType)variable_data->operand_type;
         value.val = 0;
-        memcpy(&value.val, (uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset, size);
+        memcpy(&value.val, (uint8_t*)vm->heap_mapper[(unsigned)object.val] + 8 + offset, size);
         if (value.op_type == OPRND_ADDRESS && value.val == 0)
             value.op_type = OPRND_NULL;
         vm_stack_push(vm->vm_stack, value);
@@ -1105,7 +1132,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     case OP_SAVE_ATTR: {
         struct VMOperand value;
         struct VMOperand object;
-        struct VMVariableData *variable_data;
+        struct VMVariableData* variable_data;
         unsigned variable_id;
         unsigned offset;
         unsigned size;
@@ -1132,7 +1159,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
             break;
         }
 
-        memcpy((uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset, &value.val, size);
+        memcpy((uint8_t*)vm->heap_mapper[(unsigned)object.val] + 8 + offset, &value.val, size);
         break;
     }
     case OP_SYSCALL: {
@@ -1152,13 +1179,13 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
 
         // int object_id = ( << 4) & 0x1111;
         // printf("object_id : %x\n", object_id);
-        uint64_t header = *(uint64_t *)vm->heap_mapper[target_heap_index];
+        uint64_t header = *(uint64_t*)vm->heap_mapper[target_heap_index];
         int id = header & 0xFFFFFFFF;
 
-        struct VMClassData *class_data = vm_find_class_data(vm, id);
-        struct VMFunctionData *function_data =
+        struct VMClassData* class_data = vm_find_class_data(vm, id);
+        struct VMFunctionData* function_data =
             arguments[0] < 0 ? NULL
-                             : vm_find_member_function_data(vm, class_data, (unsigned)arguments[0]);
+            : vm_find_member_function_data(vm, class_data, (unsigned)arguments[0]);
 
         if (function_data == NULL) {
             ok = false;
@@ -1176,8 +1203,29 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     case OP_CALL_CLASS: {
         break;
     }
+    case OP_CALL_SUPER: {
+        if (arguments[0] <= 0 || arguments[1] < 0 ||
+            heap_index >= HEAP_MAX_OBJECT_COUNT || vm->heap_mapper[heap_index] == NULL ||
+            (unsigned)arguments[1] > vm->vm_stack->index) {
+            ok = false;
+            break;
+        }
+
+        struct VMClassData* parent = vm_find_class_data(vm, (unsigned)arguments[0]);
+        struct VMFunctionData* constructor =
+            parent == NULL ? NULL : vm_find_function_data(vm, parent, 0);
+        if (constructor == NULL || !constructor->is_constructor ||
+            constructor->argument_count != (unsigned)arguments[1]) {
+            ok = false;
+            break;
+        }
+
+        update_function_arguments(vm, constructor, (unsigned)arguments[1]);
+        vm_exec_function(vm, constructor, heap_index);
+        break;
+    }
     case OP_CALL_GLOBAL: {
-        struct VMFunctionData *function_data;
+        struct VMFunctionData* function_data;
         unsigned argument_count;
 
         if (!ok || arguments[0] < 0 || arguments[1] < 0) {
@@ -1196,7 +1244,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     }
     case OP_LOAD_STR: {
         if (ok) {
-            struct VMOperand operand = {OPRND_String, arguments[0]};
+            struct VMOperand operand = { OPRND_String, arguments[0] };
 
             vm_stack_push(vm->vm_stack, operand);
         }
@@ -1233,7 +1281,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     }
     case OP_LDC_I4: {
         if (ok) {
-            struct VMOperand operand = {OPRND_INT32, arguments[0]};
+            struct VMOperand operand = { OPRND_INT32, arguments[0] };
 
             vm_stack_push(vm->vm_stack, operand);
         }
@@ -1242,7 +1290,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     case OP_LDC_F4: {
         float value = instruction->operands.f32;
         if (ok) {
-            struct VMOperand operand = {OPRND_FLOAT32, 0};
+            struct VMOperand operand = { OPRND_FLOAT32, 0 };
 
             memcpy(&operand.val, &value, sizeof(value));
             vm_stack_push(vm->vm_stack, operand);
@@ -1252,7 +1300,7 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     case OP_LDC_F8: {
         double value = instruction->operands.f64;
         if (ok) {
-            struct VMOperand operand = {OPRND_FLOAT64, 0};
+            struct VMOperand operand = { OPRND_FLOAT64, 0 };
 
             memcpy(&operand.val, &value, sizeof(value));
             vm_stack_push(vm->vm_stack, operand);
@@ -1263,8 +1311,8 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
         unsigned id;
         unsigned argument_count;
         uint64_t heap_mapper_id;
-        struct VMClassData *class_data;
-        struct VMFunctionData *constructor = NULL;
+        struct VMClassData* class_data;
+        struct VMFunctionData* constructor = NULL;
         struct VMOperand id_operand;
 
         if (arguments[0] < 0 || arguments[1] < 0 || arguments[2] < -1 || arguments[3] < 0) {
@@ -1288,7 +1336,8 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
                 ok = false;
                 break;
             }
-        } else if (argument_count != 0) {
+        }
+        else if (argument_count != 0) {
             ok = false;
             break;
         }
@@ -1330,9 +1379,9 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     }
     default: {
         DEBUG_FPRINTF(stderr,
-                      "VM execution error at instruction %u: "
-                      "unknown opcode 0x%02x\n",
-                      *instruction_index - 1, opcode);
+            "VM execution error at instruction %u: "
+            "unknown opcode 0x%02x\n",
+            *instruction_index - 1, opcode);
         return false;
     }
     }
@@ -1340,11 +1389,14 @@ bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
     return ok;
 }
 
-void vm_exec_function(struct VM *vm, struct VMFunctionData *function_data, unsigned heap_index) {
+void vm_exec_function(struct VM* vm, struct VMFunctionData* function_data, unsigned heap_index) {
     unsigned instruction_index = 0;
+    void* caller_frame = vm->stack_frame;
+    void* frame = vm->stack_pointer;
+    vm->stack_frame = frame;
 
     while (instruction_index < function_data->instruction_count) {
-        const struct VMInstruction *instruction = &function_data->instructions[instruction_index++];
+        const struct VMInstruction* instruction = &function_data->instructions[instruction_index++];
         bool ok;
 
 #ifdef DEBUG_STAMP_COMMAND
@@ -1354,25 +1406,27 @@ void vm_exec_function(struct VM *vm, struct VMFunctionData *function_data, unsig
         ok = exec_instruction(vm, instruction, &instruction_index, heap_index);
 
 #ifdef DEBUG_STAMP_COMMAND
-        const char *command_name = GET_INSTRUCTION_STR(instruction->opcode);
+        const char* command_name = GET_INSTRUCTION_STR(instruction->opcode);
 
         fprintf(stderr, "[command %s/0x%02x] %.3f ms\n",
-                command_name != NULL ? command_name : "unknown", instruction->opcode,
-                command_time_ms() - started_at);
+            command_name != NULL ? command_name : "unknown", instruction->opcode,
+            command_time_ms() - started_at);
 #endif
 
         if (!ok || instruction->opcode == OP_RET)
-            return;
+            break;
     }
+    vm->stack_pointer = frame;
+    vm->stack_frame = caller_frame;
 }
 
-void vm_stack_push(struct VMStack *vm_stack, struct VMOperand val) {
+void vm_stack_push(struct VMStack* vm_stack, struct VMOperand val) {
     assert(vm_stack->index < 1024 * 256); // 256 KB
 
     vm_stack->stack[vm_stack->index++] = val;
 }
 
-struct VMOperand vm_stack_pop(struct VMStack *vm_stack) {
+struct VMOperand vm_stack_pop(struct VMStack* vm_stack) {
     assert(vm_stack->index > 0);
 
     return vm_stack->stack[--vm_stack->index];

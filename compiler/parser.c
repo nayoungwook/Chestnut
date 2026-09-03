@@ -220,6 +220,7 @@ static struct Node *gen_func_call_node(struct Token *first, struct ParserContext
     func_call->func_name_tok = first;
     func_call->is_attr = false;
     func_call->func_data = NULL;
+    func_call->super_class = NULL;
 
     return pack(AST_FunctionCall, func_call);
 }
@@ -613,6 +614,15 @@ static struct Node *gen_class_decl_node(struct Token *first, struct ParserContex
 
     class_ast->body = gen_body(pc, &body_size);
     class_ast->body_count = body_size;
+
+    unsigned i;
+    for (i = 0; i < body_size; i++) {
+        if (class_ast->body[i]->type != AST_Constructor)
+            continue;
+        if (class_ast->constructor != NULL)
+            panic("A class can only declare one constructor.", tc);
+        class_ast->constructor = class_ast->body[i];
+    }
 
     return result;
 }

@@ -815,6 +815,13 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc, struct 
 
         enum ScopeData scope_data = func_data->scope_data;
 
+        if (func_call_ast->super_class != NULL) {
+            emit_byte(irc, OP_CALL_SUPER);
+            emit_int(irc, func_call_ast->super_class->id);
+            emit_int(irc, func_call_ast->param_count);
+            break;
+        }
+
         if (scope_data == ScopeArray) {
             emit_byte(irc, func_data->id == 0 ? OP_ARRAY_PUSH : OP_ARRAY_REMOVE);
         } else if (func_call_ast->is_attr) {

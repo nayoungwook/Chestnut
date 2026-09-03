@@ -2,6 +2,10 @@
 class Bar extends Foo {
 	var foo: Foo = null;
 
+	constructor Bar() {
+		super();
+	}
+
 	func bar(): void {
 		print("asdf\n");
 	}
@@ -24,3 +28,26 @@ class Foo {
 	}
 }
 
+class Base {
+	var base: int = 1;
+
+	constructor Base(value: int) {
+		base = value;
+	}
+
+	func value(): int {
+		return base;
+	}
+}
+
+class Child extends Base {
+	var extra: int = 2;
+
+	constructor Child(value: int){
+		super(value);
+	}
+
+	func value(): int {
+		return base * extra;
+	}
+}

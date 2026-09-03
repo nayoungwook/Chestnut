@@ -146,6 +146,7 @@ static int get_i32_operand_count(byte opcode) {
     case OP_CALL_ATTR:
     case OP_CALL_CLASS:
     case OP_CALL_GLOBAL:
+    case OP_CALL_SUPER:
     case OP_NEW_ARRAY:
     case OP_ARRAY_PUSH:
     case OP_ARRAY_REMOVE:
@@ -347,22 +348,6 @@ static bool read_function_metadata(struct VM *vm, struct IRReader *reader,
     return true;
 }
 
-static enum VMOPType get_variable_operand_type(const char *type) {
-    if (strcmp(type, "int") == 0)
-        return OPRND_INT32;
-    if (strcmp(type, "float") == 0)
-        return OPRND_FLOAT32;
-    if (strcmp(type, "double") == 0)
-        return OPRND_FLOAT64;
-    if (strcmp(type, "bool") == 0)
-        return OPRND_BOOL;
-    if (strcmp(type, "char") == 0)
-        return OPRND_CHAR16;
-    if (strcmp(type, "string") == 0)
-        return OPRND_String;
-    return OPRND_ADDRESS;
-}
-
 static bool read_meta_block(struct VM *vm, struct IRReader *reader, struct VMClassData *owner) {
     byte kind;
     bool ok = true;
@@ -421,7 +406,7 @@ static bool read_meta_block(struct VM *vm, struct IRReader *reader, struct VMCla
             return reader_error(reader, "duplicate variable metadata");
 
         vm_add_variable_data(owner, (unsigned)id, name, type, (unsigned)offset, (unsigned)size,
-                             get_variable_operand_type(type));
+                             vm_operand_type(type));
         return true;
     }
     default:

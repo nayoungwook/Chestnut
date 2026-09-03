@@ -175,6 +175,7 @@ struct FuncCallAST {
 
     // semantics
     struct FuncData *func_data;
+    struct ClassData *super_class;
 };
 
 struct IdentIncreAST {
@@ -292,6 +293,12 @@ struct VarData {
     enum ScopeData scope_data;
 };
 
+enum ClassRegistrationState {
+    ClassUnregistered = 0,
+    ClassRegistering = 1,
+    ClassRegistered = 2
+};
+
 struct ClassData {
     unsigned id;
 
@@ -305,7 +312,7 @@ struct ClassData {
     unsigned instance_align;
     unsigned inherited_var_count;
     unsigned inherited_func_count;
-    int registration_state;
+    enum ClassRegistrationState registration_state;
     struct ClassAST *ast;
 };
 

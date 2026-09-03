@@ -28,6 +28,7 @@ enum VMOPType {
 };
 
 size_t get_operand_size(enum VMOPType op_type);
+enum VMOPType vm_operand_type(const char *type);
 
 struct VMOperand {
     enum VMOPType op_type;
@@ -64,6 +65,7 @@ struct VM {
 
     void *heap, *stack;
     void *stack_pointer;
+    void *stack_frame;
     char *stack_pointer_type;
 
     unsigned heap_index;
