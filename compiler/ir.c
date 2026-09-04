@@ -440,6 +440,31 @@ static void gen_attr_decre_ir(struct IRContext *irc, struct ParserContext *pc, u
     emit_int(irc, size);
 }
 
+static void gen_attr_update_ir(struct IRContext *irc, struct ParserContext *pc,
+                               struct Node *ident_node, bool increase) {
+    struct Node *parent = ident_node;
+
+    while (parent->attr != NULL && parent->attr->attr != NULL)
+        parent = parent->attr;
+
+    struct Node *target = parent->attr;
+    if (target == NULL || target->type != AST_Identifier)
+        panic("Invalid attribute update target.", pc->tc);
+
+    parent->attr = NULL;
+    gen_node_ir(irc, pc, ident_node);
+    parent->attr = target;
+
+    struct IdentifierAST *target_ast = (struct IdentifierAST *)target->ast;
+    struct VarData *var_data = target_ast->var_data;
+    unsigned size = get_size_of_type(pc, var_data->type);
+
+    if (increase)
+        gen_attr_incre_ir(irc, pc, var_data->id, var_data->offset, size);
+    else
+        gen_attr_decre_ir(irc, pc, var_data->id, var_data->offset, size);
+}
+
 static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc, struct Node *node) {
 
     struct IdentifierAST *ident_ast = NULL;
@@ -452,12 +477,20 @@ static void gen_ident_ir(struct IRContext *irc, struct ParserContext *pc, struct
 
     case AST_IdentIncrease: {
         struct IdentIncreAST *ident_incre_ast = ((struct IdentIncreAST *)node->ast);
+        if (ident_incre_ast->ident_node->attr != NULL) {
+            gen_attr_update_ir(irc, pc, ident_incre_ast->ident_node, true);
+            return;
+        }
         ident_ast = (struct IdentifierAST *)ident_incre_ast->ident_node->ast;
         break;
     }
 
     case AST_IdentDecrease: {
         struct IdentDecreAST *ident_decre_ast = ((struct IdentDecreAST *)node->ast);
+        if (ident_decre_ast->ident_node->attr != NULL) {
+            gen_attr_update_ir(irc, pc, ident_decre_ast->ident_node, false);
+            return;
+        }
         ident_ast = (struct IdentifierAST *)ident_decre_ast->ident_node->ast;
         break;
     }

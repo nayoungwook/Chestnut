@@ -97,7 +97,7 @@ void vm_set_function_instructions(struct VMFunctionData *function_data,
                                   unsigned instruction_count);
 void vm_debug_print_bytecode(const struct VM *vm);
 
-bool exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
+void exec_instruction(struct VM *vm, const struct VMInstruction *instruction,
                       unsigned *instruction_index, unsigned heap_index);
 void vm_exec_function(struct VM *vm, struct VMFunctionData *function_data, unsigned heap_index);
 
