@@ -45,44 +45,46 @@ enum TokenType {
 
     TokIncrease = 32,
     TokDecrease = 33,
-    TokPow = 33,
+    TokPow = 34,
 
-    TokNot = 34,
+    TokNot = 35,
 
-    TokVar = 35,
-    TokIf = 36,
-    TokFor = 37,
-    TokFunc = 38,
+    TokVar = 36,
+    TokIf = 37,
+    TokFor = 38,
+    TokFunc = 39,
 
-    TokOr = 39,
-    TokAnd = 40,
+    TokOr = 40,
+    TokAnd = 41,
 
-    TokBitOr = 41,
-    TokBitAnd = 42,
+    TokBitOr = 42,
+    TokBitAnd = 43,
 
-    TokReturn = 43,
+    TokReturn = 44,
 
-    TokElse = 44,
-    TokClass = 45,
-    TokExtends = 46,
+    TokElse = 45,
+    TokClass = 46,
+    TokExtends = 47,
 
-    TokPrivate = 47,
-    TokProtected = 48,
-    TokPublic = 49,
+    TokPrivate = 48,
+    TokProtected = 49,
+    TokPublic = 50,
 
-    TokConstructor = 50,
-    TokNew = 51,
+    TokConstructor = 51,
+    TokNew = 52,
 
-    TokTrue = 52,
-    TokFalse = 53,
+    TokTrue = 53,
+    TokFalse = 54,
 
-    TokNull = 54,
+    TokNull = 55,
 };
 
 struct Token {
     const char *str;
     unsigned length;
     enum TokenType type;
+    bool managed_by_tokenizer;
+    bool owns_str;
 };
 
 struct TokenizerContext {
@@ -91,6 +93,9 @@ struct TokenizerContext {
     char *cur_ch;              // current ch
     const char *begin_ch;      // begin ch (*initial position of file.)
     unsigned line_num;
+    struct Token **tokens;
+    unsigned token_count;
+    unsigned token_capacity;
 };
 
 struct KeywordEntry {

@@ -13,7 +13,8 @@ struct IRReader {
 };
 
 struct IRReader *gen_ir_reader(struct IRContext *irc);
+void free_ir_reader(struct IRReader *reader);
 
-void read_ir(struct VM *vm, struct IRReader *ir_reader);
+bool read_ir(struct VM *vm, struct IRReader *ir_reader);
 
 #endif

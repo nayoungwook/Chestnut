@@ -15,6 +15,8 @@ static struct Token* type_token_for(struct Type* type) {
     tok->str = type->type_str;
     tok->length = (unsigned)strlen(type->type_str);
     tok->type = TokIdent;
+    tok->managed_by_tokenizer = false;
+    tok->owns_str = false;
     return tok;
 }
 
@@ -501,6 +503,8 @@ static void check_func_decl_semantics(struct ParserContext* pc, struct FuncDeclA
 static void check_if_stmt_semantics(struct ParserContext* pc, struct IfStmtAST* if_stmt_ast) {
     if (if_stmt_ast->cond != NULL) {
         check_semantics(pc, if_stmt_ast->cond);
+        if (infer_type(pc, if_stmt_ast->cond) != find_type(pc, "bool"))
+            panic("If condition must be bool.", pc->tc);
     }
     check_semantics_body(pc, if_stmt_ast->body, if_stmt_ast->body_count);
     check_semantics(pc, if_stmt_ast->next_stmt);
@@ -509,6 +513,8 @@ static void check_if_stmt_semantics(struct ParserContext* pc, struct IfStmtAST* 
 static void check_for_stmt_semantics(struct ParserContext* pc, struct ForStmtAST* for_stmt_ast) {
     check_semantics(pc, for_stmt_ast->init);
     check_semantics(pc, for_stmt_ast->cond);
+    if (infer_type(pc, for_stmt_ast->cond) != find_type(pc, "bool"))
+        panic("For condition must be bool.", pc->tc);
     check_semantics(pc, for_stmt_ast->step);
     check_semantics_body(pc, for_stmt_ast->body, for_stmt_ast->body_count);
 }
@@ -549,7 +555,8 @@ static void check_parameter_type(struct ParserContext* pc, struct Type* arg_type
     if (param->type == AST_ArrayDeclaration) {
         if (arg_type->type_kind != TK_Array)
             panic("Array literal requires an array parameter.", pc->tc);
-        ((struct ArrayDeclAST*)param->ast)->ele_type_tok = type_token_for(arg_type);
+        if (((struct ArrayDeclAST*)param->ast)->ele_type_tok == NULL)
+            ((struct ArrayDeclAST*)param->ast)->ele_type_tok = type_token_for(arg_type);
     }
     struct Type* param_type = infer_type(pc, param);
     if (!is_castable(param_type, arg_type)) {
@@ -787,7 +794,9 @@ void register_data(struct ParserContext* pc, struct Node* node) {
             register_func_data(func_decl_ast->func_name_tok->str, ret_type, pc);
         struct VarDeclBundleAST* params_ast = (struct VarDeclBundleAST*)func_decl_ast->params->ast;
 
-        func_data->arg_types = S_malloc(params_ast->var_count * sizeof(struct Type*));
+        func_data->arg_types = params_ast->var_count == 0
+            ? NULL
+            : S_malloc((size_t)params_ast->var_count * sizeof(struct Type*));
         func_data->arg_count = params_ast->var_count;
         func_decl_ast->func_data = func_data;
 
@@ -937,7 +946,9 @@ void register_data(struct ParserContext* pc, struct Node* node) {
         struct VarDeclBundleAST* params_ast =
             (struct VarDeclBundleAST*)constructor_ast->params->ast;
 
-        func_data->arg_types = S_malloc(params_ast->var_count * sizeof(struct Type*));
+        func_data->arg_types = params_ast->var_count == 0
+            ? NULL
+            : S_malloc((size_t)params_ast->var_count * sizeof(struct Type*));
         func_data->arg_count = params_ast->var_count;
 
         int i;
@@ -1112,13 +1123,9 @@ void check_semantics(struct ParserContext* pc, struct Node* node) {
         struct IdentIncreAST* ident_incre_ast = (struct IdentIncreAST*)node->ast;
 
         check_semantics(pc, ident_incre_ast->ident_node);
-
-        // struct Type *type = infer_type(pc, node);
-
-        //		if(!(type->type_kind == TK_Numeric &&
-        // type->data.numeric_data->is_integer)){ panic("Increasement operator
-        // (++) must be used with integer", pc->tc);
-        //}
+        struct Type* type = infer_type(pc, ident_incre_ast->ident_node);
+        if (type->type_kind != TK_Numeric || !type->data.numeric_data->is_integer)
+            panic("Increment operator requires an integer target.", pc->tc);
 
         break;
     }
@@ -1127,13 +1134,9 @@ void check_semantics(struct ParserContext* pc, struct Node* node) {
         struct IdentDecreAST* ident_decre_ast = (struct IdentDecreAST*)node->ast;
 
         check_semantics(pc, ident_decre_ast->ident_node);
-
-        // struct Type *type = infer_type(pc, node);
-
-        // if(!(type->type_kind == TK_Numeric &&
-        // type->data.numeric_data->is_integer)){ panic("Decreasement operator
-        // (--) must be used with integer", pc->tc);
-        // }
+        struct Type* type = infer_type(pc, ident_decre_ast->ident_node);
+        if (type->type_kind != TK_Numeric || !type->data.numeric_data->is_integer)
+            panic("Decrement operator requires an integer target.", pc->tc);
 
         break;
     }
@@ -1214,6 +1217,8 @@ void check_semantics(struct ParserContext* pc, struct Node* node) {
         struct NewAST* new_ast = (struct NewAST*)node->ast;
         struct Type* type = find_type(pc, new_ast->name_tok->str);
         new_ast->class_data = find_class_data(pc, type);
+        if (new_ast->class_data == NULL)
+            panic("new requires a class type.", pc->tc);
 
         int i;
         struct FuncData* constructor = new_ast->class_data->constructor;

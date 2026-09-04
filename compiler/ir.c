@@ -8,6 +8,7 @@ struct IRContext *gen_irc() {
     struct IRContext *irc = (struct IRContext *)S_malloc(sizeof(struct IRContext));
 
     irc->node = NULL;
+    irc->bytes = NULL;
     irc->byte_cnt = 0;
     irc->byte_size = 0;
     irc->label_id = 0;
@@ -19,7 +20,27 @@ struct IRContext *gen_irc() {
     return irc;
 }
 
+void free_irc(struct IRContext *irc) {
+    int i;
+
+    if (irc == NULL)
+        return;
+    if (irc->str_rodata != NULL) {
+        for (i = 0; i < HTABLE_BUFF; i++) {
+            struct DataNode *node = irc->str_rodata->bucket[i];
+            while (node != NULL) {
+                free(node->ptr);
+                node = node->next;
+            }
+        }
+        free_htable(irc->str_rodata);
+    }
+    free(irc->bytes);
+    free(irc);
+}
+
 void init_irc(struct IRContext *irc, struct Node *node) {
+    free(irc->bytes);
     irc->node = node;
     irc->byte_cnt = 0;
 

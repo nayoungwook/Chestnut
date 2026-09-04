@@ -33,8 +33,6 @@ static void resolve_second_pass_queue(struct ParserContext *pc) {
         struct TokenizerContext *tc = q_pop(pc->second_pass_queue);
 
         compile_file(pc, tc);
-
-        free_tc(tc);
     }
 }
 
@@ -64,18 +62,51 @@ static void resolve_sementic_analysis(struct ParserContext *pc) {
     }
 }
 
+static void free_frontend(struct ParserContext *pc, struct TokenizerContext **contexts,
+                          int context_count) {
+    int i;
+
+    free_pc(pc);
+    for (i = 0; i < context_count; i++)
+        free_tc(contexts[i]);
+    free(contexts);
+}
+
+static bool add_source(struct ParserContext *pc, struct TokenizerContext **contexts,
+                       int *context_count, const char *path) {
+    char *source = read_file(path);
+
+    if (source == NULL)
+        return false;
+    contexts[*context_count] = gen_tc(source);
+    q_push(pc->first_pass_queue, contexts[*context_count]);
+    (*context_count)++;
+    return true;
+}
+
 int main(int arc, char *args[]) {
+    int i;
+    int source_count = arc > 1 ? arc - 1 : 2;
+    int loaded_count = 0;
 
     // front end
     struct ParserContext *pc = gen_pc();
+    struct TokenizerContext **contexts =
+        S_malloc(sizeof(struct TokenizerContext *) * (size_t)source_count);
 
     if (arc > 1) {
-        int i;
-        for (i = 1; i < arc; i++)
-            q_push(pc->first_pass_queue, gen_tc(read_file(args[i])));
+        for (i = 1; i < arc; i++) {
+            if (!add_source(pc, contexts, &loaded_count, args[i])) {
+                free_frontend(pc, contexts, loaded_count);
+                return 1;
+            }
+        }
     } else {
-        q_push(pc->first_pass_queue, gen_tc(read_file("test.cn")));
-        q_push(pc->first_pass_queue, gen_tc(read_file("test2.cn")));
+        if (!add_source(pc, contexts, &loaded_count, "test.cn") ||
+            !add_source(pc, contexts, &loaded_count, "test2.cn")) {
+            free_frontend(pc, contexts, loaded_count);
+            return 1;
+        }
         // q_push(pc->first_pass_queue, gen_tc(read_file("fibo.cn")));
         // q_push(pc->first_pass_queue, gen_tc(read_file("test_basic.cn")));
     }
@@ -93,18 +124,32 @@ int main(int arc, char *args[]) {
 
     gen_ir(irc, pc);
 
-    write_file("test.cb", irc->byte_size, (const char *)get_bytes(irc));
+    if (!write_file("test.cb", irc->byte_cnt, (const char *)get_bytes(irc))) {
+        free_irc(irc);
+        free_frontend(pc, contexts, loaded_count);
+        return 1;
+    }
 
     // print_bytes(irc);
 
     struct VM *vm = gen_vm();
     struct IRReader *ir_reader = gen_ir_reader(irc);
 
-    read_ir(vm, ir_reader);
+    if (!read_ir(vm, ir_reader)) {
+        free_ir_reader(ir_reader);
+        free_vm(vm);
+        free_irc(irc);
+        free_frontend(pc, contexts, loaded_count);
+        return 1;
+    }
 
     struct VMFunctionData *func_data = vm_find_function_data(vm, NULL, vm->main_func_id);
 
     vm_exec_function(vm, func_data, -1);
 
+    free_ir_reader(ir_reader);
+    free_vm(vm);
+    free_irc(irc);
+    free_frontend(pc, contexts, loaded_count);
     return 0;
 }

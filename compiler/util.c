@@ -7,24 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#if defined(__unix__) || defined(__APPLE__)
-void unix_error(char *msg) {
+static void error(const char *msg) {
     fprintf(stderr, "%s: %s\n", msg, strerror(errno));
-}
-#endif
-
-#ifdef _WIN32
-void win_error(char *msg) { fprintf(stderr, "win error | %s\n", msg); }
-#endif
-
-static void error(char *msg) {
-#if defined(__unix__) || defined(__APPLE__)
-    unix_error(msg);
-#endif
-
-#ifdef _WIN32
-    win_error(msg);
-#endif
 }
 
 // ----- file system -----
@@ -43,14 +27,29 @@ static char *read_file_unix(const char *path) {
 
     if (!fp) {
         error(err_buf);
+        return NULL;
     }
 
-    fseek(fp, 0, SEEK_END);
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        error("Failed to seek input file.");
+        fclose(fp);
+        return NULL;
+    }
     long size = ftell(fp);
+    if (size < 0) {
+        error("Failed to determine input file size.");
+        fclose(fp);
+        return NULL;
+    }
     rewind(fp);
 
     char *bytes = S_malloc(size + 1);
-    fread(bytes, 1, size, fp);
+    if (fread(bytes, 1, (size_t)size, fp) != (size_t)size) {
+        error("Failed to read input file.");
+        free(bytes);
+        fclose(fp);
+        return NULL;
+    }
     bytes[size] = '\0';
     fclose(fp);
 
@@ -86,19 +85,23 @@ static char *read_file_win(const char *path) {
         return NULL;
     }
 
-    fseek(fp, 0, SEEK_END);
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        error("Failed to seek input file.");
+        fclose(fp);
+        return NULL;
+    }
     long size = ftell(fp);
-    rewind(fp);
 
-    if (size <= 0) {
+    if (size < 0) {
         char err_buff[512];
-        snprintf(err_buff, sizeof(err_buff), "File size is too small : %s",
+        snprintf(err_buff, sizeof(err_buff), "Failed to determine input file size : %s",
                  path);
         error(err_buff);
 
         fclose(fp);
         return NULL;
     }
+    rewind(fp);
 
     char *buffer = (char *)S_malloc((size_t)size + 1);
 
@@ -116,7 +119,7 @@ static char *read_file_win(const char *path) {
 }
 #endif
 
-char *read_file(char *path) {
+char *read_file(const char *path) {
     char *result = NULL;
 
 #if defined(__unix__) || defined(__APPLE__)
@@ -127,48 +130,50 @@ char *read_file(char *path) {
     result = read_file_win(path);
 #endif
 
-    assert(result != NULL);
-
     return result;
 }
 
 #if defined(__unix__) || defined(__APPLE__)
 
-static void unix_write_file(const char *path, const size_t len,
+static bool unix_write_file(const char *path, const size_t len,
                             const char *data) {
     FILE *fp = fopen(path, "wb");
     if (!fp) {
         error("Failed to open file.");
+        return false;
     }
 
     if (fwrite(data, sizeof(byte), len, fp) != len) {
         fclose(fp);
         error("Write failed.");
+        return false;
     }
 
     fclose(fp);
+    return true;
 }
 
 #endif
 
-void write_file(const char *path, const size_t len, const char *data) {
+bool write_file(const char *path, const size_t len, const char *data) {
 #if defined(__unix__) || defined(__APPLE__)
-    unix_write_file(path, len, data);
+    return unix_write_file(path, len, data);
 #endif
 #ifdef _WIN32
     FILE *fp = fopen(path, "wb");
     if (!fp) {
         error("Failed to open file.");
-        return;
+        return false;
     }
 
     if (fwrite(data, sizeof(byte), len, fp) != len) {
         fclose(fp);
         error("Write failed.");
-        return;
+        return false;
     }
 
     fclose(fp);
+    return true;
 #endif
 }
 
@@ -195,6 +200,8 @@ struct HTable *gen_htable() {
 }
 
 void free_htable(struct HTable *target_table) {
+    if (target_table == NULL)
+        return;
     int i;
     for (i = 0; i < HTABLE_BUFF; i++) {
         struct DataNode *node = target_table->bucket[i];
@@ -204,6 +211,7 @@ void free_htable(struct HTable *target_table) {
             node = next_node;
         }
     }
+    free(target_table);
 }
 
 void ht_insert(struct HTable *target_table, const char *key, void *ptr) {
@@ -292,9 +300,17 @@ void *q_pop(struct Queue *target_queue) {
     }
 
     target_queue->size--;
-    result->next = NULL;
+    void *ptr = result->ptr;
+    free(result);
+    return ptr;
+}
 
-    return result->ptr;
+void free_queue(struct Queue *target_queue) {
+    if (target_queue == NULL)
+        return;
+    while (target_queue->size != 0)
+        (void)q_pop(target_queue);
+    free(target_queue);
 }
 
 void *S_malloc(size_t size) {

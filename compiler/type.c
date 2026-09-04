@@ -3,6 +3,7 @@
 #include <type.h>
 
 #include <stdio.h>
+#include <string.h>
 
 bool is_castable(struct Type *from, struct Type *to) {
     bool result = false;
@@ -175,11 +176,22 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
             break;
         }
 
-        if (!is_castable(right_type, left_type) &&
-            !is_castable(left_type, right_type)) {
-            panic("In binary expression, failed to math left and "
-                  "right expression",
-                  pc->tc);
+        if (bin_expr_ast->op_type >= OpADD && bin_expr_ast->op_type <= OpDIV) {
+            if (left_type->type_kind != TK_Numeric || right_type->type_kind != TK_Numeric)
+                panic("Arithmetic operators require numeric operands.", pc->tc);
+        }
+        else if (bin_expr_ast->op_type >= OpGREATER &&
+                 bin_expr_ast->op_type <= OpEQUALLESS) {
+            if (left_type->type_kind != TK_Numeric || right_type->type_kind != TK_Numeric)
+                panic("Ordering operators require numeric operands.", pc->tc);
+        }
+        else if (bin_expr_ast->op_type == OpOR || bin_expr_ast->op_type == OpAND) {
+            struct Type *bool_type = find_type(pc, "bool");
+            if (left_type != bool_type || right_type != bool_type)
+                panic("Logical operators require bool operands.", pc->tc);
+        }
+        else if (!is_castable(right_type, left_type) && !is_castable(left_type, right_type)) {
+            panic("Binary operands have incompatible types.", pc->tc);
         }
 
         if (bin_expr_ast->op_type >= OpEQUAL && bin_expr_ast->op_type <= OpAND)
@@ -198,6 +210,8 @@ struct Type *infer_type(struct ParserContext *pc, struct Node *node) {
         struct UnaryExprAST *unary_expr_ast = (struct UnaryExprAST *)node->ast;
 
         result = infer_type(pc, unary_expr_ast->expr);
+        if (result != find_type(pc, "bool"))
+            panic("Logical not requires a bool operand.", pc->tc);
 
         break;
     }
@@ -282,9 +296,13 @@ struct Type *gen_null_type() {
 
 struct Type *gen_class_type(const char *type_str) {
     struct Type *type = (struct Type *)S_malloc(sizeof(struct Type));
+    size_t length = strlen(type_str) + 1;
+    char *owned_type_str = S_malloc(length);
+
+    memcpy(owned_type_str, type_str, length);
 
     type->type_kind = TK_Class;
-    type->type_str = type_str;
+    type->type_str = owned_type_str;
     type->nbyte = 8;
 
     return type;

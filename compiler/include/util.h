@@ -8,8 +8,8 @@
 
 #define HTABLE_BUFF 509
 
-char *read_file(char *path);
-void write_file(const char *path, const size_t len, const char *data);
+char *read_file(const char *path);
+bool write_file(const char *path, size_t len, const char *data);
 
 void *S_malloc(size_t size);
 void *S_realloc(void *ptr, size_t size);
@@ -39,6 +39,7 @@ struct Queue {
 };
 
 struct Queue *gen_queue();
+void free_queue(struct Queue *target_queue);
 void q_push(struct Queue *target_queue, void *ptr);
 void *q_pop(struct Queue *target_queue);
 

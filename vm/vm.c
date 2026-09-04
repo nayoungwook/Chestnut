@@ -73,29 +73,28 @@ struct VM* gen_vm() {
     vm->function_data = (struct VMFunctionData**)S_malloc(sizeof(struct VMFunctionData*));
     vm->function_data[0] = NULL;
 
-    const unsigned HEAP_SIZE = 1024 * 1024 * 16;
-    const unsigned STACK_SIZE = 1024 * 1024;
-
 #if defined(__unix__) || defined(__APPLE__)
-    vm->heap = mmap(NULL, HEAP_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    vm->stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    vm->heap = mmap(NULL, VM_HEAP_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    vm->stack = mmap(NULL, VM_STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #endif
 
 #ifdef _WIN32
     HANDLE h_map =
-        CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, HEAP_SIZE, NULL);
+        CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, VM_HEAP_SIZE, NULL);
     HANDLE s_map =
-        CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, STACK_SIZE, NULL);
+        CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, VM_STACK_SIZE, NULL);
 
-    vm->heap = (uint8_t*)MapViewOfFile(h_map, FILE_MAP_ALL_ACCESS, 0, 0, HEAP_SIZE);
-    vm->stack = (uint8_t*)MapViewOfFile(s_map, FILE_MAP_ALL_ACCESS, 0, 0, STACK_SIZE);
+    vm->heap = (uint8_t*)MapViewOfFile(h_map, FILE_MAP_ALL_ACCESS, 0, 0, VM_HEAP_SIZE);
+    vm->stack = (uint8_t*)MapViewOfFile(s_map, FILE_MAP_ALL_ACCESS, 0, 0, VM_STACK_SIZE);
+    CloseHandle(h_map);
+    CloseHandle(s_map);
 #endif
 
     assert(vm->heap != NULL && vm->stack != NULL);
 
     vm->stack_pointer = vm->stack;
     vm->stack_frame = vm->stack;
-    vm->stack_pointer_type = S_malloc(STACK_SIZE);
+    vm->stack_pointer_type = S_malloc(VM_STACK_SIZE);
 
     vm->vm_stack = (struct VMStack*)S_malloc(sizeof(struct VMStack));
     memset(vm->vm_stack, 0, sizeof(struct VMStack));
@@ -107,13 +106,83 @@ struct VM* gen_vm() {
     vm->heap_index_queue = gen_queue();
     vm->heap_alloc_loc = vm->heap;
     memset(vm->heap_mapper, 0, sizeof(vm->heap_mapper));
-
     return vm;
 }
 
+static void free_function_data(struct VMFunctionData* function_data) {
+    unsigned i;
+
+    if (function_data == NULL)
+        return;
+    free((void*)function_data->name);
+    free((void*)function_data->return_type);
+    for (i = 0; i < function_data->argument_count; i++)
+        free((void*)function_data->argument_types[i]);
+    free((void*)function_data->argument_types);
+    free(function_data->instructions);
+    free(function_data);
+}
+
+void free_vm(struct VM* vm) {
+    unsigned i;
+
+    if (vm == NULL)
+        return;
+    for (i = 0; i < vm->function_data_capacity; i++)
+        free_function_data(vm->function_data[i]);
+    for (i = 0; i < vm->class_data_capacity; i++) {
+        struct VMClassData* class_data = vm->class_data[i];
+        unsigned j;
+
+        if (class_data == NULL)
+            continue;
+        free_function_data(class_data->initializer);
+        for (j = 0; j < class_data->function_data_capacity; j++)
+            free_function_data(class_data->function_data[j]);
+        for (j = 0; j < class_data->variable_data_capacity; j++) {
+            struct VMVariableData* variable_data = class_data->variable_data[j];
+            if (variable_data == NULL)
+                continue;
+            free((void*)variable_data->name);
+            free((void*)variable_data->type);
+            free(variable_data);
+        }
+        free(class_data->function_data);
+        free(class_data->variable_data);
+        free((void*)class_data->name);
+        free(class_data);
+    }
+    while (vm->heap_index_queue->size != 0)
+        free(q_pop(vm->heap_index_queue));
+    free_queue(vm->heap_index_queue);
+    free(vm->class_data);
+    free(vm->function_data);
+    free(vm->vm_string_pool->str_pool);
+    free(vm->vm_string_pool);
+    free(vm->vm_stack);
+    free(vm->stack_pointer_type);
+#if defined(__unix__) || defined(__APPLE__)
+    if (vm->heap != MAP_FAILED)
+        munmap(vm->heap, VM_HEAP_SIZE);
+    if (vm->stack != MAP_FAILED)
+        munmap(vm->stack, VM_STACK_SIZE);
+#endif
+#ifdef _WIN32
+    if (vm->heap != NULL)
+        UnmapViewOfFile(vm->heap);
+    if (vm->stack != NULL)
+        UnmapViewOfFile(vm->stack);
+#endif
+    free(vm);
+}
+
 void reset_string_pool(struct VM* vm, unsigned size) {
+    free(vm->vm_string_pool->str_pool);
     vm->vm_string_pool->size = size;
-    vm->vm_string_pool->str_pool = (char**)S_malloc(sizeof(char*) * size);
+    vm->vm_string_pool->str_pool =
+        size == 0 ? NULL : (char**)S_malloc(sizeof(char*) * size);
+    if (size != 0)
+        memset(vm->vm_string_pool->str_pool, 0, sizeof(char*) * size);
 }
 
 void register_string_pool(struct VM* vm, char* str, int index) {

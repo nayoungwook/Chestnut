@@ -11,15 +11,26 @@
 */
 
 void vm_free(struct VM* vm, unsigned heap_mapper_index) {
+    if (heap_mapper_index == 0 || heap_mapper_index >= HEAP_MAX_OBJECT_COUNT ||
+        vm->heap_mapper[heap_mapper_index] == NULL)
+        return;
     unsigned* hmi = (unsigned*)S_malloc(sizeof(unsigned));
     *hmi = heap_mapper_index;
     q_push(vm->heap_index_queue, hmi);
+    vm->heap_mapper[heap_mapper_index] = NULL;
 }
 
 unsigned vm_malloc(struct VM* vm, unsigned size, unsigned object_id) {
     unsigned heap_mapper_index = 0;
+    size_t used = (size_t)((uint8_t*)vm->heap_alloc_loc - (uint8_t*)vm->heap);
+
+    if (size > VM_HEAP_SIZE - HEAP_META_SIZE ||
+        used > VM_HEAP_SIZE - HEAP_META_SIZE - size)
+        return 0;
 
     if (vm->heap_index_queue->size == 0) {
+        if (vm->heap_index >= HEAP_MAX_OBJECT_COUNT)
+            return 0;
         heap_mapper_index = vm->heap_index;
         vm->heap_index++;
     }
@@ -27,10 +38,6 @@ unsigned vm_malloc(struct VM* vm, unsigned size, unsigned object_id) {
         unsigned* hmi = (unsigned*)q_pop(vm->heap_index_queue);
         heap_mapper_index = *hmi;
         free(hmi);
-    }
-
-    if (vm->heap_index >= HEAP_MAX_OBJECT_COUNT) {
-        // occur error.
     }
 
     vm->heap_mapper[heap_mapper_index] = vm->heap_alloc_loc;

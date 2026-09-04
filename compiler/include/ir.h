@@ -157,6 +157,7 @@ struct IRContext {
 };
 
 struct IRContext *gen_irc();
+void free_irc(struct IRContext *irc);
 
 void init_irc(struct IRContext *irc, struct Node *node);
 void emit_byte(struct IRContext *irc, byte _b);

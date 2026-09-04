@@ -18,6 +18,8 @@ struct IRReader *gen_ir_reader(struct IRContext *irc) {
     return reader;
 }
 
+void free_ir_reader(struct IRReader *reader) { free(reader); }
+
 static bool has_bytes(const struct IRReader *reader, unsigned count) {
     return reader->reader_cnt <= reader->byte_cnt && count <= reader->byte_cnt - reader->reader_cnt;
 }
@@ -583,7 +585,7 @@ static bool read_rodata(struct VM *vm, struct IRReader *reader) {
     return true;
 }
 
-void read_ir(struct VM *vm, struct IRReader *reader) {
+bool read_ir(struct VM *vm, struct IRReader *reader) {
     assert(reader != NULL);
     assert(reader->irc != NULL);
 
@@ -604,11 +606,12 @@ void read_ir(struct VM *vm, struct IRReader *reader) {
             break;
         default:
             reader_error(reader, "unknown IR section");
-            return;
+            return false;
         }
         if (!ok)
-            return;
+            return false;
     }
 
     vm_debug_print_bytecode(vm);
+    return true;
 }

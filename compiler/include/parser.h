@@ -357,6 +357,7 @@ struct ParserContext {
 };
 
 struct ParserContext *gen_pc();
+void free_pc(struct ParserContext *pc);
 
 void compile_file(struct ParserContext *pc, struct TokenizerContext *tc);
 

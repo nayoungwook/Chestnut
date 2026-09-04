@@ -7,6 +7,8 @@
 #include <stdint.h>
 
 #define HEAP_MAX_OBJECT_COUNT 10000
+#define VM_HEAP_SIZE (1024u * 1024u * 16u)
+#define VM_STACK_SIZE (1024u * 1024u)
 
 struct VMClassData;
 struct VMFunctionData;
@@ -79,6 +81,7 @@ struct VM {
 };
 
 struct VM *gen_vm();
+void free_vm(struct VM *vm);
 struct VMClassData *vm_add_class_data(struct VM *vm, unsigned id, const char *name,
                                       unsigned parent_id, unsigned size);
 struct VMFunctionData *vm_add_function_data(struct VM *vm, struct VMClassData *owner, unsigned id,

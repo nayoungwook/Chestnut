@@ -91,9 +91,9 @@ struct ParserContext *gen_pc() {
     pc->numeric_type_count = 0;
     pc->numeric_type_capacity = 1;
 
-    pc->declared_local_var_capacity = 1;
+    pc->declared_local_var_capacity = 0;
     pc->declared_local_var_count = 0;
-    pc->declared_local_vars = (struct VarData **)S_malloc(sizeof(struct VarData *));
+    pc->declared_local_vars = NULL;
 
     pc->class_data_count = 0;
     pc->func_data_count = 0;
@@ -146,7 +146,17 @@ static struct Token *make_type_token(const char *name) {
     tok->str = copy;
     tok->length = (unsigned)len;
     tok->type = TokIdent;
+    tok->managed_by_tokenizer = false;
+    tok->owns_str = true;
     return tok;
+}
+
+static void free_synthetic_token(struct Token *token) {
+    if (token == NULL || token->managed_by_tokenizer)
+        return;
+    if (token->owns_str)
+        free((void *)token->str);
+    free(token);
 }
 
 static struct Token *parse_type_token(struct ParserContext *pc) {
@@ -166,12 +176,18 @@ static struct Token *parse_type_token(struct ParserContext *pc) {
 
     snprintf(name, size, "array<%s>", element_tok->str);
 
-    if (ht_find(pc->primitive_type_smtb, name) == NULL) {
+    struct Type *array_type = ht_find(pc->primitive_type_smtb, name);
+    if (array_type == NULL) {
         struct Type *element_type = find_type(pc, element_tok->str);
-        ht_insert(pc->primitive_type_smtb, name, gen_array_type(name, element_type));
+        array_type = gen_array_type(name, element_type);
+        ht_insert(pc->primitive_type_smtb, name, array_type);
+    }
+    else {
+        free(name);
     }
 
-    return make_type_token(name);
+    free_synthetic_token(element_tok);
+    return make_type_token(array_type->type_str);
 }
 
 static struct ParamData parse_func_call_params(struct ParserContext *pc) {

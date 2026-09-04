@@ -6,6 +6,8 @@
 #include <wctype.h>
 
 static void init_keyword();
+static struct HTable *keyword_table;
+static unsigned tokenizer_context_count;
 
 struct TokenizerContext *gen_tc(char *file) {
     struct TokenizerContext *tc =
@@ -16,13 +18,64 @@ struct TokenizerContext *gen_tc(char *file) {
     tc->begin_ch = file;
     tc->token_cache = NULL;
     tc->line_num = 1;
+    tc->token_capacity = 16;
+    tc->token_count = 0;
+    tc->tokens = S_malloc(sizeof(struct Token *) * tc->token_capacity);
 
     init_keyword();
+    tokenizer_context_count++;
 
     return tc;
 }
 
-void free_tc(struct TokenizerContext *tc) { free(tc); }
+static void free_tokens(struct TokenizerContext *tc) {
+    unsigned i;
+
+    for (i = 0; i < tc->token_count; i++) {
+        if (tc->tokens[i]->owns_str)
+            free((void *)tc->tokens[i]->str);
+        free(tc->tokens[i]);
+    }
+    tc->token_count = 0;
+    tc->token_cache = NULL;
+}
+
+static struct Token *new_token(struct TokenizerContext *tc) {
+    struct Token *token = S_malloc(sizeof(struct Token));
+
+    token->managed_by_tokenizer = true;
+    token->owns_str = true;
+
+    if (tc->token_count == tc->token_capacity) {
+        tc->token_capacity *= 2;
+        tc->tokens = S_realloc(tc->tokens, sizeof(struct Token *) * tc->token_capacity);
+    }
+    tc->tokens[tc->token_count++] = token;
+    return token;
+}
+
+void free_tc(struct TokenizerContext *tc) {
+    int i;
+
+    if (tc == NULL)
+        return;
+    free_tokens(tc);
+    free(tc->tokens);
+    free(tc->file);
+    free(tc);
+    tokenizer_context_count--;
+    if (tokenizer_context_count != 0)
+        return;
+    for (i = 0; i < HTABLE_BUFF; i++) {
+        struct DataNode *node = keyword_table->bucket[i];
+        while (node != NULL) {
+            free(node->ptr);
+            node = node->next;
+        }
+    }
+    free_htable(keyword_table);
+    keyword_table = NULL;
+}
 
 void flush_tc(struct TokenizerContext *tc) {
     while (peek(tc)->type != TokEOF) {
@@ -33,8 +86,6 @@ void flush_tc(struct TokenizerContext *tc) {
 
     init_tc(tc);
 }
-
-static struct HTable *keyword_table;
 
 static struct KeywordEntry *gen_keyword(const char *keyword,
                                         enum TokenType tok_type) {
@@ -117,7 +168,7 @@ static struct Token *gen_num_token(struct TokenizerContext *tc) {
     }
     str[str_len] = '\0';
 
-    struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
+    struct Token *tok = new_token(tc);
 
     tok->length = str_len;
     tok->str = str;
@@ -152,8 +203,9 @@ static struct Token *gen_ident_token(struct TokenizerContext *tc) {
 
     enum TokenType type = check_ident_type(str);
 
-    struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
+    struct Token *tok = new_token(tc);
     tok->str = str;
+    tok->length = str_len;
     tok->type = type;
 
     return tok;
@@ -442,7 +494,7 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
 
     str[str_len] = '\0';
 
-    struct Token *tok = (struct Token *)S_malloc(sizeof(struct Token));
+    struct Token *tok = new_token(tc);
     tok->str = str;
     tok->type = type;
     tok->length = str_len;
@@ -489,10 +541,11 @@ struct Token *pull(struct TokenizerContext *tc) {
         return gen_num_token(tc);
     }
 
-    struct Token *eof_token = (struct Token *)S_malloc(sizeof(struct Token));
+    struct Token *eof_token = new_token(tc);
     eof_token->str = "EOF";
     eof_token->length = 0;
     eof_token->type = TokEOF;
+    eof_token->owns_str = false;
 
     return eof_token;
 }
