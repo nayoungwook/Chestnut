@@ -1125,6 +1125,7 @@ bool exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         memcpy((uint8_t*)vm->heap_mapper[heap_index] + 8 + offset, &operand.val, size);
         break;
     }
+
     case OP_LOAD_GLOBAL: {
         break;
     }
@@ -1137,6 +1138,7 @@ bool exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
     case OP_SAVE_GLOBAL: {
         break;
     }
+        
     case OP_LOAD_ATTR: {
         struct VMOperand object;
         struct VMOperand value;
@@ -1175,9 +1177,51 @@ bool exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_INCRE_ATTR: {
+        struct VMOperand object;
+        unsigned offset;
+        unsigned size;
+
+        object = vm_stack_pop(vm->vm_stack);
+        if (object.op_type != OPRND_ADDRESS) {
+            ok = false;
+            break;
+        }
+
+        offset = (unsigned)arguments[1];
+        size = (unsigned)arguments[2];
+
+        uint64_t value = 0;
+        memcpy(&value,
+               (uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset,
+               size);
+	value++;
+        memcpy((uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset, &value,
+               size);
+        
         break;
     }
     case OP_DECRE_ATTR: {
+        struct VMOperand object;
+        unsigned offset;
+        unsigned size;
+
+        object = vm_stack_pop(vm->vm_stack);
+        if (object.op_type != OPRND_ADDRESS) {
+            ok = false;
+            break;
+        }
+
+        offset = (unsigned)arguments[1];
+        size = (unsigned)arguments[2];
+
+        uint64_t value = 0;
+        memcpy(&value,
+               (uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset,
+               size);
+	value--;
+        memcpy((uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset, &value,
+               size);
+                
         break;
     }
     case OP_SAVE_ATTR: {
