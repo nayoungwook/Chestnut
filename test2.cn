@@ -46,6 +46,7 @@ class Child extends Base {
 
 	constructor Child(value: int){
 		super(value);
+		value();
 	}
 
 	func value(): int {
