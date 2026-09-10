@@ -74,7 +74,13 @@ func main(): void {
   test[0] = 3;
   test.push(3);
 
-  for(var i:int =0; i<4; i++){
+  for(var i:int =0; i<test.length; i++){
+       print(test[i], " ");
+       test[i] = i + 2;
+  }
+  print("\n");
+  for(var i:int =0; i<test.length; i++){
        print(test[i], " ");
   }
+  print("\n");
 }
