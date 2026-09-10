@@ -1066,10 +1066,10 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         assert(variable_data != NULL && variable_data->offset == offset &&
             variable_data->size == size);
 
-        memcpy(&val, (uint8_t*)vm->heap_mapper[heap_index] + 8 + offset, size);
+        memcpy(&val, (uint8_t *)vm->heap_mapper[heap_index] + 8 + offset, size);
         val++;
-        memcpy((uint8_t*)vm->heap_mapper[heap_index] + 8 + offset, &val, size);
-
+        memcpy((uint8_t*) vm->heap_mapper[heap_index] + 8 + offset, &val, size);
+        
         break;
     }
     case OP_DECRE_CLASS: {
@@ -1090,9 +1090,9 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         assert(variable_data != NULL && variable_data->offset == offset &&
             variable_data->size == size);
 
-        memcpy(&val, (uint8_t*)vm->heap_mapper[heap_index] + 8 + offset, size);
+        memcpy(&val, (uint8_t *)vm->heap_mapper[heap_index] + 8 + offset, size);
         val--;
-        memcpy((uint8_t*)vm->heap_mapper[heap_index] + 8 + offset, &val, size);
+        memcpy((uint8_t*) vm->heap_mapper[heap_index] + 8 + offset, &val, size);
         break;
     }
     case OP_SAVE_CLASS: {
@@ -1129,7 +1129,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
     case OP_SAVE_GLOBAL: {
         break;
     }
-
+        
     case OP_LOAD_ATTR: {
         struct VMOperand object;
         struct VMOperand value;
@@ -1172,12 +1172,12 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
 
         uint64_t value = 0;
         memcpy(&value,
-            (uint8_t*)vm->heap_mapper[(unsigned)object.val] + 8 + offset,
-            size);
-        value++;
-        memcpy((uint8_t*)vm->heap_mapper[(unsigned)object.val] + 8 + offset, &value,
-            size);
-
+               (uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset,
+               size);
+	value++;
+        memcpy((uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset, &value,
+               size);
+        
         break;
     }
     case OP_DECRE_ATTR: {
@@ -1193,12 +1193,12 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
 
         uint64_t value = 0;
         memcpy(&value,
-            (uint8_t*)vm->heap_mapper[(unsigned)object.val] + 8 + offset,
-            size);
-        value--;
-        memcpy((uint8_t*)vm->heap_mapper[(unsigned)object.val] + 8 + offset, &value,
-            size);
-
+               (uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset,
+               size);
+	value--;
+        memcpy((uint8_t *)vm->heap_mapper[(unsigned)object.val] + 8 + offset, &value,
+               size);
+                
         break;
     }
     case OP_SAVE_ATTR: {
@@ -1257,20 +1257,6 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_CALL_CLASS: {
-        uint64_t header = *(uint64_t*)vm->heap_mapper[heap_index];
-        int id = header & 0xFFFFFFFF;
-
-        struct VMClassData* class_data = vm_find_class_data(vm, id);
-        struct VMFunctionData* function_data =
-            arguments[0] < 0 ? NULL
-            : vm_find_member_function_data(vm, class_data, (unsigned)arguments[0]);
-
-        unsigned argument_count = (unsigned)arguments[1];
-
-        update_function_arguments(vm, function_data, argument_count);
-
-        vm_exec_function(vm, function_data, heap_index);
-
         break;
     }
     case OP_CALL_SUPER: {
@@ -1337,10 +1323,6 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_NEG: {
-        struct VMOperand operand = vm_stack_pop(vm->vm_stack);
-        struct VMOperand neg_operand = { operand.op_type, -operand.val };
-        vm_stack_push(vm->vm_stack, neg_operand);
-
         break;
     }
     case OP_LDC_I4: {

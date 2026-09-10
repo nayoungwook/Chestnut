@@ -44,7 +44,7 @@ func exercise_objects(): void {
 
   bar.bar();
   bar.foo();
-  foo.num = -(3);
+  foo.num = 3;
   foo.num--;
   print("foo.num--:", foo.num, "\n");
 
