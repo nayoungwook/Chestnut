@@ -10,46 +10,44 @@
     [HEAP_META][DATA] [HEAP_META][DATA]
 */
 
-void vm_free(struct VM* vm, unsigned heap_mapper_index) {
-    if (heap_mapper_index == 0 || heap_mapper_index >= HEAP_MAX_OBJECT_COUNT ||
-        vm->heap_mapper[heap_mapper_index] == NULL)
-        return;
-    unsigned* hmi = (unsigned*)S_malloc(sizeof(unsigned));
-    *hmi = heap_mapper_index;
-    q_push(vm->heap_index_queue, hmi);
-    vm->heap_mapper[heap_mapper_index] = NULL;
+void vm_free(struct VM *vm, unsigned heap_mapper_index) {
+  if (heap_mapper_index == 0 || heap_mapper_index >= HEAP_MAX_OBJECT_COUNT ||
+      vm->heap_mapper[heap_mapper_index] == NULL)
+    return;
+  unsigned *hmi = (unsigned *)S_malloc(sizeof(unsigned));
+  *hmi = heap_mapper_index;
+  q_push(vm->heap_index_queue, hmi);
+  vm->heap_mapper[heap_mapper_index] = NULL;
 }
 
-unsigned vm_malloc(struct VM* vm, unsigned size, unsigned object_id) {
-    unsigned heap_mapper_index = 0;
-    size_t used = (size_t)((uint8_t*)vm->heap_alloc_loc - (uint8_t*)vm->heap);
+unsigned vm_malloc(struct VM *vm, unsigned size, unsigned object_id) {
+  unsigned heap_mapper_index = 0;
+  
+  size_t used = (size_t)((uint8_t *)vm->heap_alloc_loc - (uint8_t *)vm->heap);
+  if (size > VM_HEAP_SIZE - HEAP_META_SIZE ||
+      used > VM_HEAP_SIZE - HEAP_META_SIZE - size)
+    return 0;
 
-    if (size > VM_HEAP_SIZE - HEAP_META_SIZE ||
-        used > VM_HEAP_SIZE - HEAP_META_SIZE - size)
-        return 0;
+  if (vm->heap_index_queue->size == 0) {
+    if (vm->heap_index >= HEAP_MAX_OBJECT_COUNT)
+      return 0;
+    heap_mapper_index = vm->heap_index;
+    vm->heap_index++;
+  } else {
+    unsigned *hmi = (unsigned *)q_pop(vm->heap_index_queue);
+    heap_mapper_index = *hmi;
+    free(hmi);
+  }
 
-    if (vm->heap_index_queue->size == 0) {
-        if (vm->heap_index >= HEAP_MAX_OBJECT_COUNT)
-            return 0;
-        heap_mapper_index = vm->heap_index;
-        vm->heap_index++;
-    }
-    else {
-        unsigned* hmi = (unsigned*)q_pop(vm->heap_index_queue);
-        heap_mapper_index = *hmi;
-        free(hmi);
-    }
+  vm->heap_mapper[heap_mapper_index] = vm->heap_alloc_loc;
 
-    vm->heap_mapper[heap_mapper_index] = vm->heap_alloc_loc;
+  uint64_t header = 0;
+  header |= ((uint64_t)size << 32);
+  header |= object_id;
 
-    uint64_t header = 0;
-    header |= ((uint64_t)size << 32);
-    header |= object_id;
+  memcpy(vm->heap_alloc_loc, &header, sizeof(uint64_t));
+  memset((uint8_t *)vm->heap_alloc_loc + HEAP_META_SIZE, 0, size);
+  vm->heap_alloc_loc = (uint8_t *)vm->heap_alloc_loc + size + HEAP_META_SIZE;
 
-    memcpy(vm->heap_alloc_loc, &header, sizeof(uint64_t));
-    memset((uint8_t*)vm->heap_alloc_loc + HEAP_META_SIZE, 0, size);
-    vm->heap_alloc_loc =
-        (uint8_t*)vm->heap_alloc_loc + size + HEAP_META_SIZE;
-
-    return heap_mapper_index;
+  return heap_mapper_index;
 }

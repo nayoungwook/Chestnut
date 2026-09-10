@@ -18,7 +18,7 @@
 #include <string.h>
 #include <time.h>
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 
@@ -879,6 +879,7 @@ static void update_function_arguments(struct VM* vm, struct VMFunctionData* func
     assert(argument_count == function_data->argument_count);
     for (i = 0; i < argument_count; i++) {
         enum VMOPType type = vm_operand_type(function_data->argument_types[i]);
+        
         struct VMOperand operand = convert_argument(vm_stack_pop(vm->vm_stack), type);
         size_t size = get_operand_size(type);
         assert(offset + size <= function_data->stack_size);
@@ -1387,9 +1388,47 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_NEW_ARRAY: {
+        unsigned count = (unsigned)arguments[1];
+        unsigned array_size = ARRAY_META_SIZE + sizeof(struct VMOperand) * count;
+
+        unsigned array_heap_index =
+            vm_malloc(vm, array_size, -1); // for array, object id is -1.
+        void *array_position =
+             vm->heap_mapper[array_heap_index] + ARRAY_META_SIZE;
+        
+        int i;
+        for (i = count - 1; i >= 0; i--) {
+            struct VMOperand operand = vm_stack_pop(vm->vm_stack);
+
+            memcpy(array_position + i * sizeof(struct VMOperand), &operand, sizeof(struct VMOperand));
+        }
+
+        struct VMOperand result_operand = {
+            0,
+        };
+        
+        result_operand.op_type = OPRND_ADDRESS;
+        result_operand.val = (int64_t) (array_heap_index);
+        vm_stack_push(vm->vm_stack, result_operand);
+        
         break;
     }
     case OP_ARRAY_LOAD: {
+
+        struct VMOperand index_operand = vm_stack_pop(vm->vm_stack);
+        struct VMOperand array_operand = vm_stack_pop(vm->vm_stack);
+
+        unsigned index = (unsigned)index_operand.val;
+
+        void *array_position = vm->heap_mapper[array_operand.val];
+
+        struct VMOperand result_operand =
+             *(struct VMOperand *)(array_position + ARRAY_META_SIZE +
+                                   index * sizeof(struct VMOperand));
+
+        vm_stack_push(vm->vm_stack, result_operand);
+        // printf("result val : %d\n",(int) result_operand.val);
+        
         break;
     }
     case OP_ARRAY_SAVE: {

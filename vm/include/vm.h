@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define HEAP_MAX_OBJECT_COUNT 10000
+#define HEAP_MAX_OBJECT_COUNT 1024 * 256
 #define VM_HEAP_SIZE (1024u * 1024u * 16u)
 #define VM_STACK_SIZE (1024u * 1024u)
 
@@ -19,14 +19,14 @@ struct VM;
 // When adding new operand type, you have to check two functions,
 // get_operand_size and get_operand_level
 enum VMOPType {
-    OPRND_NULL = 0,
-    OPRND_String = 1,
-    OPRND_INT32 = 2,
-    OPRND_FLOAT32 = 3,
-    OPRND_FLOAT64 = 4,
-    OPRND_BOOL = 5,
-    OPRND_ADDRESS = 6,
-    OPRND_CHAR16 = 7,
+  OPRND_NULL = 0,
+  OPRND_String = 1,
+  OPRND_INT32 = 2,
+  OPRND_FLOAT32 = 3,
+  OPRND_FLOAT64 = 4,
+  OPRND_BOOL = 5,
+  OPRND_ADDRESS = 6,
+  OPRND_CHAR16 = 7,
 };
 
 size_t get_operand_size(enum VMOPType op_type);
@@ -36,6 +36,11 @@ struct VMOperand {
     enum VMOPType op_type;
     int64_t val;
 };
+
+//              meta data                    contents
+// [ count 4 byte ] [ nbyte 4 byte ]  [ .... operands .... ]
+
+#define ARRAY_META_SIZE 8
 
 struct VMStack {
     unsigned size;
