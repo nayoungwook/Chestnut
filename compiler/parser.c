@@ -1,15 +1,3 @@
-/*
-  @Author : @nayoungwook
-  @Description :
-  Main parser of the Chestnut compiler.
-  It processes tokens from the tokenizer and translates the source code into an
-  AST (Abstract Syntax Tree).
-
-  This parser operates in two passes:
-  1. Structure analysis: analyzes the program structure and registers ClassData
-  and FuncData in the ParserContext.
-  2. AST generation: parses the source code and generates the AST.
-*/
 
 #include <error.h>
 #include <parser.h>
