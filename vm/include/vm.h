@@ -38,7 +38,7 @@ struct VMOperand {
 };
 
 //              meta data                    contents
-// [ count 4 byte ] [ nbyte 4 byte ]  [ .... operands .... ]
+// [ count 4 byte ] [ capacity 4 byte ]  [ .... operands .... ]
 
 #define ARRAY_META_SIZE 8
 

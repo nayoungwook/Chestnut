@@ -18,7 +18,7 @@
 #include <string.h>
 #include <time.h>
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 
@@ -903,6 +903,24 @@ static void vm_exec_class_initializers(struct VM* vm, struct VMClassData* class_
     vm_exec_function(vm, class_data->initializer, heap_index);
 }
 
+// get capacity from count.
+// capacity must be power of two
+static unsigned get_capacity(unsigned count) {
+    if (count == 0) {
+        return 1;        
+    }        
+    count--;
+    count |= count >> 1;
+    count |= count >> 2;
+    count |= count >> 4;
+    count |= count >> 8;
+    count |= count >> 16;
+    count++;
+    count <<=1;    
+
+    return count;    
+}    
+
 void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
                       unsigned* instruction_index, unsigned heap_index) {
     const int32_t* arguments = instruction->operands.i32;
@@ -1258,6 +1276,20 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_CALL_CLASS: {
+        uint64_t header = *(uint64_t*)vm->heap_mapper[heap_index];
+        int id = header & 0xFFFFFFFF;
+
+        struct VMClassData* class_data = vm_find_class_data(vm, id);
+        struct VMFunctionData* function_data =
+            arguments[0] < 0 ? NULL
+            : vm_find_member_function_data(vm, class_data, (unsigned)arguments[0]);
+
+        unsigned argument_count = (unsigned)arguments[1];
+
+        update_function_arguments(vm, function_data, argument_count);
+
+        vm_exec_function(vm, function_data, heap_index);
+
         break;
     }
     case OP_CALL_SUPER: {
@@ -1324,6 +1356,10 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_NEG: {
+        struct VMOperand operand = vm_stack_pop(vm->vm_stack);
+        struct VMOperand neg_operand = { operand.op_type, -operand.val };
+        vm_stack_push(vm->vm_stack, neg_operand);
+
         break;
     }
     case OP_LDC_I4: {
@@ -1388,16 +1424,16 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_NEW_ARRAY: {
-        unsigned nbyte = (unsigned)arguments[0];
         unsigned count = (unsigned)arguments[1];
-        unsigned array_size = ARRAY_META_SIZE + sizeof(struct VMOperand) * count;
+        unsigned capacity = get_capacity(count);        
+        unsigned array_size = ARRAY_META_SIZE + sizeof(struct VMOperand) * capacity;
 
         unsigned array_heap_index =
             vm_malloc(vm, array_size, -1); // for array, object id is -1.
         void *array_position = vm->heap_mapper[array_heap_index];
 
-        uint64_t array_meta = ((uint64_t) count) << 32 | nbyte;
-        memcpy(array_position,&array_meta, sizeof(uint64_t));
+        uint64_t array_meta = ((uint64_t) count) << 32 | capacity;
+        memcpy(array_position, &array_meta, sizeof(uint64_t));
         
         int i;
         for (i = count - 1; i >= 0; i--) {
@@ -1454,7 +1490,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         };
 
         void *array_position = vm->heap_mapper[array_operand.val];
-        int length = *(uint32_t *) array_position;
+        unsigned length = *(uint32_t *)(array_position + 4);
         
         result_operand.op_type = OPRND_INT32;
         result_operand.val = length;
@@ -1464,6 +1500,39 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_ARRAY_PUSH: {
+        struct VMOperand value_operand = vm_stack_pop(vm->vm_stack);
+        struct VMOperand array_operand = vm_stack_pop(vm->vm_stack);
+        
+        void *array_position = vm->heap_mapper[array_operand.val];
+        unsigned length = *(uint32_t *)(array_position + 4);
+        unsigned capacity = *(uint32_t *)(array_position);
+        
+        // reallocate array by doubling capacity.
+        if (length + 1 >= capacity) {
+            capacity *= 2;
+
+            unsigned array_size = ARRAY_META_SIZE + sizeof(struct VMOperand) * capacity;
+
+            unsigned new_array_index = vm_malloc(vm, array_size, -1);
+            void *new_array_position = vm->heap_mapper[new_array_index];            
+            vm_free(vm, array_operand.val);
+
+            memcpy(new_array_position + ARRAY_META_SIZE,
+                   array_position + ARRAY_META_SIZE,
+                   sizeof(struct VMOperand) * length);
+
+            // update heap mapper to new position.            
+            array_position = new_array_position;
+            vm->heap_mapper[array_operand.val] = array_position;
+        }
+
+        length++;
+        uint64_t array_meta = ((uint64_t)length) << 32 | capacity;
+
+        memcpy(array_position,&array_meta, sizeof(uint64_t)); // update meta data.
+        
+        memcpy((array_position + ARRAY_META_SIZE + (length - 1) * sizeof(struct VMOperand)), &value_operand, sizeof(value_operand)); // update value.
+        
         break;
     }
     case OP_ARRAY_REMOVE: {
