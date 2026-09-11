@@ -104,6 +104,18 @@ void compile_file(struct ParserContext *pc, struct TokenizerContext *tc) {
     pc->tc = tc;
 
     while ((node = parse_stmt(pc)) != NULL) {
+        if (node->type == AST_FunctionDeclaration) {
+            struct FuncDeclAST *ast = node->ast;
+            struct FuncData *data = ht_find(pc->glob_func_smtb, ast->func_name_tok->str);
+            if (data == NULL)
+                panic("Function was not registered in the first pass.", tc);
+            data->return_type = find_type(pc, data->return_type_name);
+            data->arg_types = data->arg_count == 0
+                ? NULL : S_malloc(sizeof(struct Type *) * data->arg_count);
+            for (unsigned i = 0; i < data->arg_count; i++)
+                data->arg_types[i] = find_type(pc, data->arg_type_names[i]);
+            ast->func_data = data;
+        }
         if (pc->node_count + 1 >= pc->node_capacity) {
             pc->node_capacity *= 2;
             pc->nodes =
@@ -398,6 +410,7 @@ static struct Node *gen_func_decl_node(struct Token *first, struct ParserContext
 
     struct Token *ret_type_tok = parse_type_token(pc);
 
+    func_decl->func_data = NULL;
     func_decl->func_name_tok = func_name_tok;
     func_decl->ret_type_tok = ret_type_tok;
     func_decl->params = params;
@@ -1232,18 +1245,48 @@ static void parse_class_structure(struct ParserContext *pc) {
     pass_body(pc);
 }
 
+static char *parse_signature_type_name(struct ParserContext *pc) {
+    struct Token *tok = consume(pc->tc, TokIdent);
+    char *name;
+    size_t size;
+
+    if (strcmp(tok->str, "array") == 0 && peek(pc->tc)->type == TokLesser) {
+        consume(pc->tc, TokLesser);
+        char *element = parse_signature_type_name(pc);
+        consume(pc->tc, TokGreater);
+        size = strlen(element) + 8;
+        name = S_malloc(size);
+        snprintf(name, size, "array<%s>", element);
+        free(element);
+    } else {
+        size = strlen(tok->str) + 1;
+        name = S_malloc(size);
+        memcpy(name, tok->str, size);
+    }
+    return name;
+}
+
 static void parse_func_structure(struct ParserContext *pc) {
     struct TokenizerContext *tc = pc->tc;
+    struct Token *name = consume(tc, TokIdent);
+    struct FuncData *data;
 
-    consume(tc, TokIdent);
-
-    pass_func_param(pc);
-
+    if (ht_find(pc->glob_func_smtb, name->str) != NULL)
+        panic("Duplicate global function declaration.", tc);
+    data = register_func_data(name->str, NULL, pc);
+    consume(tc, TokLParen);
+    while (peek(tc)->type != TokRParen) {
+        consume(tc, TokIdent);
+        consume(tc, TokColon);
+        data->arg_type_names = S_realloc(data->arg_type_names,
+                                        sizeof(char *) * (data->arg_count + 1));
+        data->arg_type_names[data->arg_count++] = parse_signature_type_name(pc);
+        if (peek(tc)->type != TokRParen)
+            consume(tc, TokComma);
+    }
+    consume(tc, TokRParen);
     consume(tc, TokColon);
-
-    pass_type_annotation(pc);
-
-    // We will not parse content of function declaration.
+    data->return_type_name = parse_signature_type_name(pc);
     pass_body(pc);
 }
 
@@ -1283,10 +1326,8 @@ static void parse_var_structure(struct ParserContext *pc) {
     }
 }
 
-// First pass of compiler
-// This function will parse the structure of source code roughly
-// This function will register global class data (with member of class) , global
-// function data, global variable data
+// First pass: register class names and global function declarations.
+// Bodies are parsed in the second pass.
 void parse_structure(struct ParserContext *pc) {
     struct TokenizerContext *tc = pc->tc;
 

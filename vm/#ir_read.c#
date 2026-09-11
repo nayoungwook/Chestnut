@@ -15,17 +15,10 @@ struct IRReader *gen_ir_reader(struct IRContext *irc) {
     reader->irc = irc;
     reader->reader_cnt = 0;
     reader->byte_cnt = irc->byte_cnt;
-    reader->classes = NULL;
-    reader->class_count = 0;
-    reader->class_capacity = 0;
-    reader->string_base = 0;
     return reader;
 }
 
-void free_ir_reader(struct IRReader *reader) {
-    free(reader->classes);
-    free(reader);
-}
+void free_ir_reader(struct IRReader *reader) { free(reader); }
 
 static bool has_bytes(const struct IRReader *reader, unsigned count) {
     return reader->reader_cnt <= reader->byte_cnt && count <= reader->byte_cnt - reader->reader_cnt;
@@ -103,63 +96,6 @@ static const char *read_string(struct IRReader *reader, bool *ok) {
 static bool reader_error(struct IRReader *reader, const char *message) {
     fprintf(stderr, "IR read error at byte %u: %s\n", reader->reader_cnt, message);
     return false;
-}
-
-static unsigned relocated_class_id(const struct IRReader *reader, unsigned local_id) {
-    unsigned i;
-    for (i = 0; i < reader->class_count; i++)
-        if (reader->classes[i].local_id == local_id)
-            return reader->classes[i].runtime_id;
-    return 0;
-}
-
-static unsigned class_runtime_id(const struct VM *vm, unsigned local_id, const char *name) {
-    unsigned i;
-    unsigned next_id = 1;
-
-    for (i = 1; i < vm->class_data_capacity; i++) {
-        const struct VMClassData *data = vm->class_data[i];
-        if (data == NULL)
-            continue;
-        if (strcmp(data->name, name) == 0)
-            return data->id;
-        next_id = i + 1;
-    }
-    return vm_find_class_data(vm, local_id) == NULL ? local_id : next_id;
-}
-
-static bool register_class_relocation(struct IRReader *reader, unsigned local_id,
-                                      unsigned runtime_id, unsigned parent_local_id) {
-    unsigned i;
-    struct ClassRelocation *entry;
-
-    for (i = 0; i < reader->class_count; i++)
-        if (reader->classes[i].local_id == local_id ||
-            (runtime_id != 0 && reader->classes[i].runtime_id == runtime_id))
-            return reader_error(reader, "duplicate class metadata");
-    if (runtime_id > INT32_MAX)
-        return reader_error(reader, "class id exceeds instruction range");
-    if (reader->class_count == reader->class_capacity) {
-        reader->class_capacity = reader->class_capacity == 0 ? 8 : reader->class_capacity * 2;
-        reader->classes = S_realloc(reader->classes, sizeof(*reader->classes) * reader->class_capacity);
-    }
-    entry = &reader->classes[reader->class_count++];
-    entry->local_id = local_id;
-    entry->runtime_id = runtime_id;
-    entry->parent_local_id = parent_local_id;
-    return true;
-}
-
-static bool relocate_parent_classes(struct VM *vm, struct IRReader *reader) {
-    unsigned i;
-    for (i = 0; i < reader->class_count; i++) {
-        const struct ClassRelocation *entry = &reader->classes[i];
-        unsigned parent_id = relocated_class_id(reader, entry->parent_local_id);
-        if (entry->parent_local_id != 0 && parent_id == 0)
-            return reader_error(reader, "unresolved parent class id");
-        vm_find_class_data(vm, entry->runtime_id)->parent_id = parent_id;
-    }
-    return true;
 }
 
 static bool reader_instruction_error(struct IRReader *reader, byte opcode, const char *message) {
@@ -327,25 +263,6 @@ static bool decode_function_instructions(const byte *code, unsigned code_size,
             }
         }
 
-        if (opcode == OP_NEW_OBJECT || opcode == OP_CALL_SUPER) {
-            int32_t local_id = instruction->operands.i32[0];
-            unsigned runtime_id = local_id > 0 ? relocated_class_id(source_reader, (unsigned)local_id) : 0;
-            if (runtime_id == 0) {
-                error_message = "unresolved instruction class id";
-                goto fail;
-            }
-            instruction->operands.i32[0] = (int32_t)runtime_id;
-        }
-
-        if (opcode == OP_LOAD_STR) {
-            int32_t id = instruction->operands.i32[0];
-            if (id < 0 || source_reader->string_base > (unsigned)INT32_MAX - (unsigned)id) {
-                error_message = "invalid string reference";
-                goto fail;
-            }
-            instruction->operands.i32[0] = id + (int32_t)source_reader->string_base;
-        }
-
         instruction->operand_count = (uint8_t)operand_count;
         instruction_count++;
     }
@@ -454,15 +371,25 @@ static bool read_meta_block(struct VM *vm, struct IRReader *reader, struct VMCla
         parent_id = ok ? read_i32(reader, &ok) : 0;
         size = ok ? read_i32(reader, &ok) : 0;
 
-        if (!ok || id <= 0 || parent_id < 0 || size < 0)
-            return reader_error(reader, "invalid class metadata");
+        bool class_already_exist = false;
+        int i;
+        for (i = 0; i < vm->class_data_count; i++) {
+            if (strcmp(vm->class_data[i]->name, name) == 0) {
+                id = vm->class_data[i]->id;
+                class_already_exist = true;
+            }
+        }
+
+        if (!class_already_exist) { // new class!
+            id += vm->class_data_count;
+        }            
+        
         if (owner != NULL)
             return reader_error(reader, "nested class metadata");
+        if (vm_find_class_data(vm, (unsigned)id) != NULL)
+            return reader_error(reader, "duplicate class metadata");
 
-        unsigned runtime_id = class_runtime_id(vm, (unsigned)id, name);
-        if (!register_class_relocation(reader, (unsigned)id, runtime_id, (unsigned)parent_id))
-            return false;
-        class_data = vm_add_class_data(vm, runtime_id, name, 0, (unsigned)size);
+        class_data = vm_add_class_data(vm, (unsigned)id, name, (unsigned)parent_id, (unsigned)size);
         while (peek_byte(reader, &next) && next != META_TERM)
             if (!read_meta_block(vm, reader, class_data))
                 return false;
@@ -591,7 +518,7 @@ static bool read_class(struct VM *vm, struct IRReader *reader) {
     if (!ok || id < 0)
         return reader_error(reader, "invalid class id");
 
-    class_data = vm_find_class_data(vm, relocated_class_id(reader, (unsigned)id));
+    class_data = vm_find_class_data(vm, (unsigned)id);
 
     if (class_data == NULL)
         return reader_error(reader, "class code has no matching metadata");
@@ -643,6 +570,7 @@ static bool read_code(struct VM *vm, struct IRReader *reader) {
 static bool read_rodata(struct VM *vm, struct IRReader *reader) {
     byte kind;
 
+    reset_string_pool(vm, 1024);
 
     while (peek_byte(reader, &kind) && kind != RODATA_END) {
         bool ok = true;
@@ -657,10 +585,10 @@ static bool read_rodata(struct VM *vm, struct IRReader *reader) {
         id = read_i32(reader, &ok);
         value = ok ? read_string(reader, &ok) : NULL;
 
-        if (!ok || id < 0 || reader->string_base > (unsigned)INT32_MAX - (unsigned)id)
-            return reader_error(reader, "invalid string rodata");
+        if (!ok)
+            return reader_error(reader, "truncated string rodata");
 
-        register_string_pool(vm, (char *)value, id + (int)reader->string_base);
+        register_string_pool(vm, (char *)value, id);
     }
 
     if (!read_byte(reader, &kind) || kind != RODATA_END)
@@ -668,38 +596,33 @@ static bool read_rodata(struct VM *vm, struct IRReader *reader) {
     return true;
 }
 
-static bool read_program_sections(struct VM *vm, struct IRReader *reader) {
-    byte section;
-    reader->string_base = vm->vm_string_pool->size;
-    if (!read_byte(reader, &section) || section != CODE_BEGIN || !read_code(vm, reader))
-        return reader_error(reader, "invalid code section");
-    if (!read_byte(reader, &section) || section != RODATA_BEGIN || !read_rodata(vm, reader))
-        return reader_error(reader, "invalid rodata section");
-    if (has_bytes(reader, 1))
-        return reader_error(reader, "unexpected data after rodata");
-    return true;
-}
+bool read_ir(struct VM *vm, struct IRReader *reader) {
+    assert(reader != NULL);
+    assert(reader->irc != NULL);
 
-bool read_ir_files(struct VM *vm, struct IRReader **readers, unsigned count) {
-    unsigned i;
-    for (i = 0; i < count; i++) {
-        struct IRReader *reader = readers[i];
+    while (has_bytes(reader, 1)) {
+        bool ok;
         byte section;
-        assert(reader != NULL && reader->irc != NULL);
-        reader->class_count = 0;
-        if (!read_byte(reader, &section) || section != META_BEGIN || !read_meta(vm, reader))
-            return reader_error(reader, "invalid metadata section");
+
+        read_byte(reader, &section);
+        switch (section) {
+        case META_BEGIN:
+            ok = read_meta(vm, reader);
+            break;
+        case CODE_BEGIN:
+            ok = read_code(vm, reader);
+            break;
+        case RODATA_BEGIN:
+            ok = read_rodata(vm, reader);
+            break;
+        default:
+            reader_error(reader, "unknown IR section");
+            return false;
+        }
+        if (!ok)
+            return false;
     }
-    for (i = 0; i < count; i++)
-        if (!relocate_parent_classes(vm, readers[i]))
-            return false;
-    for (i = 0; i < count; i++)
-        if (!read_program_sections(vm, readers[i]))
-            return false;
+
     vm_debug_print_bytecode(vm);
     return true;
-}
-
-bool read_ir(struct VM *vm, struct IRReader *reader) {
-    return read_ir_files(vm, &reader, 1);
 }

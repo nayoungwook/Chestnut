@@ -101,6 +101,7 @@ struct VM* gen_vm() {
 
     vm->vm_string_pool = (struct VMStringPool*)S_malloc(sizeof(struct VMStringPool));
     vm->vm_string_pool->str_pool = NULL;
+    vm->vm_string_pool->size = 0;
 
     vm->heap_index = 1;
     vm->heap_index_queue = gen_queue();
@@ -123,6 +124,29 @@ static void free_function_data(struct VMFunctionData* function_data) {
     free(function_data);
 }
 
+static void free_class_data(struct VMClassData *class_data) {
+    unsigned j;
+
+    if (class_data == NULL)
+        return;
+    free_function_data(class_data->initializer);
+    for (j = 0; j < class_data->function_data_capacity; j++)
+        free_function_data(class_data->function_data[j]);
+    for (j = 0; j < class_data->variable_data_capacity; j++) {
+        struct VMVariableData* variable_data = class_data->variable_data[j];
+        if (variable_data == NULL)
+            continue;
+        free((void*)variable_data->name);
+        free((void*)variable_data->type);
+        free(variable_data);
+    }
+        
+    free(class_data->function_data);
+    free(class_data->variable_data);
+    free((void*)class_data->name);
+    free(class_data);    
+}    
+
 void free_vm(struct VM* vm) {
     unsigned i;
 
@@ -130,27 +154,9 @@ void free_vm(struct VM* vm) {
         return;
     for (i = 0; i < vm->function_data_capacity; i++)
         free_function_data(vm->function_data[i]);
-    for (i = 0; i < vm->class_data_capacity; i++) {
-        struct VMClassData* class_data = vm->class_data[i];
-        unsigned j;
 
-        if (class_data == NULL)
-            continue;
-        free_function_data(class_data->initializer);
-        for (j = 0; j < class_data->function_data_capacity; j++)
-            free_function_data(class_data->function_data[j]);
-        for (j = 0; j < class_data->variable_data_capacity; j++) {
-            struct VMVariableData* variable_data = class_data->variable_data[j];
-            if (variable_data == NULL)
-                continue;
-            free((void*)variable_data->name);
-            free((void*)variable_data->type);
-            free(variable_data);
-        }
-        free(class_data->function_data);
-        free(class_data->variable_data);
-        free((void*)class_data->name);
-        free(class_data);
+    for (i = 0; i < vm->class_data_capacity; i++) {
+        free_class_data(vm->class_data[i]);
     }
     while (vm->heap_index_queue->size != 0)
         free(q_pop(vm->heap_index_queue));
@@ -186,8 +192,15 @@ void reset_string_pool(struct VM* vm, unsigned size) {
 }
 
 void register_string_pool(struct VM* vm, char* str, int index) {
-    assert(index < vm->vm_string_pool->size);
-
+    assert(index >= 0);
+    if ((unsigned)index >= vm->vm_string_pool->size) {
+        unsigned old_size = vm->vm_string_pool->size;
+        vm->vm_string_pool->size = (unsigned)index + 1;
+        vm->vm_string_pool->str_pool = S_realloc(vm->vm_string_pool->str_pool,
+                                                sizeof(char*) * vm->vm_string_pool->size);
+        memset(vm->vm_string_pool->str_pool + old_size, 0,
+               sizeof(char*) * (vm->vm_string_pool->size - old_size));
+    }
     vm->vm_string_pool->str_pool[index] = str;
 }
 
@@ -245,7 +258,12 @@ struct VMClassData* vm_add_class_data(struct VM* vm, unsigned id, const char* na
                sizeof(struct VMClassData*) * (vm->class_data_capacity - old_capacity));
     }
 
-    assert(vm->class_data[id] == NULL);
+    if (vm->class_data[id] != NULL) {
+        free_class_data(vm->class_data[id]);
+    } else {
+        vm->class_data_count++;
+    }        
+
     class_data = (struct VMClassData*)S_malloc(sizeof(struct VMClassData));
     class_data->id = id;
     class_data->name = copy_string(name);
@@ -266,7 +284,6 @@ struct VMClassData* vm_add_class_data(struct VM* vm, unsigned id, const char* na
     class_data->initializer->return_type = copy_string("void");
 
     vm->class_data[id] = class_data;
-    vm->class_data_count++;
     return class_data;
 }
 
@@ -1398,6 +1415,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         id = (unsigned)arguments[0];
         argument_count = (unsigned)arguments[3];
         class_data = vm_find_class_data(vm, id);
+
         assert(class_data != NULL && class_data->size == (unsigned)arguments[1] &&
                argument_count <= vm->vm_stack->index);
 

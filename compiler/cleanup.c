@@ -23,6 +23,12 @@ static void free_token(struct Token *token) {
 static void free_func_data(struct FuncData *data) {
     if (data == NULL)
         return;
+    free(data->return_type_name);
+    if (data->arg_type_names != NULL) {
+        for (unsigned i = 0; i < data->arg_count; i++)
+            free(data->arg_type_names[i]);
+        free(data->arg_type_names);
+    }
     free(data->arg_types);
     free(data);
 }

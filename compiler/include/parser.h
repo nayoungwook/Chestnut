@@ -272,6 +272,8 @@ struct FuncData {
     unsigned id;
     unsigned stack_size;
     const char *func_name;
+    char *return_type_name;
+    char **arg_type_names;
     struct Type *return_type;
 
     struct Type **arg_types;

@@ -41,6 +41,8 @@ struct FuncData* gen_func_data(const char* func_name, struct Type* ret_type, uns
     data->stack_size = 0;
     data->is_constructor = false;
     data->return_type = ret_type;
+    data->return_type_name = NULL;
+    data->arg_type_names = NULL;
     data->func_name = func_name;
     data->id = id;
     data->varargs = varargs;
@@ -789,26 +791,27 @@ void register_data(struct ParserContext* pc, struct Node* node) {
 
         reset_declared_local_var_data(pc);
 
-        struct Type* ret_type = find_type(pc, func_decl_ast->ret_type_tok->str);
-        struct FuncData* func_data =
-            register_func_data(func_decl_ast->func_name_tok->str, ret_type, pc);
+        struct FuncData* func_data = func_decl_ast->func_data;
         struct VarDeclBundleAST* params_ast = (struct VarDeclBundleAST*)func_decl_ast->params->ast;
-
-        func_data->arg_types = params_ast->var_count == 0
-            ? NULL
-            : S_malloc((size_t)params_ast->var_count * sizeof(struct Type*));
-        func_data->arg_count = params_ast->var_count;
-        func_decl_ast->func_data = func_data;
+        if (func_data == NULL) {
+            struct Type* ret_type = find_type(pc, func_decl_ast->ret_type_tok->str);
+            func_data = register_func_data(func_decl_ast->func_name_tok->str, ret_type, pc);
+            func_data->arg_count = params_ast->var_count;
+            func_data->arg_types = func_data->arg_count == 0
+                ? NULL : S_malloc(sizeof(struct Type*) * func_data->arg_count);
+            for (unsigned i = 0; i < func_data->arg_count; i++) {
+                struct VarDeclAST* param = params_ast->var_decls[i]->ast;
+                func_data->arg_types[i] = find_type(pc, param->var_type_tok->str);
+            }
+            func_decl_ast->func_data = func_data;
+        }
 
         pc->current_func = func_decl_ast->func_data;
         open_scope(pc);
 
         int i;
         for (i = 0; i < params_ast->var_count; i++) {
-            struct VarDeclAST* param_ast = (struct VarDeclAST*)(params_ast->var_decls[i]->ast);
-
             register_data(pc, params_ast->var_decls[i]);
-            func_data->arg_types[i] = find_type(pc, param_ast->var_type_tok->str);
         }
 
         if (pc->current_class != NULL && pc->current_class->parent_type != NULL) {
