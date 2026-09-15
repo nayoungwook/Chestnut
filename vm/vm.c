@@ -18,7 +18,7 @@
 #include <string.h>
 #include <time.h>
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 
@@ -1450,7 +1450,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
 
         unsigned array_heap_index =
             vm_malloc(vm, array_size, -1); // for array, object id is -1.
-        void *array_position = vm->heap_mapper[array_heap_index];
+        uint8_t *array_position = (uint8_t *)vm->heap_mapper[array_heap_index] + HEAP_META_SIZE;
         
         uint64_t array_meta = ((uint64_t) count) << 32 | capacity;
         memcpy(array_position, &array_meta, sizeof(uint64_t));
@@ -1478,7 +1478,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
 
         unsigned index = (unsigned)index_operand.val;
 
-        void *array_position = vm->heap_mapper[array_operand.val];
+        uint8_t *array_position = (uint8_t *)vm->heap_mapper[array_operand.val] + HEAP_META_SIZE;
 
         struct VMOperand result_operand =
             *(struct VMOperand *)(array_position + ARRAY_META_SIZE +
@@ -1495,7 +1495,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
 
         unsigned index = (unsigned)index_operand.val;
 
-        void *array_position = vm->heap_mapper[array_operand.val];
+        uint8_t *array_position = (uint8_t *)vm->heap_mapper[array_operand.val] + HEAP_META_SIZE;
 
         memcpy((array_position + ARRAY_META_SIZE +
                 index * sizeof(struct VMOperand)), &value_operand, sizeof(value_operand));
@@ -1509,7 +1509,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
             0,
         };
 
-        void *array_position = vm->heap_mapper[array_operand.val];
+        uint8_t *array_position = (uint8_t *)vm->heap_mapper[array_operand.val] + HEAP_META_SIZE;
         unsigned length = *(uint32_t *)(array_position + 4);
         
         result_operand.op_type = OPRND_INT32;
@@ -1523,7 +1523,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         struct VMOperand value_operand = vm_stack_pop(vm->vm_stack);
         struct VMOperand array_operand = vm_stack_pop(vm->vm_stack);
         
-        void *array_position = vm->heap_mapper[array_operand.val];
+        uint8_t *array_position = (uint8_t *)vm->heap_mapper[array_operand.val] + HEAP_META_SIZE;
         unsigned length = *(uint32_t *)(array_position + 4);
         unsigned capacity = *(uint32_t *)(array_position);
         
@@ -1534,7 +1534,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
             unsigned array_size = ARRAY_META_SIZE + sizeof(struct VMOperand) * capacity;
 
             unsigned new_array_index = vm_malloc(vm, array_size, -1);
-            void *new_array_position = vm->heap_mapper[new_array_index];            
+            uint8_t *new_array_position = (uint8_t *)vm->heap_mapper[new_array_index] + HEAP_META_SIZE;
             vm_free(vm, array_operand.val);
 
             memcpy(new_array_position + ARRAY_META_SIZE,
@@ -1543,7 +1543,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
 
             // update heap mapper to new position.            
             array_position = new_array_position;
-            vm->heap_mapper[array_operand.val] = array_position;
+            vm->heap_mapper[array_operand.val] = array_position - HEAP_META_SIZE;
         }
 
         length++;

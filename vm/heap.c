@@ -2,8 +2,7 @@
 #include <vm.h>
 
 #include <memory.h>
-
-#define HEAP_META_SIZE 4 * 2
+#include <inttypes.h>
 
 #define DEBUG
 
@@ -14,14 +13,17 @@
 
 #ifdef DEBUG
 static void debug_print_heap(struct VM *vm) {
-     int i;
+     unsigned i;
 
      printf("\nheap view\n");
-     for (i = 0; i < vm->heap_object_count; i++) {
+     for (i = 1; i < vm->heap_index; i++) {
           void *heap = vm->heap_mapper[i];
 
           if(heap != NULL){
-              printf("[ %d byte | id : %d ]", *(int*) (heap), *(int*)(heap + 4));
+              uint64_t header;
+              memcpy(&header, heap, sizeof(header));
+              printf("[ id : %d | %d byte ]",
+                    (uint32_t) header, (uint32_t) (header >> 32));
           } else {
                printf("[ FREE ]");
           }
@@ -59,7 +61,7 @@ unsigned vm_malloc(struct VM *vm, unsigned size, int object_id) {
 
   uint64_t header = 0;
   header |= ((uint64_t)size << 32);
-  header |= object_id;
+  header |= (uint32_t) object_id;
 
   memcpy(vm->heap_alloc_loc, &header, sizeof(uint64_t));
   memset((uint8_t *)vm->heap_alloc_loc + HEAP_META_SIZE, 0, size);

@@ -1,8 +1,28 @@
 
+func fibo(n: int, dp: array<int>): int {
+    if(n <= 1){
+        return 1;
+    }
+
+    if(dp[n] != -1){
+        return dp[n];
+    }
+
+    var val: int = fibo(n - 1, dp) + fibo(n - 2, dp);
+
+    dp[n] = val;
+
+    return val;
+}
+
 func main(): void {
      var dp: array<int> = {};
 
      for(var i: int=0; i<40; i++){
          dp.push(-1);
+     }
+
+     for(var i:int =1; i<40; i++){
+        print(fibo(i, dp), "\n");
      }
 }
