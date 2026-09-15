@@ -40,5 +40,6 @@ int main(int argc, char *argv[]) {
             bytecodes[bytecode_count++] = argv[i];
     bool executed = bytecode_count == 0 || run_bytecodes(bytecodes, bytecode_count);
     free(bytecodes);
+    
     return executed ? 0 : 1;
 }

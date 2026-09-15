@@ -1,3 +1,8 @@
+
+class Test {
+     var test: float = 0.2f;
+}
+
 func log(value: string): void {
   print(value, "\n");
 }
@@ -87,4 +92,7 @@ func main(): void {
        print(test[i], " ");
   }
   print("\n");
+
+  var asdf: Test = new Test();
+  print(asdf.test);
 }

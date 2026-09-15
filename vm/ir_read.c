@@ -463,6 +463,7 @@ static bool read_meta_block(struct VM *vm, struct IRReader *reader, struct VMCla
         if (!register_class_relocation(reader, (unsigned)id, runtime_id, (unsigned)parent_id))
             return false;
         class_data = vm_add_class_data(vm, runtime_id, name, 0, (unsigned)size);
+
         while (peek_byte(reader, &next) && next != META_TERM)
             if (!read_meta_block(vm, reader, class_data))
                 return false;

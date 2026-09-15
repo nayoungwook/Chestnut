@@ -106,6 +106,8 @@ struct VM* gen_vm() {
     vm->heap_index = 1;
     vm->heap_index_queue = gen_queue();
     vm->heap_alloc_loc = vm->heap;
+    vm->heap_object_count = 0;
+    
     memset(vm->heap_mapper, 0, sizeof(vm->heap_mapper));
     return vm;
 }
@@ -1449,7 +1451,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         unsigned array_heap_index =
             vm_malloc(vm, array_size, -1); // for array, object id is -1.
         void *array_position = vm->heap_mapper[array_heap_index];
-
+        
         uint64_t array_meta = ((uint64_t) count) << 32 | capacity;
         memcpy(array_position, &array_meta, sizeof(uint64_t));
         
@@ -1592,6 +1594,7 @@ void vm_exec_function(struct VM* vm, struct VMFunctionData* function_data, unsig
         if (instruction->opcode == OP_RET)
             break;
     }
+    
     vm->stack_pointer = frame;
     vm->stack_frame = caller_frame;
 }
