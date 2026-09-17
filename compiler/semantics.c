@@ -740,6 +740,38 @@ static void ensure_class_registered(struct ParserContext* pc, struct ClassAST* c
 }
 
 static void register_attr_data(struct ParserContext* pc, struct ClassData* attr_of,
+    struct Node* node);
+
+static void register_func_call_params(struct ParserContext* pc, struct FuncCallAST* func_call_ast) {
+    int i;
+    for (i = 0; i < func_call_ast->param_count; i++)
+        register_data(pc, func_call_ast->params[i]);
+}
+
+static void register_attr_from_type(struct ParserContext* pc, struct Type* attr_of,
+    struct Node* node) {
+    if (attr_of == NULL)
+        panic("We can\'t find attribute from non-type.", pc->tc);
+
+    if (attr_of->type_kind == TK_Array) {
+        bind_array_attr(pc, attr_of, node);
+
+        if (node->type == AST_FunctionCall) {
+            struct FuncCallAST* func_call_ast = (struct FuncCallAST*)node->ast;
+            register_func_call_params(pc, func_call_ast);
+            if (node->attr != NULL)
+                register_attr_from_type(pc, func_call_ast->func_data->return_type, node->attr);
+        }
+        return;
+    }
+
+    if (attr_of->type_kind != TK_Class)
+        panic("We can\'t find attribute from non-class type.", pc->tc);
+
+    register_attr_data(pc, attr_of->data.class_data, node);
+}
+
+static void register_attr_data(struct ParserContext* pc, struct ClassData* attr_of,
     struct Node* node) {
     struct Type* type_of_node = NULL;
 
@@ -775,6 +807,7 @@ static void register_attr_data(struct ParserContext* pc, struct ClassData* attr_
         type_of_node = func_data->return_type;
         func_call_ast->func_data = func_data;
         func_call_ast->is_attr = true;
+        register_func_call_params(pc, func_call_ast);
 
         break;
     }
@@ -783,7 +816,8 @@ static void register_attr_data(struct ParserContext* pc, struct ClassData* attr_
         break;
     }
 
-    resolve_attr(pc, type_of_node, node);
+    if (node->attr != NULL)
+        register_attr_from_type(pc, type_of_node, node->attr);
 }
 
 void register_data(struct ParserContext* pc, struct Node* node) {
@@ -865,11 +899,10 @@ void register_data(struct ParserContext* pc, struct Node* node) {
         }
 
         func_call_ast->func_data = func_data;
+        register_func_call_params(pc, func_call_ast);
 
-        int i;
-        for (i = 0; i < func_call_ast->param_count; i++) {
-            register_data(pc, func_call_ast->params[i]);
-        }
+        if (node->attr != NULL)
+            register_attr_from_type(pc, func_data->return_type, node->attr);
 
         break;
     }
@@ -916,15 +949,7 @@ void register_data(struct ParserContext* pc, struct Node* node) {
         
         if (node->attr != NULL) {
             struct Type* type = ident_ast->var_data->type;
-            if (type->type_kind == TK_Array) {
-                bind_array_attr(pc, type, node->attr);
-            }
-            else if (type->type_kind == TK_Class) {
-                register_attr_data(pc, type->data.class_data, node->attr);
-            }
-            else {
-                panic("We can\'t find attribute from non-class type.", pc->tc);
-            }
+            register_attr_from_type(pc, type, node->attr);
         }
 
         break;
@@ -1050,6 +1075,8 @@ void register_data(struct ParserContext* pc, struct Node* node) {
         for (i = 0; i < new_ast->param_count; i++) {
             register_data(pc, new_ast->params[i]);
         }
+        if (node->attr != NULL)
+            register_attr_from_type(pc, type, node->attr);
         break;
     }
 
@@ -1067,6 +1094,10 @@ void register_data(struct ParserContext* pc, struct Node* node) {
         int i;
         for (i = 0; i < access->access_count; i++)
             register_data(pc, access->indexes[i]);
+        if (node->attr != NULL) {
+            struct Type* array_type = infer_type(pc, access->target_array);
+            register_attr_from_type(pc, array_type->data.element_type, node->attr);
+        }
         break;
     }
 
@@ -1081,9 +1112,6 @@ void register_data(struct ParserContext* pc, struct Node* node) {
     }
     }
 
-    if(node->attr != NULL){
-        register_data(pc, node->attr);
-    }
 }
 
 void check_semantics(struct ParserContext* pc, struct Node* node) {
