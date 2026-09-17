@@ -2,6 +2,7 @@
 
 #include <ir_read.h>
 #include <vm.h>
+#include <heap.h>
 
 #include <limits.h>
 
@@ -48,23 +49,32 @@ bool run_bytecodes(const char **paths, unsigned count) {
         }
         readers[loaded++] = gen_ir_reader(irc);
     }
+
     if (!read_ir_files(vm, readers, count))
         goto done;
+    
     entry = vm_find_function_data(vm, NULL, vm->main_func_id);
+    
     if (entry == NULL) {
         fprintf(stderr, "Bytecode has no main function.\n");
         goto done;
     }
+    
     vm_exec_function(vm, entry, (unsigned)-1);
     success = true;
 
+    pack_heap(vm);
+    
 done:
+
     free_vm(vm);
     for (i = 0; i < loaded; i++) {
         free_irc(readers[i]->irc);
         free_ir_reader(readers[i]);
     }
     free(readers);
+
+    
     return success;
 }
 

@@ -398,13 +398,16 @@ static void bind_array_attr(struct ParserContext* pc, struct Type* array_type, s
 
     if (node->type == AST_FunctionCall) {
         struct FuncCallAST* call = (struct FuncCallAST*)node->ast;
+        
         bool push = strcmp(call->func_name_tok->str, "push") == 0;
         bool remove = strcmp(call->func_name_tok->str, "remove") == 0;
 
         if (!push && !remove)
             panic("Unknown array method.", pc->tc);
+        
         struct FuncData* data =
             gen_func_data(call->func_name_tok->str, find_type(pc, "void"), push ? 0 : 1, false);
+        
         data->scope_data = ScopeArray;
         data->arg_count = 1;
         data->arg_types = (struct Type**)S_malloc(sizeof(struct Type*));
@@ -547,6 +550,8 @@ static void check_var_decl_semantics(struct ParserContext* pc, struct VarDeclAST
 
 static void check_ident_semantics(struct ParserContext* pc, struct Node* node,
     struct IdentifierAST* ident_ast) {
+    assert(ident_ast->var_data != NULL);
+
     struct Type* type = ident_ast->var_data->type;
 
     resolve_attr(pc, type, node);
@@ -554,13 +559,16 @@ static void check_ident_semantics(struct ParserContext* pc, struct Node* node,
 
 static void check_parameter_type(struct ParserContext* pc, struct Type* arg_type,
     struct Node* param) {
+    
     if (param->type == AST_ArrayDeclaration) {
         if (arg_type->type_kind != TK_Array)
             panic("Array literal requires an array parameter.", pc->tc);
         if (((struct ArrayDeclAST*)param->ast)->ele_type_tok == NULL)
             ((struct ArrayDeclAST*)param->ast)->ele_type_tok = type_token_for(arg_type);
     }
+    
     struct Type* param_type = infer_type(pc, param);
+    
     if (!is_castable(param_type, arg_type)) {
         char message[256];
         snprintf(message, sizeof(message), "Function argument type mismatch. Expected %s, got %s.",
@@ -590,10 +598,12 @@ static struct ClassData* bind_super_call(struct ParserContext* pc, struct Node* 
 
 static void check_func_call_semantics(struct ParserContext* pc, struct Node* node,
     struct FuncCallAST* func_call_ast) {
+    
     if (is_super_call(node)) {
         func_call_ast->super_class = bind_super_call(pc, node);
         func_call_ast->func_data = func_call_ast->super_class->constructor;
     }
+    
     struct FuncData* func_data = func_call_ast->func_data;
     struct Type* ret_type = func_data->return_type;
 
@@ -614,9 +624,11 @@ static void check_func_call_semantics(struct ParserContext* pc, struct Node* nod
             struct Type* expected = func_data->arg_types[i];
             if (expected->type_kind != TK_Array)
                 panic("Array literal requires an array parameter.", pc->tc);
+            
             ((struct ArrayDeclAST*)func_call_ast->params[i]->ast)->ele_type_tok =
                 type_token_for(expected);
         }
+
         check_semantics(pc, func_call_ast->params[i]);
 
         if (!func_data->varargs) {
@@ -638,10 +650,11 @@ static void register_data_of_body(struct ParserContext* pc, struct Node** body,
     unsigned body_count) {
     int i;
     open_scope(pc);
+    
     for (i = 0; i < body_count; i++) {
-
         register_data(pc, body[i]);
     }
+    
     close_scope(pc);
 }
 
@@ -842,16 +855,13 @@ void register_data(struct ParserContext* pc, struct Node* node) {
     case AST_FunctionCall: {
         struct FuncCallAST* func_call_ast = (struct FuncCallAST*)node->ast;
         struct FuncData* func_data;
+
         if (is_super_call(node)) {
             func_call_ast->super_class = bind_super_call(pc, node);
             func_data = func_call_ast->super_class->constructor;
         }
         else {
             func_data = find_func_data(pc, func_call_ast->func_name_tok->str);
-        }
-
-        if (func_data == NULL) {
-            panic("Failed to find function", pc->tc);
         }
 
         func_call_ast->func_data = func_data;
@@ -899,9 +909,11 @@ void register_data(struct ParserContext* pc, struct Node* node) {
         struct IdentifierAST* ident_ast = (struct IdentifierAST*)node->ast;
 
         ident_ast->var_data = find_var_data(pc, ident_ast->ident->str);
+        
         if (ident_ast->var_data == NULL) {
             panic("Failed to find identifier", pc->tc);
         }
+        
         if (node->attr != NULL) {
             struct Type* type = ident_ast->var_data->type;
             if (type->type_kind == TK_Array) {
@@ -1067,6 +1079,10 @@ void register_data(struct ParserContext* pc, struct Node* node) {
     default: {
         break;
     }
+    }
+
+    if(node->attr != NULL){
+        register_data(pc, node->attr);
     }
 }
 

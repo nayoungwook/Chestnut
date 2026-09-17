@@ -38,8 +38,9 @@ int main(int argc, char *argv[]) {
     for (i = 1; i < argc; i++)
         if (has_extension(argv[i], ".cb"))
             bytecodes[bytecode_count++] = argv[i];
+    
     bool executed = bytecode_count == 0 || run_bytecodes(bytecodes, bytecode_count);
     free(bytecodes);
-    
+
     return executed ? 0 : 1;
 }
