@@ -18,7 +18,7 @@
 #include <string.h>
 #include <time.h>
 
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 
@@ -415,7 +415,7 @@ static struct VMVariableData* vm_find_heap_variable_data(const struct VM* vm, un
         return NULL;
 
     header = *(uint64_t*)vm->heap_mapper[heap_index];
-    class_data = vm_find_class_data(vm, (unsigned)(header & 0xffffffffu));
+    class_data = vm_find_class_data(vm, (char)(header & 0xffff));
     return vm_find_member_variable_data(vm, class_data, id);
 }
 
@@ -1147,6 +1147,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         offset = (unsigned)arguments[1];
         size = (unsigned)arguments[2];
         variable_data = vm_find_heap_variable_data(vm, heap_index, variable_id);
+        
         assert(variable_data != NULL && variable_data->offset == offset &&
                variable_data->size == size);
 
@@ -1275,11 +1276,9 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         struct VMOperand object_address_operand = vm_stack_pop(vm->vm_stack);
         uint64_t target_heap_index = object_address_operand.val;
 
-        // int object_id = ( << 4) & 0x1111;
-        // printf("object_id : %x\n", object_id);
         uint64_t header = *(uint64_t*)vm->heap_mapper[target_heap_index];
-        int id = header & 0xFFFFFFFF;
-
+        int id = header & 0xFF;
+            
         struct VMClassData* class_data = vm_find_class_data(vm, id);
         struct VMFunctionData* function_data =
             arguments[0] < 0 ? NULL
@@ -1296,7 +1295,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
     }
     case OP_CALL_CLASS: {
         uint64_t header = *(uint64_t*)vm->heap_mapper[heap_index];
-        int id = header & 0xFFFFFFFF;
+        int id = header & 0xFF;
 
         struct VMClassData* class_data = vm_find_class_data(vm, id);
         struct VMFunctionData* function_data =
@@ -1438,7 +1437,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         }
 
         id_operand.op_type = OPRND_ADDRESS;
-        id_operand.val = (int64_t)heap_mapper_id;
+        id_operand.val = (uint8_t)heap_mapper_id;
         vm_stack_push(vm->vm_stack, id_operand);
 
         break;
