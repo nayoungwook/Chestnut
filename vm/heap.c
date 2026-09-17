@@ -3,6 +3,7 @@
 #include <heap.h>
 #include <vm.h>
 
+#include <assert.h>
 #include <memory.h>
 #include <inttypes.h>
 
@@ -82,7 +83,7 @@ void pack_heap(struct VM *vm) {
         if(is_live_heap_block(vm, block)){
             object_count++;
             if(packer_ptr != block){ // if in the same position, we don't have to copy.
-                memcpy(packer_ptr, block, HEAP_META_SIZE + size);
+                memmove(packer_ptr, block, HEAP_META_SIZE + size);
             }
 
             vm->heap_mapper[heap_mapper_id] = packer_ptr;
@@ -113,6 +114,29 @@ void vm_free(struct VM *vm, unsigned heap_mapper_index) {
     vm->heap_mapper[heap_mapper_index] = NULL;
 }
 
+void vm_replace_heap_block(struct VM *vm, unsigned target_heap_mapper_index,
+                           unsigned replacement_heap_mapper_index) {
+    void *replacement;
+    uint64_t header;
+
+    assert(target_heap_mapper_index > 0 &&
+           target_heap_mapper_index < HEAP_MAX_OBJECT_COUNT &&
+           replacement_heap_mapper_index > 0 &&
+           replacement_heap_mapper_index < HEAP_MAX_OBJECT_COUNT &&
+           target_heap_mapper_index != replacement_heap_mapper_index &&
+           vm->heap_mapper[target_heap_mapper_index] != NULL &&
+           vm->heap_mapper[replacement_heap_mapper_index] != NULL);
+
+    replacement = vm->heap_mapper[replacement_heap_mapper_index];
+    memcpy(&header, replacement, sizeof(header));
+    header &= ~((uint64_t)0x00FFFFFFu << 8);
+    header |= ((uint64_t)(target_heap_mapper_index & 0x00FFFFFFu) << 8);
+    memcpy(replacement, &header, sizeof(header));
+
+    vm_free(vm, replacement_heap_mapper_index);
+    vm->heap_mapper[target_heap_mapper_index] = replacement;
+}
+
 unsigned vm_malloc(struct VM *vm, unsigned size, int object_id) {
 
     unsigned heap_mapper_index = 0;
@@ -133,7 +157,7 @@ unsigned vm_malloc(struct VM *vm, unsigned size, int object_id) {
     vm->heap_mapper[heap_mapper_index] = vm->heap_alloc_loc;
 
     uint64_t header = 0;
-    header |= ((uint8_t) heap_mapper_index << 8); // only three bytes.
+    header |= ((uint64_t)(heap_mapper_index & 0x00FFFFFFu) << 8);
     header |= (uint8_t) object_id;
     header |= ((uint64_t)size << 32);
 

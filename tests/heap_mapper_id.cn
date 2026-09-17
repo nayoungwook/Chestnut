@@ -1,0 +1,26 @@
+class HeapValue {
+	var stored: int = 0;
+
+	constructor HeapValue(value: int) {
+		stored = value;
+	}
+
+	func get_value(): int {
+		return stored;
+	}
+
+	func add(value: int): int {
+		return stored + value;
+	}
+}
+
+func main(): void {
+	var value: HeapValue = new HeapValue(0);
+
+	for (var i: int = 1; i < 300; i++) {
+		value = new HeapValue(i);
+	}
+
+	print(value.get_value(), "\n");
+	print(value.add(1), "\n");
+}

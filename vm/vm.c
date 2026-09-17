@@ -415,7 +415,7 @@ static struct VMVariableData* vm_find_heap_variable_data(const struct VM* vm, un
         return NULL;
 
     header = *(uint64_t*)vm->heap_mapper[heap_index];
-    class_data = vm_find_class_data(vm, (char)(header & 0xffff));
+    class_data = vm_find_class_data(vm, (uint8_t)header);
     return vm_find_member_variable_data(vm, class_data, id);
 }
 
@@ -1273,8 +1273,21 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         break;
     }
     case OP_CALL_ATTR: {
-        struct VMOperand object_address_operand = vm_stack_pop(vm->vm_stack);
-        uint64_t target_heap_index = object_address_operand.val;
+        unsigned argument_count;
+        struct VMOperand object_address_operand;
+        uint64_t target_heap_index;
+
+        assert(arguments[0] >= 0 && arguments[1] >= 0);
+
+        argument_count = (unsigned)arguments[1];
+        assert(argument_count < vm->vm_stack->index);
+
+        object_address_operand =
+            vm->vm_stack->stack[vm->vm_stack->index - argument_count - 1];
+        target_heap_index = (uint64_t)object_address_operand.val;
+        assert(object_address_operand.op_type == OPRND_ADDRESS &&
+               target_heap_index > 0 && target_heap_index < HEAP_MAX_OBJECT_COUNT &&
+               vm->heap_mapper[target_heap_index] != NULL);
 
         uint64_t header = *(uint64_t*)vm->heap_mapper[target_heap_index];
         int id = header & 0xFF;
@@ -1285,9 +1298,9 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
             : vm_find_member_function_data(vm, class_data, (unsigned)arguments[0]);
         assert(function_data != NULL);
 
-        unsigned argument_count = (unsigned)arguments[1];
-
         update_function_arguments(vm, function_data, argument_count);
+        object_address_operand = vm_stack_pop(vm->vm_stack);
+        assert((uint64_t)object_address_operand.val == target_heap_index);
 
         vm_exec_function(vm, function_data, target_heap_index);
 
@@ -1405,7 +1418,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
     case OP_NEW_OBJECT: {
         unsigned id;
         unsigned argument_count;
-        uint64_t heap_mapper_id;
+        unsigned heap_mapper_id;
         struct VMClassData* class_data;
         struct VMFunctionData* constructor = NULL;
         struct VMOperand id_operand;
@@ -1437,7 +1450,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         }
 
         id_operand.op_type = OPRND_ADDRESS;
-        id_operand.val = (uint8_t)heap_mapper_id;
+        id_operand.val = (int64_t)heap_mapper_id;
         vm_stack_push(vm->vm_stack, id_operand);
 
         break;
@@ -1534,15 +1547,13 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
 
             unsigned new_array_index = vm_malloc(vm, array_size, -1);
             uint8_t *new_array_position = (uint8_t *)vm->heap_mapper[new_array_index] + HEAP_META_SIZE;
-            vm_free(vm, array_operand.val);
 
             memcpy(new_array_position + ARRAY_META_SIZE,
                    array_position + ARRAY_META_SIZE,
                    sizeof(struct VMOperand) * length);
 
-            // update heap mapper to new position.            
             array_position = new_array_position;
-            vm->heap_mapper[array_operand.val] = array_position - HEAP_META_SIZE;
+            vm_replace_heap_block(vm, (unsigned)array_operand.val, new_array_index);
         }
 
         length++;
