@@ -301,6 +301,11 @@ static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type) {
         break;
     }
 
+    case OpMOD: {
+        op_byte = OP_MOD;
+        break;
+    }
+
     default: {
         panic("Unknown Op Type", pc->tc);
         break;
@@ -314,7 +319,7 @@ static byte get_op_byte(struct ParserContext *pc, enum OperatorType op_type) {
 
 static bool is_assignment_op(enum OperatorType op_type) {
     return op_type == OpASSIGN || op_type == OpPLUSASSIGN || op_type == OpMINUSASSIGN ||
-           op_type == OpMULTASSIGN || op_type == OpDIVASSIGN;
+           op_type == OpMULTASSIGN || op_type == OpDIVASSIGN || op_type == OpMODASSIGN;
 }
 
 static enum OperatorType get_compound_binary_op(struct ParserContext *pc,
@@ -328,6 +333,8 @@ static enum OperatorType get_compound_binary_op(struct ParserContext *pc,
         return OpMUL;
     case OpDIVASSIGN:
         return OpDIV;
+    case OpMODASSIGN:
+        return OpMOD;
     default:
         panic("Unknown compound assignment operator.", pc->tc);
         return OpNone;
@@ -799,6 +806,11 @@ static void gen_node_ir(struct IRContext *irc, struct ParserContext *pc, struct 
         gen_node_ir(irc, pc, access->indexes[0]);
         emit_byte(irc, OP_ARRAY_LOAD);
         emit_int(irc, infer_type(pc, node)->nbyte);
+        
+        if (node->attr != NULL) {
+            gen_node_ir(irc, pc, node->attr);
+        }
+        
         break;
     }
 

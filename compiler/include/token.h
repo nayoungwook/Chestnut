@@ -77,6 +77,9 @@ enum TokenType {
     TokFalse = 54,
 
     TokNull = 55,
+
+    TokMod = 56,
+    TokModAssign = 57,
 };
 
 struct Token {

@@ -86,6 +86,7 @@ struct VM* gen_vm() {
 
     vm->heap = (uint8_t*)MapViewOfFile(h_map, FILE_MAP_ALL_ACCESS, 0, 0, VM_HEAP_SIZE);
     vm->stack = (uint8_t*)MapViewOfFile(s_map, FILE_MAP_ALL_ACCESS, 0, 0, VM_STACK_SIZE);
+    
     CloseHandle(h_map);
     CloseHandle(s_map);
 #endif
@@ -199,7 +200,7 @@ void register_string_pool(struct VM* vm, char* str, int index) {
         unsigned old_size = vm->vm_string_pool->size;
         vm->vm_string_pool->size = (unsigned)index + 1;
         vm->vm_string_pool->str_pool = S_realloc(vm->vm_string_pool->str_pool,
-                                                sizeof(char*) * vm->vm_string_pool->size);
+                                                 sizeof(char*) * vm->vm_string_pool->size);
         memset(vm->vm_string_pool->str_pool + old_size, 0,
                sizeof(char*) * (vm->vm_string_pool->size - old_size));
     }
@@ -532,6 +533,12 @@ static void handle_syscall(struct VM* vm, int id, int argc) {
                 printf("%d", val);
                 break;
             }
+            case OPRND_ADDRESS: {
+                const int val = (int)op.val;
+
+                printf("%d", val);
+                break;
+            }
             case OPRND_CHAR16: {
                 printf("%c", (unsigned char)op.val);
                 break;
@@ -579,6 +586,8 @@ enum VMOperatorIndex {
     VM_OPERATOR_SUB,
     VM_OPERATOR_MUL,
     VM_OPERATOR_DIV,
+    VM_OPERATOR_MOD,
+    
     VM_OPERATOR_EQUAL,
     VM_OPERATOR_NOTEQUAL,
     VM_OPERATOR_GREATER,
@@ -587,86 +596,96 @@ enum VMOperatorIndex {
     VM_OPERATOR_EQUALLESS,
     VM_OPERATOR_OR,
     VM_OPERATOR_AND,
+    
     VM_OPERATOR_COUNT,
 };
+
+#define DEFINE_VM_MOD_SET(prefix, type, member)                     \
+static void prefix##_mod(const union VMNumericValue *lhs_value,     \
+                         const union VMNumericValue *rhs_value,     \
+                         union VMNumericValue *result_value) {      \
+    result_value->member = lhs_value->member % rhs_value->member;   \
+}                                                                   \
 
 // pre definition of operator set,
 // for example if prefix is i32
 // static void i32_add will be made.
 #define DEFINE_VM_OPERATOR_SET(prefix, type, member)                    \
-    static void prefix##_add(const union VMNumericValue *lhs_value,     \
-                             const union VMNumericValue *rhs_value,     \
-                             union VMNumericValue *result_value) {      \
-        result_value->member = lhs_value->member + rhs_value->member;   \
-    }                                                                   \
-    static void prefix##_sub(const union VMNumericValue *lhs_value,     \
-                             const union VMNumericValue *rhs_value,     \
-                             union VMNumericValue *result_value) {      \
-        result_value->member = lhs_value->member - rhs_value->member;   \
-    }                                                                   \
-    static void prefix##_mul(const union VMNumericValue *lhs_value,     \
-                             const union VMNumericValue *rhs_value,     \
-                             union VMNumericValue *result_value) {      \
-        result_value->member = lhs_value->member * rhs_value->member;   \
-    }                                                                   \
-    static void prefix##_div(const union VMNumericValue *lhs_value,     \
-                             const union VMNumericValue *rhs_value,     \
-                             union VMNumericValue *result_value) {      \
-        result_value->member = lhs_value->member / rhs_value->member;   \
-    }                                                                   \
-    static void prefix##_equal(const union VMNumericValue *lhs_value,   \
-                               const union VMNumericValue *rhs_value,   \
-                               union VMNumericValue *result_value) {    \
-        result_value->i32 = lhs_value->member == rhs_value->member;     \
-    }                                                                   \
-    static void prefix##_notequal(const union VMNumericValue *lhs_value, \
-                                  const union VMNumericValue *rhs_value, \
-                                  union VMNumericValue *result_value) { \
-        result_value->i32 = lhs_value->member != rhs_value->member;     \
-    }                                                                   \
-    static void prefix##_greater(const union VMNumericValue *lhs_value, \
-                                 const union VMNumericValue *rhs_value, \
-                                 union VMNumericValue *result_value) {  \
-        result_value->i32 = lhs_value->member > rhs_value->member;      \
-    }                                                                   \
-    static void prefix##_less(const union VMNumericValue *lhs_value,    \
-                              const union VMNumericValue *rhs_value,    \
-                              union VMNumericValue *result_value) {     \
-        result_value->i32 = lhs_value->member < rhs_value->member;      \
-    }                                                                   \
-    static void prefix##_equalgreater(const union VMNumericValue *lhs_value, \
-                                      const union VMNumericValue *rhs_value, \
-                                      union VMNumericValue *result_value) { \
-        result_value->i32 = lhs_value->member >= rhs_value->member;     \
-    }                                                                   \
-    static void prefix##_equalless(const union VMNumericValue *lhs_value, \
-                                   const union VMNumericValue *rhs_value, \
-                                   union VMNumericValue *result_value) { \
-        result_value->i32 = lhs_value->member <= rhs_value->member;     \
-    }                                                                   \
-    static void prefix##_or(const union VMNumericValue *lhs_value,      \
+static void prefix##_add(const union VMNumericValue *lhs_value,         \
+                         const union VMNumericValue *rhs_value,         \
+                         union VMNumericValue *result_value) {          \
+    result_value->member = lhs_value->member + rhs_value->member;       \
+}                                                                       \
+ static void prefix##_sub(const union VMNumericValue *lhs_value,        \
+                          const union VMNumericValue *rhs_value,        \
+                          union VMNumericValue *result_value) {         \
+     result_value->member = lhs_value->member - rhs_value->member;      \
+ }                                                                      \
+ static void prefix##_mul(const union VMNumericValue *lhs_value,        \
+                          const union VMNumericValue *rhs_value,        \
+                          union VMNumericValue *result_value) {         \
+     result_value->member = lhs_value->member * rhs_value->member;      \
+ }                                                                      \
+ static void prefix##_div(const union VMNumericValue *lhs_value,        \
+                          const union VMNumericValue *rhs_value,        \
+                          union VMNumericValue *result_value) {         \
+     result_value->member = lhs_value->member / rhs_value->member;      \
+ }                                                                      \
+ static void prefix##_equal(const union VMNumericValue *lhs_value,      \
                             const union VMNumericValue *rhs_value,      \
                             union VMNumericValue *result_value) {       \
-        result_value->i32 = lhs_value->member != (type)0 || rhs_value->member != (type)0; \
-    }                                                                   \
-    static void prefix##_and(const union VMNumericValue *lhs_value,     \
-                             const union VMNumericValue *rhs_value,     \
-                             union VMNumericValue *result_value) {      \
-        result_value->i32 = lhs_value->member != (type)0 && rhs_value->member != (type)0; \
-    }
+     result_value->i32 = lhs_value->member == rhs_value->member;        \
+ }                                                                      \
+ static void prefix##_notequal(const union VMNumericValue *lhs_value,   \
+                               const union VMNumericValue *rhs_value,   \
+                               union VMNumericValue *result_value) {    \
+     result_value->i32 = lhs_value->member != rhs_value->member;        \
+ }                                                                      \
+ static void prefix##_greater(const union VMNumericValue *lhs_value,    \
+                              const union VMNumericValue *rhs_value,    \
+                              union VMNumericValue *result_value) {     \
+     result_value->i32 = lhs_value->member > rhs_value->member;         \
+ }                                                                      \
+ static void prefix##_less(const union VMNumericValue *lhs_value,       \
+                           const union VMNumericValue *rhs_value,       \
+                           union VMNumericValue *result_value) {        \
+     result_value->i32 = lhs_value->member < rhs_value->member;         \
+ }                                                                      \
+ static void prefix##_equalgreater(const union VMNumericValue *lhs_value, \
+                                   const union VMNumericValue *rhs_value, \
+                                   union VMNumericValue *result_value) { \
+     result_value->i32 = lhs_value->member >= rhs_value->member;        \
+ }                                                                      \
+ static void prefix##_equalless(const union VMNumericValue *lhs_value,  \
+                                const union VMNumericValue *rhs_value,  \
+                                union VMNumericValue *result_value) {   \
+     result_value->i32 = lhs_value->member <= rhs_value->member;        \
+ }                                                                      \
+ static void prefix##_or(const union VMNumericValue *lhs_value,         \
+                         const union VMNumericValue *rhs_value,         \
+                         union VMNumericValue *result_value) {          \
+     result_value->i32 = lhs_value->member != (type)0 || rhs_value->member != (type)0; \
+ }                                                                      \
+ static void prefix##_and(const union VMNumericValue *lhs_value,        \
+                          const union VMNumericValue *rhs_value,        \
+                          union VMNumericValue *result_value) {         \
+     result_value->i32 = lhs_value->member != (type)0 && rhs_value->member != (type)0; \
+ }
 
+DEFINE_VM_MOD_SET(i32, int32_t, i32)
 DEFINE_VM_OPERATOR_SET(i32, int32_t, i32)
-    DEFINE_VM_OPERATOR_SET(f32, float, f32)
-    DEFINE_VM_OPERATOR_SET(f64, double, f64)
+DEFINE_VM_OPERATOR_SET(f32, float, f32)
+DEFINE_VM_OPERATOR_SET(f64, double, f64)
 
 #undef DEFINE_VM_OPERATOR_SET
 
-    static const VMOperatorFunc vm_operator_table[3][VM_OPERATOR_COUNT] = {
+static const VMOperatorFunc vm_operator_table[3][VM_OPERATOR_COUNT] = {
     {
         i32_add,
         i32_sub,
         i32_mul,
         i32_div,
+        i32_mod,
         i32_equal,
         i32_notequal,
         i32_greater,
@@ -709,31 +728,33 @@ DEFINE_VM_OPERATOR_SET(i32, int32_t, i32)
 static int get_vm_operator_index(byte expr_opcode) {
     switch (expr_opcode) {
     case OP_ADD:
-        return VM_OPERATOR_ADD;
+    return VM_OPERATOR_ADD;
     case OP_SUB:
-        return VM_OPERATOR_SUB;
+    return VM_OPERATOR_SUB;
     case OP_MUL:
-        return VM_OPERATOR_MUL;
+    return VM_OPERATOR_MUL;
     case OP_DIV:
-        return VM_OPERATOR_DIV;
+    return VM_OPERATOR_DIV;
+    case OP_MOD:
+    return VM_OPERATOR_MOD;
     case OP_EQUAL:
-        return VM_OPERATOR_EQUAL;
+    return VM_OPERATOR_EQUAL;
     case OP_NOTEQUAL:
-        return VM_OPERATOR_NOTEQUAL;
+    return VM_OPERATOR_NOTEQUAL;
     case OP_GREATER:
-        return VM_OPERATOR_GREATER;
+    return VM_OPERATOR_GREATER;
     case OP_LESS:
-        return VM_OPERATOR_LESS;
+    return VM_OPERATOR_LESS;
     case OP_EQUALGREATER:
-        return VM_OPERATOR_EQUALGREATER;
+    return VM_OPERATOR_EQUALGREATER;
     case OP_EQUALLESS:
-        return VM_OPERATOR_EQUALLESS;
+    return VM_OPERATOR_EQUALLESS;
     case OP_OR:
-        return VM_OPERATOR_OR;
+    return VM_OPERATOR_OR;
     case OP_AND:
-        return VM_OPERATOR_AND;
+    return VM_OPERATOR_AND;
     default:
-        return -1;
+    return -1;
     }
 }
 
@@ -835,25 +856,25 @@ static void pack_numeric_result(struct VMOperand* result, int op_level,
 size_t get_operand_size(enum VMOPType op_type) {
     switch (op_type) {
     case OPRND_NULL:
-        return 0;
+    return 0;
 
     case OPRND_BOOL:
-        return 1;
+    return 1;
     case OPRND_CHAR16:
-        return 2;
+    return 2;
     case OPRND_FLOAT32:
-        return 4;
+    return 4;
     case OPRND_FLOAT64:
-        return 8;
+    return 8;
     case OPRND_INT32:
-        return 4;
+    return 4;
     case OPRND_String:
-        return 8;
+    return 8;
     case OPRND_ADDRESS:
-        return 8;
+    return 8;
 
     default:
-        return 0;
+    return 0;
     }
 }
 

@@ -475,6 +475,18 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
         break;
     }
 
+    case '%': {
+        type = TokMod;
+        if (*(tc->cur_ch) == '=') {
+            type = TokModAssign;
+
+            str[str_len++] = *tc->cur_ch;
+            tc->cur_ch++;
+        }
+        
+        break;
+    }
+    
     case '/': {
         type = TokDiv;
         if (*(tc->cur_ch) == '=') {

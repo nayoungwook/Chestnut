@@ -47,7 +47,7 @@ void debug_print_heap_view(const struct VM *vm) {
         heap_mapper_id = (uint32_t) ((header >> 8) & 0x00FFFFFF);
 
         if ((size_t)size > remaining - HEAP_META_SIZE) {
-            printf("[ CORRUPT | size : %" PRIu32 " byte ] ", size);
+            printf("[ CORRUPT | size : %d byte ] ", size);
             break;
         }
 
@@ -164,10 +164,6 @@ unsigned vm_malloc(struct VM *vm, unsigned size, int object_id) {
     memcpy(vm->heap_alloc_loc, &header, sizeof(uint64_t));
     memset((uint8_t *)vm->heap_alloc_loc + HEAP_META_SIZE, 0, size);
     vm->heap_alloc_loc = (uint8_t *)vm->heap_alloc_loc + size + HEAP_META_SIZE;
-
-#ifdef DEBUG
-    debug_print_heap_view(vm);
-#endif
   
     return heap_mapper_index;
 }

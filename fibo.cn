@@ -30,6 +30,6 @@ func main(): void {
     var fibo: Fibo = new Fibo();
     
     for(var i:int =0; i<40; i++){
-        fibo.fibo(i);
+        print(fibo.fibo(i), "\n");
     }
 }

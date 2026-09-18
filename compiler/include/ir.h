@@ -109,7 +109,8 @@
     X(OP_EQUALLESS, 0x0a, "eqless")                                           \
     X(OP_ASSIGN, 0x0b, "assign")                                              \
     X(OP_OR, 0x0c, "or")                                                      \
-    X(OP_AND, 0x0d, "and")
+    X(OP_AND, 0x0d, "and")                                                    \
+    X(OP_MOD, 0x0e, "mod")                                              \
 
 #define DEF_INSTRUCTION(OP_NAME, HEX, OP_STR)                                  \
     enum { OP_NAME = HEX };                                                    \

@@ -23,7 +23,7 @@ static void add_primitive_numeric(struct ParserContext *pc, const char *name, un
     if (pc->numeric_type_count + 1 >= pc->numeric_type_capacity) {
         pc->numeric_type_capacity *= 2;
         pc->numeric_type_array = (struct Type **)S_realloc(
-            pc->numeric_type_array, sizeof(struct Type *) * pc->numeric_type_capacity);
+                                                           pc->numeric_type_array, sizeof(struct Type *) * pc->numeric_type_capacity);
     }
 
     pc->numeric_type_array[pc->numeric_type_count++] = numeric_type;
@@ -454,14 +454,14 @@ static struct Node *gen_var_decl_node(struct Token *first, struct ParserContext 
 
         switch (cont_tok->type) {
         case TokComma:
-            consume(tc, TokComma);
-            break;
+        consume(tc, TokComma);
+        break;
         case TokSemiColon:
-            comp = true;
-            consume(tc, TokSemiColon);
-            break;
+        comp = true;
+        consume(tc, TokSemiColon);
+        break;
         default:
-            panic("Unexpected token in variable declaration.", tc);
+        panic("Unexpected token in variable declaration.", tc);
         }
 
         struct VarDeclAST *var_decl = (struct VarDeclAST *)S_malloc(sizeof(struct VarDeclAST));
@@ -760,7 +760,7 @@ struct Node *parse_expr_node(struct ParserContext *pc) {
     }
 
     case TokLBracket:
-        return gen_array_literal_node(pc);
+    return gen_array_literal_node(pc);
 
     case TokNull: {
         struct NullAST *null = (struct NullAST *)S_malloc(sizeof(struct NullAST));
@@ -795,7 +795,7 @@ struct Node *parse_expr_node(struct ParserContext *pc) {
     }
 
     default:
-        panic("Unexpected Token type\n", tc);
+    panic("Unexpected Token type\n", tc);
     }
 
     return NULL;
@@ -863,11 +863,17 @@ static struct Node *parse_term(struct ParserContext *pc) {
     struct TokenizerContext *tc = pc->tc;
     struct Token *tok = NULL;
 
-    while ((tok = peek(tc)) != NULL && (tok->type == TokMul || tok->type == TokDiv)) {
+    while ((tok = peek(tc)) != NULL && (tok->type == TokMul || tok->type == TokDiv || tok->type == TokMod)) {
         enum TokenType op = pull(tc)->type;
         void *right = parse_unary_expression(pc);
-
-        enum OperatorType op_type = (op == TokMul) ? OpMUL : OpDIV;
+        
+        enum OperatorType op_type = OpNone;
+        if(op == TokMul)
+            op_type = OpMUL;
+        if(op == TokDiv)
+            op_type = OpDIV;
+        if(op == TokMod)
+            op_type = OpMOD;
 
         struct BinExprAST *bin_expr = (struct BinExprAST *)S_malloc(sizeof(struct BinExprAST));
 
@@ -1061,25 +1067,25 @@ static struct Node *parse_compare_expression(struct ParserContext *pc) {
         enum OperatorType op_type = OpNone;
         switch (op) {
         case TokEqual:
-            op_type = OpEQUAL;
-            break;
+        op_type = OpEQUAL;
+        break;
         case TokNotEqual:
-            op_type = OpNOTEQUAL;
-            break;
+        op_type = OpNOTEQUAL;
+        break;
         case TokGreater:
-            op_type = OpGREATER;
-            break;
+        op_type = OpGREATER;
+        break;
         case TokLesser:
-            op_type = OpLESS;
-            break;
+        op_type = OpLESS;
+        break;
         case TokEqualGreater:
-            op_type = OpEQUALGREATER;
-            break;
+        op_type = OpEQUALGREATER;
+        break;
         case TokEqualLesser:
-            op_type = OpEQUALLESS;
-            break;
+        op_type = OpEQUALLESS;
+        break;
         default:
-            panic("Unknown operator type.", tc);
+        panic("Unknown operator type.", tc);
         }
 
         struct BinExprAST *bin_expr = (struct BinExprAST *)S_malloc(sizeof(struct BinExprAST));
@@ -1106,13 +1112,13 @@ static struct Node *parse_logical_expression(struct ParserContext *pc) {
         enum OperatorType op_type = OpNone;
         switch (op) {
         case TokOr:
-            op_type = OpOR;
-            break;
+        op_type = OpOR;
+        break;
         case TokAnd:
-            op_type = OpAND;
-            break;
+        op_type = OpAND;
+        break;
         default:
-            panic("Unknown operator type.", tc);
+        panic("Unknown operator type.", tc);
         }
 
         struct BinExprAST *bin_expr = (struct BinExprAST *)S_malloc(sizeof(struct BinExprAST));
@@ -1134,29 +1140,32 @@ static struct Node *parse_expression(struct ParserContext *pc) {
 
     while (((tok = peek(tc)) != NULL) &&
            (tok->type == TokAssign || tok->type == TokPlusAssign || tok->type == TokMinusAssign ||
-            tok->type == TokMultAssign || tok->type == TokDivAssign)) {
+            tok->type == TokMultAssign || tok->type == TokDivAssign || tok->type == TokModAssign)) {
         enum TokenType op = pull(tc)->type;
         struct Node *right = parse_logical_expression(pc);
 
         enum OperatorType op_type = OpNone;
         switch (op) {
         case TokAssign:
-            op_type = OpASSIGN;
-            break;
+        op_type = OpASSIGN;
+        break;
         case TokPlusAssign:
-            op_type = OpPLUSASSIGN;
-            break;
+        op_type = OpPLUSASSIGN;
+        break;
         case TokMinusAssign:
-            op_type = OpMINUSASSIGN;
-            break;
+        op_type = OpMINUSASSIGN;
+        break;
         case TokMultAssign:
-            op_type = OpMULTASSIGN;
-            break;
+        op_type = OpMULTASSIGN;
+        break;
         case TokDivAssign:
-            op_type = OpDIVASSIGN;
-            break;
+        op_type = OpDIVASSIGN;
+        break;
+        case TokModAssign:
+        op_type = OpMODASSIGN;
+        break;
         default:
-            panic("Unknown operator type.", tc);
+        panic("Unknown operator type.", tc);
         }
 
         struct BinExprAST *bin_expr = (struct BinExprAST *)S_malloc(sizeof(struct BinExprAST));
@@ -1279,7 +1288,7 @@ static void parse_func_structure(struct ParserContext *pc) {
         consume(tc, TokIdent);
         consume(tc, TokColon);
         data->arg_type_names = S_realloc(data->arg_type_names,
-                                        sizeof(char *) * (data->arg_count + 1));
+                                         sizeof(char *) * (data->arg_count + 1));
         data->arg_type_names[data->arg_count++] = parse_signature_type_name(pc);
         if (peek(tc)->type != TokRParen)
             consume(tc, TokComma);

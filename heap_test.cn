@@ -1,0 +1,23 @@
+
+class Foo {
+    var a: int = 0;
+    var b: int = 2;
+    var k: string = "asdf";
+}
+
+func main(): void {
+    var arr: array<Foo> = {};
+
+    for(var i:int =0; i<10; i++){
+        var foo: Foo = new Foo();
+         
+        if(i % 2 == 0){
+            foo.a = i * 2 + 1;
+            arr.push(foo);
+        }
+    }
+
+    for(var i:int=0; i<arr.length; i++){
+        print(arr[i].a, "\n");
+    }
+}
