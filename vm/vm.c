@@ -996,8 +996,10 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
 
         rhs = vm_stack_pop(vm->vm_stack);
         lhs = vm_stack_pop(vm->vm_stack);
+        
         lhs_level = get_operand_level(lhs.op_type);
         rhs_level = get_operand_level(rhs.op_type);
+        
         assert(lhs_level >= 0 && rhs_level >= 0);
 
         op_level = lhs_level > rhs_level ? lhs_level : rhs_level;
@@ -1625,7 +1627,7 @@ void vm_exec_function(struct VM* vm, struct VMFunctionData* function_data, unsig
         if (instruction->opcode == OP_RET)
             break;
     }
-    
+
     vm->stack_pointer = frame;
     vm->stack_frame = caller_frame;
 }

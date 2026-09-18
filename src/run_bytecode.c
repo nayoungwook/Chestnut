@@ -62,8 +62,6 @@ bool run_bytecodes(const char **paths, unsigned count) {
     
     vm_exec_function(vm, entry, (unsigned)-1);
     success = true;
-
-    pack_heap(vm);
     
 done:
 

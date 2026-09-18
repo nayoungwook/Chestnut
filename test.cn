@@ -94,5 +94,8 @@ func main(): void {
   print("\n");
 
   var asdf: Test = new Test();
-  print(asdf.test);
+  print(asdf.test, "\n");
+
+  print(15f / 3, "\n");
+  print(12.5f / 3, "\n");
 }
