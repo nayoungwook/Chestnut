@@ -16,6 +16,14 @@ struct VMVariableData;
 struct VMInstruction;
 struct VM;
 
+// union of numeric value.
+union VMNumericValue {
+    int32_t i32;
+    float f32;
+    double f64;
+    float v[4];
+};
+
 // When adding new operand type, you have to check two functions,
 // get_operand_size and get_operand_level
 enum VMOPType {
@@ -27,14 +35,15 @@ enum VMOPType {
      OPRND_BOOL = 5,
      OPRND_ADDRESS = 6,
      OPRND_CHAR16 = 7,
+     OPRND_VEC = 8
 };
 
 size_t get_operand_size(enum VMOPType op_type);
 enum VMOPType vm_operand_type(const char *type);
 
 struct VMOperand {
-     enum VMOPType op_type;
-     int64_t val;
+    enum VMOPType op_type;
+    union VMNumericValue val;
 };
 
 //              meta data                    contents

@@ -605,6 +605,11 @@ static void check_func_call_semantics(struct ParserContext* pc, struct Node* nod
     }
     
     struct FuncData* func_data = func_call_ast->func_data;
+
+    if(func_data == NULL){
+	panic("Failed to find function", pc->tc);
+    }
+    
     struct Type* ret_type = func_data->return_type;
 
     if (func_data->is_constructor && func_call_ast->super_class == NULL)
@@ -1190,7 +1195,7 @@ void check_semantics(struct ParserContext* pc, struct Node* node) {
 
     case AST_FunctionCall: {
         struct FuncCallAST* func_call_ast = (struct FuncCallAST*)node->ast;
-
+	
         check_func_call_semantics(pc, node, func_call_ast);
 
         break;
@@ -1200,13 +1205,17 @@ void check_semantics(struct ParserContext* pc, struct Node* node) {
         struct BinExprAST* bin_expr_ast = (struct BinExprAST*)node->ast;
 
         check_semantics(pc, bin_expr_ast->left);
+	
         if (bin_expr_ast->op_type == OpASSIGN || bin_expr_ast->op_type == OpPLUSASSIGN ||
             bin_expr_ast->op_type == OpMINUSASSIGN || bin_expr_ast->op_type == OpMULTASSIGN ||
             bin_expr_ast->op_type == OpDIVASSIGN) {
+
             if (bin_expr_ast->left->type != AST_Identifier &&
                 bin_expr_ast->left->type != AST_ArrayAccess)
                 panic("Left side of assignment is not assignable.", pc->tc);
+
             struct Type* target = infer_type(pc, bin_expr_ast->left);
+	    
             if (bin_expr_ast->right->type == AST_ArrayDeclaration) {
                 if (target->type_kind != TK_Array)
                     panic("Array literal requires an array target.", pc->tc);
@@ -1214,8 +1223,8 @@ void check_semantics(struct ParserContext* pc, struct Node* node) {
                     type_token_for(target);
             }
         }
+
         check_semantics(pc, bin_expr_ast->right);
-        (void)infer_type(pc, node);
 
         break;
     }
