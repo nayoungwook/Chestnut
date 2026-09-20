@@ -1,0 +1,34 @@
+class VectorHolder {
+    var value: vector = vector(7, 8, 9);
+
+    func print_value(): void {
+        print("field=", value, "\n");
+    }
+}
+
+func echo(value: vector): vector {
+    return value;
+}
+
+func main(): void {
+    var left: vector = vector(10, 12, 14);
+    var right: vector = vector(2, 3, 4);
+    var holder: VectorHolder = new VectorHolder();
+
+    print("add=", left + right, "\n");
+    print("sub=", left - right, "\n");
+    print("mul=", left * right, "\n");
+    print("div=", left / right, "\n");
+    print("mod=", left % right, "\n");
+    print("decimal=", vector(1.5, 2.25f, 3), "\n");
+    print("arg=", echo(left), "\n");
+    holder.print_value();
+    print("attr=", holder.value, "\n");
+
+    if (left == vector(10, 12, 14)) {
+        print("equal=true\n");
+    }
+    if (left != right) {
+        print("not-equal=true\n");
+    }
+}

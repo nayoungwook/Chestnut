@@ -5,5 +5,5 @@ func main(): void {
      var v1: vector = vector(3, 4, 5);
      var v2: vector = vector(2, 1, 3);
 
-     print(v1 + v2);
+     print(v1 * v2);
 }

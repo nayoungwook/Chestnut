@@ -9,6 +9,8 @@
 #define HEAP_MAX_OBJECT_COUNT 1024 * 256
 #define VM_HEAP_SIZE (1024u * 1024u * 16u)
 #define VM_STACK_SIZE (1024u * 1024u)
+#define VM_VECTOR_COMPONENT_COUNT 3
+#define VM_VECTOR_STORAGE_COUNT 4
 
 struct VMClassData;
 struct VMFunctionData;
@@ -21,7 +23,7 @@ union VMNumericValue {
     int32_t i32;
     float f32;
     double f64;
-    float v[4];
+    float v[VM_VECTOR_STORAGE_COUNT];
 };
 
 // When adding new operand type, you have to check two functions,

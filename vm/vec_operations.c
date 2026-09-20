@@ -6,11 +6,7 @@
 
 #include <vm.h>
 
-static inline __m128
-normalize_mask_ps(__m128 mask)
-{
-    return _mm_and_ps(mask, _mm_set1_ps(1.0f));
-}
+#define VECTOR_COMPONENT_MASK ((1 << VM_VECTOR_COMPONENT_COUNT) - 1)
 
 void
 v_add(const union VMNumericValue *lhs_value,
@@ -91,10 +87,8 @@ v_equal(const union VMNumericValue *lhs_value,
     __m128 lhs = _mm_loadu_ps(lhs_value->v);
     __m128 rhs = _mm_loadu_ps(rhs_value->v);
 
-    __m128 mask = _mm_cmpeq_ps(lhs, rhs);
-    __m128 result = normalize_mask_ps(mask);
-
-    _mm_storeu_ps(result_value->v, result);
+    int mask = _mm_movemask_ps(_mm_cmpeq_ps(lhs, rhs));
+    result_value->i32 = (mask & VECTOR_COMPONENT_MASK) == VECTOR_COMPONENT_MASK;
 }
 
 void
@@ -105,10 +99,8 @@ v_notequal(const union VMNumericValue *lhs_value,
     __m128 lhs = _mm_loadu_ps(lhs_value->v);
     __m128 rhs = _mm_loadu_ps(rhs_value->v);
 
-    __m128 mask = _mm_cmpneq_ps(lhs, rhs);
-    __m128 result = normalize_mask_ps(mask);
-
-    _mm_storeu_ps(result_value->v, result);
+    int mask = _mm_movemask_ps(_mm_cmpneq_ps(lhs, rhs));
+    result_value->i32 = (mask & VECTOR_COMPONENT_MASK) != 0;
 }
 
 void
@@ -119,10 +111,8 @@ v_greater(const union VMNumericValue *lhs_value,
     __m128 lhs = _mm_loadu_ps(lhs_value->v);
     __m128 rhs = _mm_loadu_ps(rhs_value->v);
 
-    __m128 mask = _mm_cmpgt_ps(lhs, rhs);
-    __m128 result = normalize_mask_ps(mask);
-
-    _mm_storeu_ps(result_value->v, result);
+    int mask = _mm_movemask_ps(_mm_cmpgt_ps(lhs, rhs));
+    result_value->i32 = (mask & VECTOR_COMPONENT_MASK) == VECTOR_COMPONENT_MASK;
 }
 
 void
@@ -133,10 +123,8 @@ v_less(const union VMNumericValue *lhs_value,
     __m128 lhs = _mm_loadu_ps(lhs_value->v);
     __m128 rhs = _mm_loadu_ps(rhs_value->v);
 
-    __m128 mask = _mm_cmplt_ps(lhs, rhs);
-    __m128 result = normalize_mask_ps(mask);
-
-    _mm_storeu_ps(result_value->v, result);
+    int mask = _mm_movemask_ps(_mm_cmplt_ps(lhs, rhs));
+    result_value->i32 = (mask & VECTOR_COMPONENT_MASK) == VECTOR_COMPONENT_MASK;
 }
 
 void
@@ -147,10 +135,8 @@ v_equalgreater(const union VMNumericValue *lhs_value,
     __m128 lhs = _mm_loadu_ps(lhs_value->v);
     __m128 rhs = _mm_loadu_ps(rhs_value->v);
 
-    __m128 mask = _mm_cmpge_ps(lhs, rhs);
-    __m128 result = normalize_mask_ps(mask);
-
-    _mm_storeu_ps(result_value->v, result);
+    int mask = _mm_movemask_ps(_mm_cmpge_ps(lhs, rhs));
+    result_value->i32 = (mask & VECTOR_COMPONENT_MASK) == VECTOR_COMPONENT_MASK;
 }
 
 void
@@ -161,10 +147,8 @@ v_equalless(const union VMNumericValue *lhs_value,
     __m128 lhs = _mm_loadu_ps(lhs_value->v);
     __m128 rhs = _mm_loadu_ps(rhs_value->v);
 
-    __m128 mask = _mm_cmple_ps(lhs, rhs);
-    __m128 result = normalize_mask_ps(mask);
-
-    _mm_storeu_ps(result_value->v, result);
+    int mask = _mm_movemask_ps(_mm_cmple_ps(lhs, rhs));
+    result_value->i32 = (mask & VECTOR_COMPONENT_MASK) == VECTOR_COMPONENT_MASK;
 }
 
 void

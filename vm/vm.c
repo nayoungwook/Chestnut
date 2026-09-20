@@ -17,6 +17,7 @@
 #include <vec_operations.h>
 
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -559,7 +560,7 @@ static void unpack_numeric_operand(const struct VMOperand* operand, int op_level
     }
     case 2: {
         if (operand_level == 0) {
-            value->f64 = (double)operand->val.f64;
+            value->f64 = (double)operand->val.i32;
         }
         else if (operand_level == 1) {
             float float_value;
@@ -574,15 +575,45 @@ static void unpack_numeric_operand(const struct VMOperand* operand, int op_level
         break;
     }
     case 3: {
-	memcpy(value->v, operand->val.v, sizeof(value->v));
-	break;
+        float scalar;
+        int i;
 
-	break;
+        if (operand_level == 3) {
+            memcpy(value->v, operand->val.v, sizeof(value->v));
+            break;
+        }
+
+        if (operand_level == 0)
+            scalar = (float)operand->val.i32;
+        else if (operand_level == 1)
+            scalar = operand->val.f32;
+        else
+            scalar = (float)operand->val.f64;
+
+        for (i = 0; i < VM_VECTOR_STORAGE_COUNT; i++)
+            value->v[i] = scalar;
+        break;
     }
     default: {
         assert(false && "Invalid numeric operand level.");
         break;
     }
+    }
+}
+
+static float numeric_operand_to_float(const struct VMOperand* operand) {
+    switch (operand->op_type) {
+    case OPRND_INT32:
+    case OPRND_CHAR16:
+    case OPRND_BOOL:
+        return (float)operand->val.i32;
+    case OPRND_FLOAT32:
+        return operand->val.f32;
+    case OPRND_FLOAT64:
+        return (float)operand->val.f64;
+    default:
+        assert(false && "Vector components must be numeric.");
+        return 0.0f;
     }
 }
 
@@ -633,9 +664,9 @@ static void handle_syscall(struct VM* vm, int id, int argc) {
 	    case OPRND_VEC: {
 		int i;
 		printf("(");
-		for(i=0; i<4; i++){
+		for (i = 0; i < VM_VECTOR_COMPONENT_COUNT; i++) {
 		    printf("%g", op.val.v[i]);
-		    if(i != 4)
+		    if (i + 1 != VM_VECTOR_COMPONENT_COUNT)
 			printf(",");
 		}
 		printf(")");
@@ -656,13 +687,11 @@ static void handle_syscall(struct VM* vm, int id, int argc) {
 	struct VMOperand result = {0, };
 	result.op_type = OPRND_VEC;
 
-	assert(argc <= 4);
+	assert(argc == VM_VECTOR_COMPONENT_COUNT);
 	
 	for(i=0; i<argc; i++){
             struct VMOperand op = vm_stack_pop(vm->vm_stack);
-	    union VMNumericValue value;
-	    unpack_numeric_operand(&op, OPRND_FLOAT32, &value);
-	    result.val.v[argc - i - 1] = value.f32;
+	    result.val.v[i] = numeric_operand_to_float(&op);
 	}
 
 	vm_stack_push(vm->vm_stack, result);
@@ -703,6 +732,13 @@ enum VMOperatorIndex {
 			     const union VMNumericValue *rhs_value,     \
 			     union VMNumericValue *result_value) {      \
 	result_value->member = lhs_value->member % rhs_value->member;   \
+    }                                                                   \
+
+#define DEFINE_VM_FLOAT_MOD_SET(prefix, function, member)               \
+    static void prefix##_mod(const union VMNumericValue *lhs_value,     \
+                             const union VMNumericValue *rhs_value,     \
+                             union VMNumericValue *result_value) {      \
+        result_value->member = function(lhs_value->member, rhs_value->member); \
     }                                                                   \
 
 // pre definition of operator set,
@@ -771,6 +807,8 @@ enum VMOperatorIndex {
     }\
 
 DEFINE_VM_MOD_SET(i32, int32_t, i32)
+DEFINE_VM_FLOAT_MOD_SET(f32, fmodf, f32)
+DEFINE_VM_FLOAT_MOD_SET(f64, fmod, f64)
 DEFINE_VM_OPERATOR_SET(i32, int32_t, i32)
 DEFINE_VM_OPERATOR_SET(f32, float, f32)
 DEFINE_VM_OPERATOR_SET(f64, double, f64)
@@ -798,6 +836,7 @@ static const VMOperatorFunc vm_operator_table[4][VM_OPERATOR_COUNT] = {
         f32_sub,
         f32_mul,
         f32_div,
+        f32_mod,
         f32_equal,
         f32_notequal,
         f32_greater,
@@ -812,6 +851,7 @@ static const VMOperatorFunc vm_operator_table[4][VM_OPERATOR_COUNT] = {
         f64_sub,
         f64_mul,
         f64_div,
+        f64_mod,
         f64_equal,
         f64_notequal,
         f64_greater,
@@ -826,6 +866,7 @@ static const VMOperatorFunc vm_operator_table[4][VM_OPERATOR_COUNT] = {
         v_sub,
         v_mul,
         v_div,
+        v_mod,
         v_equal,
         v_notequal,
         v_greater,
@@ -927,7 +968,7 @@ size_t get_operand_size(enum VMOPType op_type) {
     case OPRND_ADDRESS:
 	return 8;
     case OPRND_VEC:
-	return 4 * 3;
+	return sizeof(float) * VM_VECTOR_COMPONENT_COUNT;
 
     default:
     return 0;
@@ -1092,14 +1133,12 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         int offset = arguments[0];
         size_t size = (size_t)arguments[1];
 
-        int64_t value = 0;
         size_t frame_offset = (uint8_t*)vm->stack_frame - (uint8_t*)vm->stack;
         enum VMOPType type = (enum VMOPType)vm->stack_pointer_type[frame_offset + offset];
-        struct VMOperand operand;
+        struct VMOperand operand = { type, {0, } };
 
-        memcpy(&value, (uint8_t*)vm->stack_frame + offset, size);
-        operand.op_type = type;
-	memcpy(&operand.val, &value, sizeof(value));
+        assert(size <= sizeof(operand.val));
+	memcpy(&operand.val, (uint8_t*)vm->stack_frame + offset, size);
         vm_stack_push(vm->vm_stack, operand);
 
         break;
@@ -1147,12 +1186,11 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         unsigned variable_id;
         unsigned offset;
         unsigned size;
-        uint64_t val = 0;
         struct VMVariableData* variable_data;
-        struct VMOperand operand;
+        struct VMOperand operand = { OPRND_NULL, {0, } };
 
         assert(heap_index != (unsigned)-1 && arguments[0] >= 0 && arguments[1] >= 0 &&
-               arguments[2] > 0 && (size_t)arguments[2] <= sizeof(val));
+               arguments[2] > 0 && (size_t)arguments[2] <= sizeof(operand.val));
 
         variable_id = (unsigned)arguments[0];
         offset = (unsigned)arguments[1];
@@ -1162,11 +1200,10 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         assert(variable_data != NULL && variable_data->offset == offset &&
                variable_data->size == size);
 
-        memcpy(&val, (uint8_t*)vm->heap_mapper[heap_index] + 8 + offset, size);
         operand.op_type = (enum VMOPType)variable_data->operand_type;
-        if (operand.op_type == OPRND_ADDRESS && val == 0)
+        memcpy(&operand.val, (uint8_t*)vm->heap_mapper[heap_index] + 8 + offset, size);
+        if (operand.op_type == OPRND_ADDRESS && operand.val.i32 == 0)
             operand.op_type = OPRND_NULL;
-	memcpy(&operand.val, &val, sizeof(val));
         vm_stack_push(vm->vm_stack, operand);
 
         break;
@@ -1256,7 +1293,7 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
         
     case OP_LOAD_ATTR: {
         struct VMOperand object;
-        struct VMOperand value;
+        struct VMOperand value = { OPRND_NULL, {0, } };
         struct VMVariableData* variable_data;
         unsigned variable_id;
         unsigned offset;
@@ -1276,7 +1313,6 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
                variable_data->size == size);
 
         value.op_type = (enum VMOPType)variable_data->operand_type;
-        value.val.i32 = 0;
         memcpy(&value.val, (uint8_t*)vm->heap_mapper[(unsigned)object.val.i32] + 8 + offset, size);
         if (value.op_type == OPRND_ADDRESS && value.val.i32 == 0)
             value.op_type = OPRND_NULL;
@@ -1485,6 +1521,12 @@ void exec_instruction(struct VM* vm, const struct VMInstruction* instruction,
 	case OPRND_FLOAT64:
 	    numeric_value.f64 = -operand.val.f64;
 	    break;
+	case OPRND_VEC: {
+	    int i;
+	    for (i = 0; i < VM_VECTOR_COMPONENT_COUNT; i++)
+		numeric_value.v[i] = -operand.val.v[i];
+	    break;
+	}
 	default:
 	    break;
 	}

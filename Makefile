@@ -15,6 +15,7 @@ OBJS = $(SRC:.c=.o)
 
 TARGET = chestnut
 CLEAN_FILES = $(OBJS) $(COMPILER_OBJS) $(VM_OBJS) $(TARGET)$(EXE)
+LDLIBS += -lm
 
 ifeq ($(OS),Windows_NT)
 EXE = .exe
@@ -25,7 +26,7 @@ endif
 all: $(TARGET)$(EXE)
 
 $(TARGET)$(EXE): $(OBJS) $(COMPILER_OBJS) $(VM_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
