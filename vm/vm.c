@@ -666,6 +666,7 @@ static void handle_syscall(struct VM* vm, int id, int argc) {
 		printf("(");
 		for (i = 0; i < VM_VECTOR_COMPONENT_COUNT; i++) {
 		    printf("%g", op.val.v[i]);
+		    
 		    if (i + 1 != VM_VECTOR_COMPONENT_COUNT)
 			printf(",");
 		}

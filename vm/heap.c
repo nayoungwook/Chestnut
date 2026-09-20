@@ -119,14 +119,6 @@ void vm_replace_heap_block(struct VM *vm, unsigned target_heap_mapper_index,
     void *replacement;
     uint64_t header;
 
-    assert(target_heap_mapper_index > 0 &&
-           target_heap_mapper_index < HEAP_MAX_OBJECT_COUNT &&
-           replacement_heap_mapper_index > 0 &&
-           replacement_heap_mapper_index < HEAP_MAX_OBJECT_COUNT &&
-           target_heap_mapper_index != replacement_heap_mapper_index &&
-           vm->heap_mapper[target_heap_mapper_index] != NULL &&
-           vm->heap_mapper[replacement_heap_mapper_index] != NULL);
-
     replacement = vm->heap_mapper[replacement_heap_mapper_index];
     memcpy(&header, replacement, sizeof(header));
     header &= ~((uint64_t)0x00FFFFFFu << 8);
