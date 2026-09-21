@@ -731,6 +731,21 @@ static void pass_comment(struct Token *first, struct ParserContext *pc) {
     }
 }
 
+static void pass_preprocessor(struct Token *first, struct ParserContext *pc){
+    struct TokenizerContext *tc = pc->tc;
+
+    struct Token *tok;
+
+    switch((tok = peek(tc))->type){
+    case TokImport:
+    consume(tc, TokImport);
+    consume(tc, TokStringLiteral);
+    break;
+    default:
+    break;
+    }
+    
+}
 struct Node *parse_expr_node(struct ParserContext *pc) {
     struct TokenizerContext *tc = pc->tc;
     assert(tc != NULL);
@@ -876,6 +891,12 @@ struct Node *parse_stmt(struct ParserContext *pc) {
 
     case TokComment: {
         pass_comment(first, pc);
+        return NULL;
+    }
+
+    case TokSharp: {
+        pull(tc);
+        pass_preprocessor(first, pc);
         return NULL;
     }
     
@@ -1398,6 +1419,11 @@ void parse_structure(struct ParserContext *pc) {
 
     case TokComment: {
         pass_comment(first, pc);
+        break;
+    }
+
+    case TokSharp: {
+        pass_preprocessor(first, pc);
         break;
     }
 

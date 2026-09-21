@@ -1,8 +1,8 @@
 CC = gcc
 
 # for debug
- CFLAGS = -Wall -Og -g -msse4.1 -Icompiler/include -Ivm/include -Isrc/
-# CFLAGS = -Wall -O2 -msse4.1 -Icompiler/include -Ivm/include -Isrc/
+ CFLAGS = -Wall -Og -g -msse4.1 -Icompiler/include -Ivm/include -Isrc/include -Isrc
+# CFLAGS = -Wall -O2 -msse4.1 -Icompiler/include -Ivm/include -Isrc/include -Isrc
 
 COMPILER_SRC = $(wildcard compiler/*.c)
 COMPILER_OBJS = $(COMPILER_SRC:.c=.o)

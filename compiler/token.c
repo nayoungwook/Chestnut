@@ -127,6 +127,7 @@ static void init_keyword() {
     insert_keyword("true", TokTrue);
     insert_keyword("false", TokFalse);
     insert_keyword("null", TokNull);
+    insert_keyword("import", TokImport);
 }
 
 void init_tc(struct TokenizerContext *tc) {

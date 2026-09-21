@@ -1,3 +1,4 @@
+#import "test2.cn"
 
 class Test {
      var test: float = 0.2f;

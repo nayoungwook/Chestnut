@@ -82,6 +82,7 @@ enum TokenType {
     TokModAssign = 57,
 
     TokComment = 58,
+    TokImport = 59,
 };
 
 struct Token {

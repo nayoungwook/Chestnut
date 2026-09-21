@@ -1,4 +1,6 @@
-#include "compile_sources.h"
+#include <compile_sources.h>
+#include <token.h>
+#include <source_manager.h>
 
 #include <ir.h>
 #include <semantics.h>
@@ -113,38 +115,95 @@ static bool write_source(struct ParserContext *pc, const struct SourceFile *sour
     return written;
 }
 
-bool compile_sources(const char **paths, unsigned count) {
+static void check_preprocessor(struct HTable *source_table, struct Sources *sources, const char *path){    
+    struct TokenizerContext *tc = gen_tc(read_file(path));
+
+    struct Token *tok = NULL;
+    
+    while((tok = peek(tc)) != NULL && tok->type != TokEOF){
+        tok = pull(tc);
+        
+        if(tok->type == TokSharp){
+            struct Token *pp_tok = pull(tc);
+
+            switch(pp_tok->type){
+            case TokImport:{
+                struct Token *path_tok = consume(tc, TokStringLiteral);
+
+                const char *import_path = path_tok->str;
+                
+                if(ht_find(source_table, import_path) != NULL){
+                    break;
+                }
+
+                ht_insert(source_table, import_path, (char *) import_path);
+
+                add_source(sources, import_path);
+                
+                break;
+            }
+
+            default:
+            printf("Unknown preprocessor : %s", pp_tok->str);
+            break;
+            }
+        }
+    }
+
+    free(tc);
+}
+
+void handle_preprocessor(struct HTable *source_table, struct Sources *sources){
+    int i;
+    unsigned count = sources->count;
+    
+    for(i=0; i<count; i++){
+        check_preprocessor(source_table, sources, sources->paths[i]);
+    }
+}
+
+bool compile_sources(struct Sources *sources) {
     struct ParserContext *pc = gen_pc();
-    struct SourceFile *sources = S_malloc(sizeof(*sources) * count);
+    unsigned count = sources->count;
+    struct SourceFile *source_files = S_malloc(sizeof(*source_files) * count);
     unsigned loaded = 0;
     unsigned i;
     bool success = false;
-
+    
     for (i = 0; i < count; i++) {
-        char *text = read_file(paths[i]);
+        char *text = read_file(sources->paths[i]);
+
         if (text == NULL)
             goto done;
-        sources[i].path = paths[i];
-        sources[i].tc = gen_tc(text);
-        q_push(pc->first_pass_queue, sources[i].tc);
+        
+        source_files[i].path = sources->paths[i];
+        source_files[i].tc = gen_tc(text);
+        
+        q_push(pc->first_pass_queue, source_files[i].tc);
         loaded++;
     }
+    
     resolve_first_pass_queue(pc);
+    
     for (i = 0; i < count; i++) {
-        sources[i].node_begin = pc->node_count;
+        source_files[i].node_begin = pc->node_count;
         compile_file(pc, q_pop(pc->second_pass_queue));
-        sources[i].node_count = pc->node_count - sources[i].node_begin;
+        source_files[i].node_count = pc->node_count - source_files[i].node_begin;
     }
-    analyze_sources(pc, sources, count);
+    
+    analyze_sources(pc, source_files, count);
+    
     for (i = 0; i < count; i++)
-        if (!write_source(pc, &sources[i]))
+        if (!write_source(pc, &source_files[i]))
             goto done;
+    
     success = true;
 
-done:
+ done:
     free_pc(pc);
     for (i = 0; i < loaded; i++)
-        free_tc(sources[i].tc);
+        free_tc(source_files[i].tc);
     free(sources);
+    
     return success;
 }
