@@ -1,12 +1,13 @@
 
 func main(): void {
-     print("Hello, World!\n");
+    print("Hello, World!\n");
 
-     var v: vector = vector(2, 2, 0);
+    var v: vector = vector(2, 2);
 
-     for(var i:int =0; i<10; i++){
-	 v *= vector(1.5f, 1.5f, 0);
-     }
+    for(var i:int =0; i<10; i++){
+        v *= vector(1.5f, 1.5f, 0);
+    }
 
-     print(v);
+    print(v, "\n");
+
 }

@@ -495,6 +495,11 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
             str[str_len++] = *tc->cur_ch;
             tc->cur_ch++;
         }
+        if(*(tc->cur_ch) == '/'){
+            type = TokComment;
+            str[str_len++] = *tc->cur_ch;
+            tc->cur_ch++;
+        }
         break;
     }
 

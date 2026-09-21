@@ -664,11 +664,12 @@ static void handle_syscall(struct VM* vm, int id, int argc) {
 	    case OPRND_VEC: {
 		int i;
 		printf("(");
+        
 		for (i = 0; i < VM_VECTOR_COMPONENT_COUNT; i++) {
 		    printf("%g", op.val.v[i]);
 		    
 		    if (i + 1 != VM_VECTOR_COMPONENT_COUNT)
-			printf(",");
+                printf(", ");
 		}
 		printf(")");
 		break;
@@ -688,10 +689,10 @@ static void handle_syscall(struct VM* vm, int id, int argc) {
 	struct VMOperand result = {0, };
 	result.op_type = OPRND_VEC;
 
-	assert(argc == VM_VECTOR_COMPONENT_COUNT);
-	
+    memset(result.val.v, 0, sizeof(result.val.v));
+    
 	for(i=0; i<argc; i++){
-            struct VMOperand op = vm_stack_pop(vm->vm_stack);
+        struct VMOperand op = vm_stack_pop(vm->vm_stack);
 	    result.val.v[i] = numeric_operand_to_float(&op);
 	}
 

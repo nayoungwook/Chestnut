@@ -357,9 +357,9 @@ static struct Node **gen_body(struct ParserContext *pc, unsigned *body_size) {
     unsigned size = 0, capacity = 1;
     struct Node **result = (struct Node **)S_malloc(sizeof(struct Node *) * capacity);
 
-    while (peek(tc)->type != TokRBracket) {
+    while (peek(tc)->type != TokRBracket && peek(tc)->type != TokEOF) {
         void *element = parse_stmt(pc);
-        assert(element != NULL);
+        if(element == NULL) continue;
 
         if (size + 1 >= capacity) {
             capacity *= 2;
@@ -714,6 +714,23 @@ static struct Type *find_numeric_type(struct ParserContext *pc, unsigned nbyte, 
     return NULL;
 }
 
+static void pass_comment(struct Token *first, struct ParserContext *pc) {
+    struct TokenizerContext *tc = pc->tc;
+    unsigned line_num_cache = tc->line_num;
+
+    while(line_num_cache == tc->line_num){
+        struct Token *tok = peek(tc);
+
+        if(line_num_cache == tc->line_num){
+            pull(tc);
+        }
+
+        if(tok->type == TokEOF){
+            return;
+        }
+    }
+}
+
 struct Node *parse_expr_node(struct ParserContext *pc) {
     struct TokenizerContext *tc = pc->tc;
     assert(tc != NULL);
@@ -798,6 +815,11 @@ struct Node *parse_expr_node(struct ParserContext *pc) {
         return NULL;
     }
 
+    case TokComment: {
+        pass_comment(first, pc);
+        return NULL;
+    }
+    
     default:
 	panic("Unexpected Token type\n", tc);
     }
@@ -852,6 +874,11 @@ struct Node *parse_stmt(struct ParserContext *pc) {
         return NULL;
     }
 
+    case TokComment: {
+        pass_comment(first, pc);
+        return NULL;
+    }
+    
     default: {
         struct Node *expr = parse_expression(pc);
         consume(tc, TokSemiColon);
@@ -1366,6 +1393,11 @@ void parse_structure(struct ParserContext *pc) {
 
     case TokConstructor: {
         parse_constructor_structure(pc);
+        break;
+    }
+
+    case TokComment: {
+        pass_comment(first, pc);
         break;
     }
 
