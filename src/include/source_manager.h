@@ -7,6 +7,8 @@ struct Sources {
 };
 
 struct Sources *gen_sources();
+/* Store an owned copy so tokenizer-owned import paths can be released. */
 void add_source(struct Sources *sources, const char *path);
+void free_sources(struct Sources *sources);
 
 #endif

@@ -107,7 +107,11 @@ void compile_file(struct ParserContext *pc, struct TokenizerContext *tc) {
 
     pc->tc = tc;
 
-    while ((node = parse_stmt(pc)) != NULL) {
+    while (peek(tc)->type != TokEOF) {
+        node = parse_stmt(pc);
+        if (node == NULL)
+            continue;
+
         if (node->type == AST_FunctionDeclaration) {
             struct FuncDeclAST *ast = node->ast;
             struct FuncData *data = ht_find(pc->glob_func_smtb, ast->func_name_tok->str);

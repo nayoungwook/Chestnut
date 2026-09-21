@@ -41,6 +41,16 @@ The Makefile uses `gcc -Wall -O2` by default and produces `chestnut.exe` on Wind
 
 The CLI compiles all `.cn` inputs in one shared context and writes bytecode beside each source: `test.cn` becomes `test.cb`. Class IDs start at 1 in each file. For example, `chestnut foo.cn bar.cn` produces `foo.cb` and `bar.cb`. Source files share symbols and types, so references across files are resolved during compilation. Each output contains the shared class metadata using ordinary `META_CLASS` entries, with sequential class IDs starting at 1, and its own code. Pass the related `.cb` files together to supply all class and function bodies. No separate class-reference metadata is emitted. A `.cn` input compiles without executing. A `.cb` input runs its `main` function on the VM: `chestnut test.cb`. All `.cn` inputs are compiled together before any `.cb` input is executed. For example, `chestnut test.cn test.cb` compiles and then runs the program. All `.cb` inputs load into one VM: metadata is registered first and `main` runs once. Matching class names reuse the same runtime class; conflicting IDs for different classes are reassigned and class operands are rewritten through a per-file ID map. Class and string references are relocated per file. For example, run `chestnut test.cn test2.cn`, then `chestnut test.cb test2.cb`. Recompile older bytecode to use the shared `META_CLASS` metadata layout. With no arguments, the CLI prints usage. Other extensions are rejected.
 
+`#import "test2.cn"` adds a source file to the shared compilation context. Imported files are scanned for further imports, and repeated paths are compiled once. Import paths are relative to the current working directory. For example, `chestnut test.cn` also compiles the `test2.cn` imported by that file; run the resulting program with `chestnut test.cb test2.cb`.
+
+Run the import regression tests after building (Python 3 required):
+
+```sh
+python tests/test_preprocessor.py
+```
+
+The tests compile and execute temporary programs covering directives, comments, nested imports, duplicate imports, cycles, and invalid inputs. An optional first argument selects a different compiler executable.
+
 ## Syntax Example
 
 Save the following as `hello.cn` and compile it with `./chestnut hello.cn` or `.\chestnut.exe hello.cn`:

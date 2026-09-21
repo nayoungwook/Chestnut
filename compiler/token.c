@@ -500,6 +500,8 @@ static struct Token *gen_sc_token(struct TokenizerContext *tc) {
             type = TokComment;
             str[str_len++] = *tc->cur_ch;
             tc->cur_ch++;
+            while (*tc->cur_ch != '\0' && *tc->cur_ch != '\n')
+                tc->cur_ch++;
         }
         break;
     }

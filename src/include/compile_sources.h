@@ -8,7 +8,7 @@
 struct HTable;
 struct Sources;
 
-void handle_preprocessor(struct HTable *source_table, struct Sources *sources);
+bool handle_preprocessor(struct HTable *source_table, struct Sources *sources);
 bool compile_sources(struct Sources *sources);
 
 #endif

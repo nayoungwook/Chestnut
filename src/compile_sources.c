@@ -115,8 +115,12 @@ static bool write_source(struct ParserContext *pc, const struct SourceFile *sour
     return written;
 }
 
-static void check_preprocessor(struct HTable *source_table, struct Sources *sources, const char *path){    
-    struct TokenizerContext *tc = gen_tc(read_file(path));
+static bool check_preprocessor(struct HTable *source_table, struct Sources *sources, const char *path){
+    char *text = read_file(path);
+    if (text == NULL)
+        return false;
+
+    struct TokenizerContext *tc = gen_tc(text);
 
     struct Token *tok = NULL;
     
@@ -136,30 +140,34 @@ static void check_preprocessor(struct HTable *source_table, struct Sources *sour
                     break;
                 }
 
-                ht_insert(source_table, import_path, (char *) import_path);
-
                 add_source(sources, import_path);
+                import_path = sources->paths[sources->count - 1];
+                ht_insert(source_table, import_path, (void *)import_path);
                 
                 break;
             }
 
             default:
-            printf("Unknown preprocessor : %s", pp_tok->str);
-            break;
+                fprintf(stderr, "%s:%u: Unknown preprocessor: %s\n", path,
+                        tc->line_num, pp_tok->str);
+                free_tc(tc);
+                return false;
             }
         }
     }
 
-    free(tc);
+    free_tc(tc);
+    return true;
 }
 
-void handle_preprocessor(struct HTable *source_table, struct Sources *sources){
-    int i;
-    unsigned count = sources->count;
-    
-    for(i=0; i<count; i++){
-        check_preprocessor(source_table, sources, sources->paths[i]);
-    }
+bool handle_preprocessor(struct HTable *source_table, struct Sources *sources){
+    unsigned i;
+
+    /* Imports append to this queue; inspect them too, once per registered path. */
+    for (i = 0; i < sources->count; i++)
+        if (!check_preprocessor(source_table, sources, sources->paths[i]))
+            return false;
+    return true;
 }
 
 bool compile_sources(struct Sources *sources) {
@@ -203,7 +211,7 @@ bool compile_sources(struct Sources *sources) {
     free_pc(pc);
     for (i = 0; i < loaded; i++)
         free_tc(source_files[i].tc);
-    free(sources);
+    free(source_files);
     
     return success;
 }

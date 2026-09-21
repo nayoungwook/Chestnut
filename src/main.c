@@ -11,15 +11,15 @@ static bool has_extension(const char *path, const char *expected) {
 }
 
 int main(int argc, char *argv[]) {
+    if (argc < 2)
+        return 1;
+
     struct HTable *source_table = gen_htable();
     struct Sources *sources = gen_sources();
 
     int i;
     bool compiled;
 
-    if (argc < 2)
-        return 1;
-    
     for (i = 1; i < argc; i++) {
         if (has_extension(argv[i], ".cn")) {
             if(ht_find(source_table, argv[i]) == NULL){
@@ -28,14 +28,15 @@ int main(int argc, char *argv[]) {
             }
         } else if (!has_extension(argv[i], ".cb")) {
             fprintf(stderr, "Unsupported file extension: %s (expected .cn or .cb)\n", argv[i]);
-            free(sources);
+            free_htable(source_table);
+            free_sources(sources);
             return 1;
         }
     }
 
-    handle_preprocessor(source_table, sources);
-
-    compiled = compile_sources(sources);
+    compiled = handle_preprocessor(source_table, sources) && compile_sources(sources);
+    free_htable(source_table);
+    free_sources(sources);
     
     if (!compiled)
         return 1;
