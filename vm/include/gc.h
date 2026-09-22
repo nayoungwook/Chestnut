@@ -3,6 +3,6 @@
 
 struct VM;
 
-void clean_heap(struct VM *vm);
+void gc(struct VM *vm);
 
 #endif

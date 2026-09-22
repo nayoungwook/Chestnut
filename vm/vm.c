@@ -22,7 +22,7 @@
 #include <string.h>
 #include <time.h>
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 
