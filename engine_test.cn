@@ -1,0 +1,7 @@
+	
+func main(): void {
+
+	 var win: window = window("title", 1280, 720);	 
+
+	 return;
+}

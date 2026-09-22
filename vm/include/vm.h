@@ -17,10 +17,12 @@ struct VMFunctionData;
 struct VMVariableData;
 struct VMInstruction;
 struct VM;
+struct Engine;
 
 // union of numeric value.
 union VMNumericValue {
     int32_t i32;
+    uint64_t u64;
     float f32;
     double f64;
     float v[VM_VECTOR_STORAGE_COUNT];
@@ -37,7 +39,8 @@ enum VMOPType {
     OPRND_BOOL = 5,
     OPRND_ADDRESS = 6,
     OPRND_CHAR16 = 7,
-    OPRND_VEC = 8
+    OPRND_VEC = 8,
+    OPRND_WINDOW = 9
 };
 
 size_t get_operand_size(enum VMOPType op_type);
@@ -93,6 +96,7 @@ struct VM {
 
     struct VMStack *vm_stack;
     struct VMStringPool *vm_string_pool;
+    struct Engine *engine;
     
     void *heap_mapper[HEAP_MAX_OBJECT_COUNT];
     unsigned ref_count[HEAP_MAX_OBJECT_COUNT];

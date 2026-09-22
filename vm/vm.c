@@ -10,6 +10,7 @@
 #include <immintrin.h>
 
 #include <code_data.h>
+#include <engine.h>
 #include <heap.h>
 #include <ir.h>
 #include <util.h>
@@ -77,6 +78,7 @@ struct VM* gen_vm() {
     vm->function_data_capacity = 1;
     vm->function_data = (struct VMFunctionData**)S_malloc(sizeof(struct VMFunctionData*));
     vm->function_data[0] = NULL;
+    vm->main_func_id = (unsigned)-1;
 
 #if defined(__unix__) || defined(__APPLE__)
     vm->heap = mmap(NULL, VM_HEAP_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -108,6 +110,7 @@ struct VM* gen_vm() {
     vm->vm_string_pool = (struct VMStringPool*)S_malloc(sizeof(struct VMStringPool));
     vm->vm_string_pool->str_pool = NULL;
     vm->vm_string_pool->size = 0;
+    vm->engine = NULL;
 
     vm->heap_index = 1;
     vm->heap_index_queue = gen_queue();
@@ -162,6 +165,7 @@ void free_vm(struct VM* vm) {
 
     if (vm == NULL)
         return;
+    free_engine(vm->engine);
     for (i = 0; i < vm->function_data_capacity; i++)
         free_function_data(vm->function_data[i]);
 
@@ -710,6 +714,32 @@ static void handle_syscall(struct VM* vm, int id, int argc) {
         
         break;
     }
+    case 3: { // window(title, width, height)
+        assert(argc == 3);
+        struct VMOperand title = vm_stack_pop(vm->vm_stack);
+        struct VMOperand width = vm_stack_pop(vm->vm_stack);
+        struct VMOperand height = vm_stack_pop(vm->vm_stack);
+
+        assert(title.op_type == OPRND_String && width.op_type == OPRND_INT32 &&
+               height.op_type == OPRND_INT32);
+
+        if (!vm->engine)
+            vm->engine = gen_engine();
+
+        struct VMOperand result = { OPRND_WINDOW, {0, } };
+		
+        if (vm->engine && add_window(vm->engine,
+                                     get_string_pool(vm, title.val.i32),
+                                     width.val.i32, height.val.i32)) {
+            result.val.u64 = vm->engine->window_count;
+        } else {
+            fprintf(stderr, "window() failed to create a window\n");
+        }
+		
+        vm_stack_push(vm->vm_stack, result);
+		
+        break;
+    }
     
     default: {
         assert(false && "Syscall not implemented.");
@@ -980,6 +1010,8 @@ size_t get_operand_size(enum VMOPType op_type) {
 	return 8;
     case OPRND_ADDRESS:
 	return 8;
+    case OPRND_WINDOW:
+	return 8;
     case OPRND_VEC:
 	return sizeof(float) * VM_VECTOR_COMPONENT_COUNT;
 
@@ -1003,6 +1035,8 @@ enum VMOPType vm_operand_type(const char* type) {
         return OPRND_String;
     if (strcmp(type, "vector") == 0)
         return OPRND_VEC;
+    if (strcmp(type, "window") == 0)
+        return OPRND_WINDOW;
         
     return OPRND_ADDRESS;
 }
@@ -1764,6 +1798,12 @@ void vm_exec_function(struct VM* vm, struct VMFunctionData* function_data, unsig
 
     vm->stack_pointer = frame;
     vm->stack_frame = caller_frame;
+
+	// DEBUG : run_engine below here is for debug.
+    if (caller_frame == vm->stack && function_data->id == vm->main_func_id &&
+        vm->engine && vm->engine->window_count > 0) {
+        run_engine(vm->engine);
+    }
 }
 
 void vm_stack_push(struct VMStack* vm_stack, struct VMOperand val) {

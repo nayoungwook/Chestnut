@@ -46,6 +46,8 @@ static void init_primitive(struct ParserContext *pc) {
     ht_insert(pc->primitive_type_smtb, "string", gen_primitive_type("string", 8));
 
     ht_insert(pc->primitive_type_smtb, "vector", gen_primitive_type("vector", 4 * 3));
+
+    ht_insert(pc->primitive_type_smtb, "window", gen_primitive_type("window", 8));
 }
 
 static void register_syscall(struct ParserContext *pc, const char *func_name, const char *ret_type,
@@ -56,10 +58,21 @@ static void register_syscall(struct ParserContext *pc, const char *func_name, co
     ht_insert(pc->syscall_smtb, func_name, func_data);
 }
 
+static void init_window_syscall(struct ParserContext *pc) {
+    struct FuncData *window_func_data = find_func_data(pc, "window");
+    window_func_data->arg_count = 3;
+    window_func_data->arg_types = S_malloc(sizeof(*window_func_data->arg_types) * 3);
+    window_func_data->arg_types[0] = find_type(pc, "string");
+    window_func_data->arg_types[1] = find_type(pc, "int");
+    window_func_data->arg_types[2] = find_type(pc, "int");
+}
+
 static void init_syscall(struct ParserContext *pc) {
     register_syscall(pc, "print", "void", 0, true);
     register_syscall(pc, "vector", "vector", 1, true);
     register_syscall(pc, "sys_gc", "void", 2, false);
+    register_syscall(pc, "window", "window", 3, false);
+    init_window_syscall(pc);
 }
 
 struct ParserContext *gen_pc() {

@@ -29,7 +29,20 @@ The following features reflect the current source code. Syntax and behavior may 
 - GCC and GNU Make.
 - On Windows, a MinGW GCC toolchain and Make can be used.
 - The VM contains platform-specific memory mapping paths for Windows and Unix/macOS (`mmap`). Build and runtime behavior should be verified on each platform.
-- The current build does not require SDL3 or a JIT library.
+- SDL3 development files for the same architecture as GCC. On Windows with MinGW, use the MinGW development package, not the Visual C++ package.
+- A JIT library is not required.
+
+The Makefile expects SDL3 files at these paths:
+
+```text
+engine/include/SDL3/SDL.h
+engine/lib/libSDL3.dll.a
+SDL3.dll                  (Windows runtime, beside chestnut.exe)
+```
+
+The SDL3 headers are already present in `engine/include` (version 3.4.16). Obtain the matching x86_64 MinGW development package from the [SDL releases](https://github.com/libsdl-org/SDL/releases), place `libSDL3.dll.a` in `engine/lib`, and place `SDL3.dll` beside `chestnut.exe`. If SDL3 is installed elsewhere, set `SDL3_ROOT` to the directory containing its `include` and `lib` folders when invoking Make (for example, `make SDL3_ROOT=C:/SDL3/x86_64-w64-mingw32`).
+
+On Linux (including WSL), install the native SDL3 development package and `pkg-config` in that Linux environment. Check that `pkg-config --modversion sdl3` succeeds before running `make`. The Windows `libSDL3.dll.a` and `SDL3.dll` cannot be used by the Linux linker. If SDL3 is installed under a custom prefix, add its `lib/pkgconfig` directory to `PKG_CONFIG_PATH`.
 
 Build from the project root:
 

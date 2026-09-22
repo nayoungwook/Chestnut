@@ -1,0 +1,16 @@
+#include <engine.h>
+
+#include <util.h>
+
+#include <SDL3/SDL.h>
+
+struct Engine *gen_engine(){
+	struct Engine *engine = (struct Engine *) S_malloc(sizeof(struct Engine));
+	
+	
+	return engine;
+}
+
+void add_window(struct Engine *engine){
+	SDL_Window *sdl_window = SDL_CreateWindow("", 1280, 20, NULL);
+}

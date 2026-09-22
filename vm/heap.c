@@ -3,6 +3,7 @@
 #include <heap.h>
 #include <vm.h>
 
+#include <string.h>
 #include <assert.h>
 #include <memory.h>
 #include <inttypes.h>
