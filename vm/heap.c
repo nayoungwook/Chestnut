@@ -28,7 +28,7 @@ void debug_print_heap_view(const struct VM *vm) {
     const uint8_t *block = (const uint8_t *)vm->heap;
     const uint8_t *heap_end = (const uint8_t *)vm->heap_alloc_loc;
 
-    printf("\nheap view\n");
+    printf("heap view\n");
     while (block < heap_end) {
         uint64_t header;
         int object_id;
@@ -63,9 +63,8 @@ void debug_print_heap_view(const struct VM *vm) {
 #endif
 
 void pack_heap(struct VM *vm) {
-
 #ifdef DEBUG
-    printf("Packing a fucking heap...\n");
+    printf("\nPacking a fucking heap...\n");
 #endif
     
     const uint8_t *block = (const uint8_t *) vm->heap;
@@ -112,6 +111,7 @@ void vm_free(struct VM *vm, unsigned heap_mapper_index) {
     q_push(vm->heap_index_queue, hmi);
 
     vm->heap_mapper[heap_mapper_index] = NULL;
+    vm->ref_count[heap_mapper_index]--;
 }
 
 void vm_replace_heap_block(struct VM *vm, unsigned target_heap_mapper_index,
@@ -127,6 +127,9 @@ void vm_replace_heap_block(struct VM *vm, unsigned target_heap_mapper_index,
 
     vm_free(vm, replacement_heap_mapper_index);
     vm->heap_mapper[target_heap_mapper_index] = replacement;
+    
+    vm->ref_count[target_heap_mapper_index]++;
+    vm->ref_count[replacement_heap_mapper_index]--;
 }
 
 unsigned vm_malloc(struct VM *vm, unsigned size, int object_id) {
@@ -147,7 +150,8 @@ unsigned vm_malloc(struct VM *vm, unsigned size, int object_id) {
     }
 
     vm->heap_mapper[heap_mapper_index] = vm->heap_alloc_loc;
-
+    vm->ref_count[heap_mapper_index]++;
+    
     uint64_t header = 0;
     header |= ((uint64_t)(heap_mapper_index & 0x00FFFFFFu) << 8);
     header |= (uint8_t) object_id;

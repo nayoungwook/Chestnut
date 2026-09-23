@@ -3,6 +3,7 @@
 #include <ir_read.h>
 #include <vm.h>
 #include <heap.h>
+#include <gc.h>
 
 #include <limits.h>
 

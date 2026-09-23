@@ -1,0 +1,1 @@
+nayoungwook@nayoungwook-ThinkPad-T14-Gen-6.3709:1790141368

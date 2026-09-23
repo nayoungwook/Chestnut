@@ -11,8 +11,6 @@ void vm_replace_heap_block(struct VM *vm, unsigned target_heap_mapper_index,
                            unsigned replacement_heap_mapper_index);
 void pack_heap(struct VM *vm);
 
-#ifdef DEBUG
 void debug_print_heap_view(const struct VM *vm);
-#endif
     
 #endif

@@ -3,21 +3,34 @@ class Foo {
     var a: int = 0;
     var b: int = 2;
     var k: string = "asdf";
+    var foo: Foo = null;
 }
 
 func main(): void {
     var arr: array<Foo> = {};
 
+    var first_foo: Foo = null;    // first_foo will going to be removed by garbage collector.
+    
     for(var i:int =0; i<10; i++){
         var foo: Foo = new Foo();
-         
+
+        if( i == 1 ){
+            first_foo = foo;
+        }
+        
         if(i % 2 == 0){
             foo.a = i * 2 + 1;
             arr.push(foo);
         }
     }
 
+    arr[0].foo = first_foo;
+    
     for(var i:int=0; i<arr.length; i++){
         print(arr[i].a, "\n");
     }
+
+    sys_gc();
+    
+    print("is it removed : ", arr[0].foo.b);
 }

@@ -59,6 +59,7 @@ static void register_syscall(struct ParserContext *pc, const char *func_name, co
 static void init_syscall(struct ParserContext *pc) {
     register_syscall(pc, "print", "void", 0, true);
     register_syscall(pc, "vector", "vector", 1, true);
+    register_syscall(pc, "sys_gc", "void", 2, false);
 }
 
 struct ParserContext *gen_pc() {

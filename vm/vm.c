@@ -15,6 +15,7 @@
 #include <util.h>
 #include <vm.h>
 #include <vec_operations.h>
+#include <gc.h>
 
 #include <assert.h>
 #include <math.h>
@@ -114,6 +115,8 @@ struct VM* gen_vm() {
     vm->heap_object_count = 0;
     
     memset(vm->heap_mapper, 0, sizeof(vm->heap_mapper));
+    memset(vm->ref_count, 0, sizeof(vm->ref_count));
+    
     return vm;
 }
 
@@ -619,7 +622,7 @@ static float numeric_operand_to_float(const struct VMOperand* operand) {
 
 static void handle_syscall(struct VM* vm, int id, int argc) {
     switch (id) {
-    case 0: {
+    case 0: { // print
         int i;
 
         for (i = 0; i < argc; i++) {
@@ -683,7 +686,8 @@ static void handle_syscall(struct VM* vm, int id, int argc) {
         }
         break;
     }
-    case 1: {
+    
+    case 1: { // vector
 	int i;
 
 	struct VMOperand result = {0, };
@@ -700,6 +704,13 @@ static void handle_syscall(struct VM* vm, int id, int argc) {
 	
 	break;
     }
+    
+    case 2: { // gc
+        gc(vm);
+        
+        break;
+    }
+    
     default: {
         assert(false && "Syscall not implemented.");
     }
